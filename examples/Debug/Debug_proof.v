@@ -109,7 +109,7 @@ Lemma triple_apps_funs' : forall F vs ts xs t H (Q:val->hprop),
 Proof using.
   introv HF Hvs Hxs M. applys triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_funs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
-  rewrite LibListExec.combine_eq in M; auto. (* rew_list_exec in M. *) 
+  rewrite LibListExec.combine_eq in M; auto. (* rew_list_exec in M. *)
   applys* triple_apps_funs. rewrite~ <- isubstn_eq_substn.
   applys* triple_isubst_of_wpgen.
 Qed.
@@ -123,7 +123,7 @@ Lemma triple_apps_fixs' : forall F vs ts xs t H (Q:val->hprop) (f:var),
 Proof.
   introv HF Hvs Hxs M. applys triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
-  rewrite LibListExec.combine_eq in M; rew_list; auto. (* rew_list_exec in M. *) 
+  rewrite LibListExec.combine_eq in M; rew_list; auto. (* rew_list_exec in M. *)
   applys* triple_apps_fixs. rewrite <- isubstn_eq_substn; [|rew_list~].
   applys* triple_isubst_of_wpgen.
 Qed.
@@ -212,7 +212,7 @@ Lemma Formula_formula_let_inlined : forall f1 F2 f2of (r:val),
   structural f1 ->
   \[] ==> f1 (fun x => \[x = r]) ->
   Formula_formula F2 (f2of r) ->
-  Formula_formula F2 (wpgen_let f1 f2of).
+  Formula_formula F2 (wpgen_let_aux f1 f2of).
 Proof using.
   introv Sf1 M1 M2. hnf. intros. unfold wpgen_let. applys mkstruct_erase_trans.
   xchange M2. xchange M1. applys* structural_frame. applys* structural_conseq.
@@ -231,15 +231,27 @@ Proof using.
   { unfold wpgen_app. applys mkstruct_erase_trans.
     rewrite <- triple_eq_himpl_wp.
     applys triple_conseq_frame Hf.
-    { xsimpl. } { xpull. intros x ->. xsimpl*. } } 
+    { xsimpl. } { xpull. intros x ->. xsimpl*. } }
   { applys M2. }
 Qed.
+Lemma Formula_formula_let_inlined : forall f1 F2 f2of (r:val) (Q1:val->hprop),
+  structural f1 ->
+  \[] ==> f1 Q1 ->
+  Q1 ===> (fun x => \[x = r]) ->
+  (Formula_formula F2 (f2of r)) ->
+  Formula_formula F2 (wpgen_let_aux f1 f2of).
+Proof using. Admitted.
 *)
+(*
+  Q1 ==> \exists (A:Type) (EA:Enc A) (V:A), @Post A EA (fun (X:A) => \[X = V])
+          \* ( Formula_formula F2 (f2of r)) ->
+  Formula_formula F2 (wpgen_let_aux f1 f2of).*)
 
+(* DEPRECATED
 Lemma Formula_formula_let_inlined_fun : forall F2 f2of (f:val) (vs:vals) (r:val),
   (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
   Formula_formula F2 (f2of r) ->
-  Formula_formula F2 (wpgen_let (wpgen_app f vs) f2of).
+  Formula_formula F2 (wpgen_let_aux (wpgen_app f vs) f2of).
 Proof using.
   introv Hf M2.
   applys Formula_formula_let_inlined r.
@@ -247,9 +259,22 @@ Proof using.
   { unfold wpgen_app. applys mkstruct_erase_trans.
     rewrite <- triple_eq_himpl_wp.
     applys triple_conseq_frame Hf.
-    { xsimpl. } { xpull. intros x ->. xsimpl*. } } 
+    { xsimpl. } { xpull. intros x ->. xsimpl*. } }
   { applys M2. }
 Qed.
+*)
+
+Lemma Formula_formula_inlined_fun : forall F1 (f:val) (vs:vals) (r:val),
+  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
+  Formula_formula F1 (wpgen_val r) ->
+  Formula_formula F1 (wpgen_app f vs).
+Proof using.
+  introv Hf M1. hnf. intros.
+  unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q.
+  rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
+  intros x. xpull; intros ->. xsimpl.
+Qed.
+
 
 Lemma Formula_formula_if : forall F1 f1 F2 f2 b (v:val),
   v = ``b ->
@@ -262,8 +287,6 @@ Proof using.
   hnf. intros. subst v. xsimpl b. auto.
   case_if. { applys M1. } { applys M2. }
 Qed.
-
-
 
 
 (*
@@ -312,17 +335,6 @@ Proof using.
   unfold Post. xsimpl V'. subst*.
 Qed.
 
-
-Lemma Formula_formula_inlined_fun : forall F1 (f:val) (vs:vals) (r:val),
-  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
-  Formula_formula F1 (wpgen_val r) ->
-  Formula_formula F1 (wpgen_app f vs).
-Proof using.
-  introv Hf M1. hnf. intros.
-  unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q.
-  rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
-  intros x. xpull; intros ->. xsimpl.
-Qed.
 
 Lemma Formula_formula_case : forall F1 f1 F2 f2 (P1 P2:Prop),
   (P2 -> P1) ->
@@ -383,7 +395,7 @@ Ltac xwpgen_simpl :=
 
 Ltac cf_main :=
   let CF := fresh "CF" in
-  hnf; introv CF; 
+  hnf; introv CF;
   let A := match goal with |- @Triple ?t ?A ?EA ?H ?Q => constr:(A) end in
   first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ]
         | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ] ];
@@ -413,14 +425,14 @@ Ltac cf_triple_builtin :=
 
 Ltac xpull_himpl_hforall_r :=
   repeat match goal with
-  | |- ?H1 ==> ?H2 => 
+  | |- ?H1 ==> ?H2 =>
     match H2 with
     | \forall _, _ => eapply himpl_hforall_r; intro
   end end.
 
 Ltac xsimpl_himpl_hforall_l :=
   repeat match goal with
-  | |- ?H1 ==> ?H2 => 
+  | |- ?H1 ==> ?H2 =>
     match H1 with
     | \forall _, _ => eapply himpl_hforall_l
   end end.
@@ -431,7 +443,7 @@ Ltac xsimpl_himpl_hforall_l :=
 Ltac cf_app :=
   eapply Formula_formula_app; [ reflexivity ].
 
-Ltac cf_let := 
+Ltac cf_let :=
   eapply Formula_formula_let; [ | | applys structural_mkstruct ].
 
 Ltac cf_val :=
@@ -440,8 +452,10 @@ Ltac cf_val :=
 Ltac cf_inlined :=
   eapply Formula_formula_inlined_fun; [ try cf_triple_builtin | ].
 
+(*
 Ltac cf_letinlined :=
   eapply Formula_formula_let_inlined_fun; [ try cf_triple_builtin | ].
+*)
 
 Ltac cf_if :=
   eapply Formula_formula_if; [ reflexivity | | ].
@@ -468,7 +482,7 @@ Ltac cf_case_eq :=
 
 Ltac cf_case :=
   let H := fresh "__MatchHyp" in
-  eapply Formula_formula_case; 
+  eapply Formula_formula_case;
   [ intros H; try solve [ cf_case_negpat_eq H ]
   | try cf_case_eq
   | intros H ].
@@ -494,7 +508,7 @@ Transparent Enc_list Enc_pair Enc_option.
 
 
 
-Definition CF_hyps (Ps:list Prop) := 
+Definition CF_hyps (Ps:list Prop) :=
   LibList.fold_right Logic.and True Ps.
 
 Lemma cf_begin_lemma : forall (P:Prop) (Ps:list Prop),
@@ -510,14 +524,14 @@ Lemma cf_end_lemma :
   CF_hyps nil.
 Proof using. hnf. rew_listx. auto. Qed.
 
-Ltac cf_debug := 
+Ltac cf_debug :=
   unfold CF_hyps; rew_listx; splits; try solve [eapply cf_end_lemma].
 
 Ltac cf_end name :=
   first
   [ eapply cf_end_lemma (* when all cf_tactics succeeded *)
-  | idtac "Error: incomplete proof for" name; 
-    idtac "Replace cf_end with cf_debug to see the goals"; 
+  | idtac "Error: incomplete proof for" name;
+    idtac "Replace cf_end with cf_debug to see the goals";
     cf_debug; skip ].
 
 Lemma cf_error_lemma : forall (Ps:list Prop) (P:Prop),
@@ -528,7 +542,7 @@ Proof using. auto. Qed.
 
 Ltac cf_error_extend P R2 Ps :=
   match Ps with
-  | ?Pi :: ?Ps' => 
+  | ?Pi :: ?Ps' =>
       let Ps'2 := cf_error_extend P Ps' in
       constr:(Pi::Ps'2)
   | _ => constr:(P::R2)
@@ -536,7 +550,7 @@ Ltac cf_error_extend P R2 Ps :=
 
 Ltac cf_error :=
   match goal with H: CF_hyps ?Ps |- ?P =>
-    let R2 := fresh in 
+    let R2 := fresh in
     evar (R2 : list Prop);
     let Ps2 := cf_error_extend P R2 Ps in
     eapply (@cf_error_lemma Ps2 P H);
@@ -551,7 +565,7 @@ Ltac cf_step cont :=
 (* DEMO
 
 Lemma cf_error_demo : True /\ False /\ True.
-  cf_begin; [ intros CCFHyps | ]. 
+  cf_begin; [ intros CCFHyps | ].
   { splits.
     { cf_step ltac:(fun tt => split). }
     { cf_step ltac:(fun tt => split). (* cf_error. *) }
@@ -564,8 +578,8 @@ Lemma cf_error_demo' : True /\ False /\ True.
   cf_begin;
   [ intros CCFHyps;
     splits;
-    [ cf_step ltac:(fun tt => split) 
-    | cf_step ltac:(fun tt => split) (* cf_error. *) 
+    [ cf_step ltac:(fun tt => split)
+    | cf_step ltac:(fun tt => split) (* cf_error. *)
     | cf_step ltac:(fun tt => split) ]
   | cf_end "foo" (* cf_debug *) ].
 Qed.
@@ -588,23 +602,206 @@ Axiom triple_infix_minus__ : forall (n1 n2:int),
     \[]
     (fun r => \[r = val_int (n1 - n2)]).
 
+Axiom triple_ignore : forall (v:val),
+  triple (val_ignore v)
+    \[]
+    (fun r => \[r = val_unit]).
 
-Hint Resolve triple_infix_minus__ : triple_builtin.
+Axiom triple_and : forall (b1 b2:bool),
+  triple (val_and b1 b2)
+    \[]
+    (fun r => \[r = (b1 && b2)]).
 
+Axiom triple_or : forall (b1 b2:bool),
+  triple (val_or b1 b2)
+    \[]
+    (fun r => \[r = (b1 || b2)]).
+
+Axiom triple_neg : forall (b1:bool),
+  triple (val_neg b1)
+    \[]
+    (fun r => \[r = (negb b1)]).
+
+(* TODO: use infix__ names? *)
+
+Axiom triple_lt : forall (n1 n2:int),
+  triple (val_lt n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 < n2)]).
+
+Axiom triple_le : forall (n1 n2:int),
+  triple (val_le n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 <= n2)]).
+
+Axiom triple_gt : forall (n1 n2:int),
+  triple (val_gt n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 > n2)]).
+
+Axiom triple_ge : forall (n1 n2:int),
+  triple (val_ge n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 >= n2)]).
+
+
+(* TODO: triples
+Definition val_abs : val :=
+  Fun 'x :=
+    If_ 'x '< 0 Then '- 'x Else 'x.
+
+Definition val_min : val :=
+  Fun 'x 'y :=
+    If_ 'x '< 'y Then 'x Else 'y.
+
+Definition val_max : val :=
+  Fun 'x 'y :=
+    If_ 'x '< 'y Then 'y Else 'x.
+*)
+
+
+Hint Resolve triple_infix_minus__ triple_ignore triple_and triple_or
+  triple_neg triple_lt triple_le triple_gt triple_ge : triple_builtin.
+
+
+
+
+(** [cf_struct] removes the leading [mkstruct]. *)
+
+Lemma cf_struct_lemma : forall F H (Q:val->hprop),
+  H ==> F Q ->
+  H ==> mkstruct F Q.
+Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
+
+Tactic Notation "cf_struct" :=
+  applys cf_struct_lemma.
+
+
+(** [cf_truct_if_needed] removes the leading [mkstruct] if there is one. *)
+
+Tactic Notation "cf_struct_if_needed" := (* NEEDED? *)
+  try match goal with |- ?H ==> mkstruct ?F ?Q => cf_struct end.
+
+(** [cf_val] proves a [H ==> wgpen_val Q], instantiate the postcondition if needed *)
+
+Lemma cf_val_lemma : forall v H (Q:val->hprop),
+  H ==> Q v ->
+  H ==> wpgen_val v Q.
+Proof using. introv M. unfold wpgen_val. applys* cf_struct_lemma. Qed.
+
+Lemma cf_val_lemma_inst : forall H v,
+  H ==> wpgen_val v (fun x => \[x = v] \* H).
+Proof using. intros. applys cf_val_lemma. xsimpl*. Qed.
+
+Tactic Notation "cf_val" :=
+  cf_struct_if_needed; first
+  [ eapply cf_val_lemma_inst
+  | eapply cf_val_lemma ].
+
+(** [cf_let_aux] proves a [H ==> wgpen_val_aux Q] *)
+
+Lemma cf_let_aux_lemma : forall H F1 F2of Q,
+  H ==> F1 (fun v => F2of v Q) ->
+  H ==> wpgen_let_aux F1 F2of Q.
+Proof using. introv M. applys* cf_struct_lemma. Qed.
+
+Tactic Notation "cf_let" :=
+  eapply cf_let_aux_lemma.
+
+
+Lemma cf_app_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> wp t Q.
+Proof using.
+Admitted.
+(*
+  introv M W. rewrite <- wp_equiv in M. xchange W. xchange M.
+  applys wp_ramified_frame.
+Qed.
+*)
+
+Lemma cf_apps_lemma_pure : forall (t:trm) (v:val) H Q,
+  triple t \[] (fun r => \[r = v]) ->
+  H ==> Q v ->
+  H ==> wp t Q.
+Proof using.
+  introv M1 M2. applys cf_app_lemma M1. xchanges M2. intros ? ->. auto.
+Qed.
+
+Lemma cf_apps_lemma_pure_inst : forall (t:trm) (v:val),
+  triple t \[] (fun r => \[r = v]) ->
+  \[] ==> wp t (fun r => \[r = v]).
+Proof using.
+  introv M1. applys cf_apps_lemma_pure M1. xsimpl*.
+Qed.
+
+
+(** [cf_app_simpl] performs the final step of the tactic [xapp]. *)
+
+Lemma cf_app_simpl_lemma : forall F H (Q:val->hprop),
+  H ==> F Q ->
+  H ==> F Q \* (Q \--* protect Q).
+Proof using. introv M. xchange M. unfold protect. xsimpl. Qed.
+
+Tactic Notation "cf_app_simpl" :=
+  first [ applys cf_app_simpl_lemma (* handles specification coming from [xfun] *)
+        | xsimpl; unfold protect (*; xapp_try_clear_unit_result *) ].
+
+(*Tactic Notation "cf_app_pre" :=
+  xtriple_if_needed; xseq_xlet_if_needed; xstruct_if_needed. *)
+
+Tactic Notation "cf_app_apply_spec" :=
+  first [ solve [ eauto with triple ]
+        | match goal with H: _ |- _ => eapply H end ].
+
+(** [xapp] first calls [xtriple] if the goal is [triple t H Q] instead
+    of [H ==> wp t Q]. *)
+
+Tactic Notation "cf_app_nosubst" :=
+  applys cf_app_lemma; [ cf_app_apply_spec | cf_app_simpl ].
+
+(** [cf_app_try_subst] checks if the goal is of the form:
+    - either [forall (r:val), (r = ...) -> ...]
+    - or [forall (r:val), forall x, (r = ...) -> ...]
+
+    in which case it substitutes [r] away. *)
+
+Tactic Notation "cf_app_try_subst" :=
+  try match goal with
+  | |- forall (r:val), (r = _) -> _ => intros ? ->
+  | |- forall (r:val), forall x, (r = _) -> _ =>
+      let y := fresh x in intros ? y ->; revert y
+  end.
+
+Tactic Notation "cf_app" :=
+  cf_app_nosubst; cf_app_try_subst.
+
+Tactic Notation "cf_apps" :=
+  first [ eapply cf_apps_lemma_pure_inst
+        | eapply cf_apps_lemma_pure; [ cf_app_apply_spec |  ] ].
+
+
+
+(*
 Lemma prim_cf_def : prim_cf_def__.
 Proof using.
   cf_main.
   eapply Formula_formula_let_inlined.
   { applys structural_mkstruct. }
-  { 
+  {
+
+
+
   applys mkstruct_erase_trans.
-  unfold wpgen_app. 
+  unfold wpgen_app.
   applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin.
     applys triple_conseq_frame. eapply triple_infix_minus__. xsimpl. xsimpl. intros ? ->.
     applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin. }
  { cf_inlined. cf_val. }
 Qed.
 
+*)
 
 (********************************************************************)
 (** ** CF proof for polydepth *)
@@ -818,7 +1015,7 @@ Proof using.
 Qed.
 
 
-(********************************************************************) 
+(********************************************************************)
 (** ** CF proof for id *)
 
 (*
@@ -919,10 +1116,6 @@ let rec g x =
 let v = 2
 
 *)
-
-
-
-
 
 
 

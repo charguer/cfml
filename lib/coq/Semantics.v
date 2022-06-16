@@ -1617,3 +1617,135 @@ Open Scope trm_scope.
 (* ---------------------------------------------------------------------- *)
 
 End NotationForTerms.
+
+
+(* ---------------------------------------------------------------------- *)
+(* Builtin *)
+
+Section DerivedBuiltin.
+
+Import NotationForTerms NotationForVariables.
+
+Definition val_ignore : val :=
+  Fun 'x := '().
+
+Definition val_and : val :=
+  Fun 'x 'y :=
+    If_ 'x Then 'y Else false.
+
+Definition val_or : val :=
+  Fun 'x 'y :=
+    If_ 'x Then true Else 'y.
+
+Definition val_abs : val :=
+  Fun 'x :=
+    If_ 'x '< 0 Then '- 'x Else 'x.
+
+Definition val_min : val :=
+  Fun 'x 'y :=
+    If_ 'x '< 'y Then 'x Else 'y.
+
+Definition val_max : val :=
+  Fun 'x 'y :=
+    If_ 'x '< 'y Then 'y Else 'x.
+
+End DerivedBuiltin.
+
+(* FUTURE USE?
+
+Fixpoint list_forall2_exec A1 A2 (f:A1->A2->bool) (l1:list A1) (l2:list A2) : bool :=
+  match l1, l2 with
+  | nil, nil => true
+  | x1::t1, x2::t2 => f x1 x2 && list_forall2_exec t1 t2
+  | _, _ => false
+  end.
+
+Definition vars_eq (xs:vars) (ys:vars) : bool :=
+  list_forall2_exec var_eq xs ys.
+
+Definition bind_eq (za:bind) (zb:bind) : bool :=
+  match za, zb with
+  | bind_anon, bind_anon => true
+  | bind_var xa, bind_var xb => var_eq xa xb
+  | _, _ => false
+  end.
+
+Definition eq_bool_exec (b1 b2 : bool) : bool :=
+  match b1, b2 with
+  | true, true => true
+  | false, false => true
+  | _, _ => false
+  end.
+
+Fixpoint eq_int_exec (n1 n2 : int) : bool :=
+  match n1, n2 with
+  | O, O => true
+  | S m1, S m2 => eq_int_exec m1 m2
+  | _, _ => false
+  end.
+
+Definition eq_prim_exec
+
+(*  | val_prim_derived : var -> val -> val*)
+
+Fixpoint eq_val_exec (v:val) (w:val) : bool :=
+  let aux := eq_val_exec in
+  let auxs := list_forall2_exec aux in
+  match v, w with
+  | val_uninitialized, val_uninitialized => true
+  | val_unit, val_unit => true
+  | val_bool ba, val_bool bb => eq_bool_exec ba bb
+  | val_int na, val_int nb => eq_int_exec na nb
+  | val_loc na, val_loc nb => eq_int_exec na nb
+  | val_prim pa, val_prim pb => eq_prim_exec pa pb
+  | val_prim_derived xa va, val_prim_derived xb vb =>
+      var_eq xa xb && aux va vb
+  | val_fixs za xsa ta, val_fixs zb xsb tb =>
+      bind_eq za zb && vars_eq xsa xsb && aux ta tb
+  | val_constr ida vsa, val_constr idb vsb =>
+      var_eq ida idb && auxs vsa vsb
+  | val_header na va, val_header nb vb =>
+      eq_int_exec na nb && aux va vb
+
+with eq_trm_exec (t:trm) (u:trm) : bool :=
+  let aux := eq_trm_exec in
+  let auxs := list_forall2_exec aux in
+  match t, u with
+  | trm_val v, trm_val w => val_eq v w
+  | trm_var xa, trm_var xb => var_eq xa xb
+  | trm_fixs f xs t, trm_fixs g ys u =>
+      bind_eq f g && vars_eq xs ys && aux t u
+  | trm_constr ida ts, trm_constr idb us =>
+      var_eq ida idb && auxs ts us
+  | trm_if t0 t1 t2, trm_if u0 u1 u2 =>
+      aux t0 u0 && aux t1 u1 && aux t2 u2
+  | trm_let za t1 t2, trm_let zb u1 u2 =>
+      bind_eq za zb && aux t1 u1 && aux t2 u2
+  | trm_apps t0 ts, trm_apps u0 us =>
+      aux t0 u0 && auxs ts us
+  | trm_while t1 t2, trm_while u1 u2 =>
+      aux t1 u1 && aux t2 u2
+  | trm_for xa t1 t2 t3, trm_for xb u1 u2 u3 =>
+      var_eq xa xb && aux t1 u1 && aux t2 u2 && aux t3 u3
+  | trm_match t0 ptsa, trm_match u0 ptsb =>
+      aux t0 u0 && list_forall2_exec eq_branch_exec ptsa ptsb
+  | trm_fail, trm_fail => true
+  | _, _ => false
+  end
+
+with eq_branch_exec (pta ptb : (pat*trm)) : bool :=
+  match pta, ptb with
+  | (pa,ta), (pb,tb) => eq_pat_exec pa pb && eq_trm_exec ta tb
+  end
+
+with eq_pat_exec (p q : pat) : bool :=
+  match p, q with
+  | pat_var xa, pat_var xb => var_eq xa xb
+  | pat_unit, pat_unit => true
+  | pat_bool ba, pat_bool bb => eq_bool_exec ba bb
+  | pat_int na, pat_int nb => eq_int_exec na nb
+  | pat_constr ida psa, pat_constr idb psb =>
+      var_eq ida idb && list_forall2_exec eq_pat_exec psa psb
+  end.
+
+*)

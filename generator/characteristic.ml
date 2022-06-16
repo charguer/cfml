@@ -303,86 +303,6 @@ let coq_record loc typ fields assigns optbase =
 
 
 
-(*#########################################################################*)
-(* ** Helper functions for primitive functions *)
-
-let get_qualified_pervasives_name f =
-   let name = Path.name f in
-   if !Clflags.nopervasives
-      then "Pervasives." ^ name  (* unqualified name when from inside Pervasives *)
-      else name  (* qualified name otherwise *)
-
-let exp_find_inlined_primitive e oargs =
-   let loc = e.exp_loc in
-   let args = simplify_apply_args loc oargs in
-   match e.exp_desc with
-   | Texp_ident (f,d) ->
-      let name = get_qualified_pervasives_name f in
-
-      let _debug() =
-         Printf.printf "exp_find_inlined_primitive: %s\n arity: %d\n name: %s\n" (Path.name f) (List.length args) name
-         in
-      (* _debug(); *)
-
-      begin match args with
-
-      | [n; {exp_desc = Texp_constant (Const_int m)}]
-           when m <> 0
-             && List.mem name ["Pervasives.mod"; "Pervasives./"] ->
-           begin match find_inlined_primitive name with
-           | Some (Primitive_binary_div_or_mod, coq_name) -> Some coq_name
-           | _ -> None
-           end
-
-       | [e1; e2]
-           when List.mem name ["Pervasives.&&"; "Pervasives.||"] ->
-           begin match find_inlined_primitive (Path.name f) with
-           | Some (Primitive_binary_lazy, coq_name) -> Some coq_name
-           | _ -> None
-           end
-
-       | [e1; e2]
-           when List.mem name ["Pervasives.="; "Pervasives.<>"; "Pervasives.<=";
-                               "Pervasives.>="; "Pervasives.<"; "Pervasives.>";
-                               "Pervasives.min"; "Pervasives.max"; ] ->
-           let is_number =
-              try Ctype.unify e1.exp_env e1.exp_type ((*instance*) Predef.type_int); true
-              with _ -> false
-              (*begin match btyp_of_typ_exp e1.exp_type with
-              | Btyp_constr (id,[]) when Path.name id = "int" -> true
-              | _ -> false
-              end *)
-              in
-             (* Remark: by typing, [e2] has the same type as [e1] *)
-           if not is_number then begin
-             if List.mem name [ "Pervasives.="; "Pervasives.<>"; ]
-               then None
-               (* TODO: improve using type unification *)
-               else (* warning loc *)
-               unsupported loc (Printf.sprintf "comparison operators on non integer arguments (here, %s)" (string_of_type_exp e1.exp_type));
-           end else begin match find_inlined_primitive name with
-              | Some (Primitive_binary_only_numbers, coq_name) -> Some coq_name
-              | _ -> failwith ("in exp_find_inlined_primitive, could not find the coq translation of the function: " ^ name)
-           end
-
-       | _ ->
-           let arity = List.length args in
-           begin match find_inlined_primitive name with
-           | Some (Primitive_unary, coq_name) when arity = 1 -> Some coq_name
-           | Some (Primitive_binary, coq_name) when arity = 2 -> Some coq_name
-           | _ -> None
-           end
-           (* debug: Printf.printf "exp_find_inlined_primitive: %s %d\n"  (Path.name f)  (List.length args);
-           if r = None then Printf.printf "failed\n"; *)
-
-       end
-
-    | _ -> None
-
-let is_inlined_function e =
-   match e.exp_desc with
-   | Texp_apply (funct, oargs) when (exp_find_inlined_primitive funct oargs <> None) -> true
-   | _ -> false
 
 
 (*#########################################################################*)
@@ -572,7 +492,7 @@ let rec lift_val env e =
    | Texp_apply (funct, oargs) ->
       let fo = exp_find_inlined_primitive funct oargs in
       let f = match fo with
-         | Some f -> f
+         | Some (coq_name,emb_name) -> coq_name
          | _ -> fail()
          in
       let args = simplify_apply_args loc oargs in
