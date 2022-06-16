@@ -208,19 +208,6 @@ Proof using.
   applys Formula_formula_wp.
 Qed.
 
-
-Lemma Formula_formula_inlined : forall f1 F2 f2of (r:val),
-  structural f1 ->
-  \[] ==> f1 (fun x => \[x = r]) ->
-  Formula_formula F2 (f2of r) ->
-  Formula_formula F2 (wpgen_let f1 f2of).
-Proof using.
-  introv Sf1 M1 M2. hnf. intros. unfold wpgen_let. applys mkstruct_erase_trans.
-  xchange M2. xchange M1. applys* structural_frame. applys* structural_conseq.
-  intros x. xsimpl. intros ->. auto.
-Qed.
-
-
 Lemma Formula_formula_let_inlined : forall f1 F2 f2of (r:val),
   structural f1 ->
   \[] ==> f1 (fun x => \[x = r]) ->
@@ -231,6 +218,23 @@ Proof using.
   xchange M2. xchange M1. applys* structural_frame. applys* structural_conseq.
   intros x. xsimpl. intros ->. auto.
 Qed.
+
+(*
+Lemma Formula_formula_let_inlined_let : forall F2 f2of (f:val) (vs:vals) (r:val),
+  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
+  Formula_formula F2 (f2of r) ->
+  Formula_formula F2 (wpgen_let (wpgen_app f vs) f2of).
+Proof using.
+  introv Hf M2.
+  applys Formula_formula_let_inlined r.
+  { applys structural_mkstruct. }
+  { unfold wpgen_app. applys mkstruct_erase_trans.
+    rewrite <- triple_eq_himpl_wp.
+    applys triple_conseq_frame Hf.
+    { xsimpl. } { xpull. intros x ->. xsimpl*. } } 
+  { applys M2. }
+Qed.
+*)
 
 Lemma Formula_formula_let_inlined_fun : forall F2 f2of (f:val) (vs:vals) (r:val),
   (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
