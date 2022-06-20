@@ -14,6 +14,11 @@ Variables (A : Type).
 Implicit Types l : list A.
 Implicit Types n i : int.
 
+Lemma index_nil_eq : forall i,
+  index (@nil A) i = False.
+Proof using.
+  intros. rewrite index_eq_inbound. extens. iff M; rew_list in *. math. false.
+Qed.
 
 Lemma index_one_eq : forall i (x:A),
   index (x :: nil) i = (i = 0).
@@ -29,7 +34,7 @@ Proof using.
 Qed.
 End Index.
 
-Hint Rewrite index_one_eq : rew_listx.
+Hint Rewrite index_nil_eq index_one_eq : rew_listx.
 
 
 (** Invariant *)
@@ -192,55 +197,65 @@ Hint Extern 1 (measure _ _ _) => prove_measure.
 Ltac imath := rewrite index_eq_inbound in *; rew_list in *; math.
 Hint Extern 1 (index _ _) => rewrite index_eq_inbound in *; rew_list in *.
 
+
+Lemma size_spec : forall t,
+ SPECP (size t)
+   POST (fun n => n = Size t).
+Proof. xcf~. typeclass. xgo~. Qed.
+
+Hint Extern 1 (RegisterSpec size) => Provide size_spec.
+
+
+
+
+
+(*-----------------------------*)
+
 Lemma lookup_tree_spec : forall t i p L,
   btree p t L ->
   index L i ->
   SPECP (lookup_tree i t)
-    POST (fun r => r = L[i]).
+   POST (fun r => r = L[i]).
 Proof using.
   intros t. induction_wf IH: (fun t => tree_size t) t.
-  introv Rt Bi. xcf. inverts Rt as; [ | introv M1 M2 -> -> ->]; xmatch. 
+  introv Rt Bi. xcf. xmatch; inverts Rt as. 
   { rew_listx in *. subst. xlets. xif; [ intros _ | math ].
     xvals. rew_list~. }
-  { rewrite~ div2_pow2_succ. rewrite read_app.
+  { introv M1 M2 -> -> ->. rewrite~ div2_pow2_succ. rewrite read_app.
     lets N1: btree_inv_length M1. lets N2: btree_inv_length M2.
     xif; intros D; case_if.
     { xapp~. xsimpl~. }
     { xapp~. xsimpl~. fequal~. } }
 Qed.
 
-
-
-(* TODO
-
 Hint Extern 1 (RegisterSpec lookup_tree) => Provide lookup_tree_spec.
 
-Lemma lookup_spec_ind :
-  Spec lookup (i:int) (ts:rlist a) |R>>
-    forall p L, inv p ts L -> ZInbound i L -> R (ZNth i L ;; a).
-Proof.
-  xinduction (fun (i:int) (ts:rlist a) => length ts).
-  xcf. intros i ts. introv IH Rts Bi. xmatch; inverts Rts.
-  xgo. apply~ ZInbound_nil_inv.
-  xgo~.
-  forwards~: (@btree_inv_length t).
-   forwards~: (>>> btree_size_correct t). xgo~.
-    subst. apply~ ZInbound_app_l_inv.
-    ximpl. xrep in Hx. xrep. subst. apply~ ZNth_app_l.
-    subst. apply~ ZInbound_app_r_inv.
-    ximpl. xrep in Hx. xrep. subst. apply~ ZNth_app_r.
-Qed.
 
-Lemma lookup_spec :
-  RepSpec lookup (i;int) (L;rlist a) |R>>
-     ZInbound i L -> R (ZNth i L ;; a).
+Lemma lookup_spec_ind : forall ts i p L,
+  inv p ts L ->
+  index L i ->
+  SPECP (lookup i ts)
+   POST (fun r => r = L[i]).
 Proof.
-  xweaken lookup_spec_ind. introv W H Ri Rts Bi.
-  inverts Ri. simpl in Rts. apply~ H.
+  intros ts. induction_wf IH: (fun ts => List.length ts) ts.
+  introv Rts Bi. xcf. xmatch; inverts Rts as.
+  { intros. rew_listx in Bi. xfail. }
+  { intros. xapp~. xsimpl~. }
+  { introv Mt Mr -> HL Hp.
+    forwards~ R1: (@btree_inv_length t).
+    forwards~ R2: (>> btree_size_correct t).
+    xapp~. rewrite read_app. xif; intros D; case_if.
+    { xapp~. xsimpl~. }
+    { xapp~. xapp~. xsimpl. fequals~. } }
 Qed.
 
 
 
+
+
+
+
+(*------------
 
 Lemma empty_spec :
   rep (@empty a) (@nil A).
