@@ -8,6 +8,15 @@ Axiom pow2_succ : forall n, n >= 0 -> 2^(n+1) = 2*2^n. (* TOMOVE *)
 Axiom pow2_pos : forall n, n >= 0 -> 2^n >= 1.
 Axiom div2_pow2_succ : forall n, n >= 0 -> 2^(n+1)÷ 2 = 2^n.
 
+Notation "'SPECP' t 'POST' P" :=
+  (Triple t \[] (fun r => \[P r]))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPECP'  t  '/'  'POST'  P ']'") : triple_scope.
+
+Ltac prove_measure := hnf; simpl; math.
+Hint Extern 1 (measure _ _ _) => prove_measure.
+
+
 
 Section Index.
 Variables (A : Type).
@@ -85,29 +94,17 @@ Definition Size (A:Type) (t:tree_ A) : int :=
 (** Automation *)
 
 Hint Constructors btree inv.
-Hint Extern 1 (@lt nat _ _ _) => rew_list; math.
-(*
-Hint Resolve ZNth_zero ZUpdate_here ZUpdate_not_nil.
-Hint Resolve app_not_empty_l app_not_empty_r.
-
-Definition U := list A.
-
-Ltac myauto cont :=
-  match goal with
-  | |- _ = _ :> list A => try solve [ change (list A) with U; cont tt ]
-  | |- _ => cont tt
-  end.
-
-Ltac auto_tilde ::= myauto ltac:(fun _ => eauto with maths).
-*)
 
 Ltac auto_tilde ::= eauto with maths.
+
+Hint Extern 1 (index _ _) => rewrite index_eq_inbound in *; rew_list in *.
 
 
 (** Properties of the invariant *)
 
 Section Properties.
-Variables A : Type.
+Context (A : Type) {IA:Inhab A}.
+Implicit Types i : int.
 Implicit Types t : tree_ A. 
 Implicit Types ts : rlist_ A.
 Implicit Types L : list A. 
@@ -174,29 +171,6 @@ Qed.
 Hint Resolve btree_not_empty.
 
 (** Verification *)
-
-
-Implicit Types i : int.
-Context `{Inhab A}.
-
-(*
-Lemma lookup_tree_spec : forall i t p L,
-  btree p t L ->
-  index L i ->
-  SPEC (lookup_tree i t)
-    PRE \[]
-    POST (fun (r:A) => \[r = L[i]]).
-*)
-Notation "'SPECP' t 'POST' P" :=
-  (Triple t \[] (fun r => \[P r]))
-  (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPECP'  t  '/'  'POST'  P ']'") : triple_scope.
-Ltac prove_measure := hnf; simpl; math.
-Hint Extern 1 (measure _ _ _) => prove_measure.
-
-Ltac imath := rewrite index_eq_inbound in *; rew_list in *; math.
-Hint Extern 1 (index _ _) => rewrite index_eq_inbound in *; rew_list in *.
-
 
 Lemma size_spec : forall t,
  SPECP (size t)
@@ -410,6 +384,18 @@ Proof.
   inverts Ri. simpl in Rts. applys~ H.
 Qed.
 
+Hint Extern 1 (@lt nat _ _ _) => rew_list; math.
 *)
 
-End Polymorphic.
+End Properties.
+
+
+
+(*
+Lemma lookup_tree_spec : forall i t p L,
+  btree p t L ->
+  index L i ->
+  SPEC (lookup_tree i t)
+    PRE \[]
+    POST (fun (r:A) => \[r = L[i]]).
+*)
