@@ -1,0 +1,5 @@
+CFML := ../..
+
+# CFMLC_FLAGS := -deep_embedding -def_encoders
+
+include $(CFML)/lib/make/Makefile.dev
