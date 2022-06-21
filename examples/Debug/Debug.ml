@@ -1,3 +1,35 @@
+exception EmptyStructure
+exception BrokenInvariant
+exception OutOfBound
+
+type 'a tree = Leaf of 'a | Node of int * 'a tree * 'a tree
+type 'a digit = Zero | One of 'a tree
+type 'a rlist = 'a digit list
+
+
+let size = function
+  | Leaf x -> 1
+  | Node (w, _, _) -> w
+
+
+let rec lookup_tree i = function
+  | Leaf x -> if i = 0 then x else raise OutOfBound
+  | Node (w, t1, t2) ->
+      if i < w/2
+        then lookup_tree i t1
+        else lookup_tree (i - w/2) t2
+
+let rec lookup i = function
+  | [] -> raise OutOfBound
+  | Zero :: ts -> lookup i ts
+  | One t :: ts ->
+     if i < size t
+        then lookup_tree i t
+        else lookup (i - size t) ts
+
+
+(*-----*)
+
 
 
 let prim a b x y =

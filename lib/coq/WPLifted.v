@@ -1027,7 +1027,7 @@ Notation "'Done'" :=
  (in custom wp at level 69) : wp_scope.
 
 Notation "'Match' V F1" :=
- ((*Wptag*) (Wpgen_match F1))
+ ((*Wptag*) (Wpgen_match V F1))
  (in custom wp at level 69,
   V custom wp at level 0,
   F1 custom wp at level 69,

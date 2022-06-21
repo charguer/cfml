@@ -238,6 +238,8 @@ let rec tr_exp env e =
                  pattern_variables pat
                 pattern_aliases pat *)
 
+   | Texp_assertfalse ->
+      coq_sem "trm_fail" []
 
 (* LATER
 
@@ -247,9 +249,6 @@ let rec tr_exp env e =
 
    | Texp_assert e ->
       Cf_assert (aux e)
-
-   | Texp_assertfalse ->
-      Cf_fail
 
    | Texp_lazy e ->
       aux e

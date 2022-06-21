@@ -559,7 +559,8 @@ Ltac cf_case :=
   | intros H ].
 
 Ltac cf_fail :=
-  eapply Formula_formula_fail_false.
+  first [ eapply Formula_formula_fail 
+        | eapply Formula_formula_fail_false ].
 
 Ltac cf_match :=
   cf_inlined_if_needed;
@@ -856,6 +857,105 @@ Tactic Notation "cf_apps" :=
 
 
 *)
+
+(********************************************************************)
+(** ** CF proof for size and lookup *)
+
+(*
+
+
+let size = function
+  | Leaf x -> 1
+  | Node (w, _, _) -> w
+
+let rec lookup_tree i = function
+  | Leaf x -> if i = 0 then x else raise OutOfBound
+  | Node (w, t1, t2) ->
+      if i < w/2
+        then lookup_tree i t1
+        else lookup_tree (i - w/2) t2
+
+let rec lookup i = function
+  | [] -> raise OutOfBound
+  | Zero :: ts -> lookup i ts
+  | One t :: ts ->
+     if i < size t
+        then lookup_tree i t
+        else lookup (i - size t) ts
+
+*)
+
+Lemma size_cf_def : size_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_val. }
+  { cf_case. 
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
+Lemma lookup_tree_cf_def : lookup_tree_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { skip. (* cf_let. cf_val. *) }
+  { cf_case. (* cf_if. 
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+*)
+Abort.
+
+Lemma lookup_cf_def : lookup_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_fail. } 
+  { cf_case.
+    {
+
+  let A := fresh "A" in
+  let EA := fresh "EA" in
+  let Q := fresh "Q" in
+  let E := fresh "__MatchEq" in
+  hnf; intros A EA Q;
+  xpull_himpl_hforall_r;
+  eapply himpl_hwand_hpure_r; intros E;
+  cf_case_destruct; inverts E;
+  xsimpl_himpl_hforall_l;
+  applys himpl_hwand_hpure_l; [ try reflexivity | ].
+skip.
+skip. }
+cf_case.
+
+  let A := fresh "A" in
+  let EA := fresh "EA" in
+  let Q := fresh "Q" in
+  let E := fresh "__MatchEq" in
+  hnf; intros A EA Q;
+  xpull_himpl_hforall_r;
+  eapply himpl_hwand_hpure_r; intros E;
+  cf_case_destruct; inverts E;
+  xsimpl_himpl_hforall_l.
+  applys himpl_hwand_hpure_l; [ try reflexivity | ].
+
+
+
+
+
+ destruct d; inverts H1. reflexivity. } 
+    { cf_app. }
+    cf_case.
+    { fequals. destruct d; inverts H1. fequals. reflexivity. } 
+ 
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
 
 (********************************************************************)
 (** ** CF proof for prim *)
