@@ -538,6 +538,11 @@ Ltac cf_case_destruct :=
   let V := match goal with H: CF_matcharg ?V |- _ => constr:(V) end in
   destruct V.
 
+Ltac cf_case_eq_end :=
+  xsimpl_himpl_hforall_l;
+  applys himpl_hwand_hpure_l;
+  [ reflexivity | ].
+
 Ltac cf_case_eq :=
   let A := fresh "A" in
   let EA := fresh "EA" in
@@ -547,9 +552,7 @@ Ltac cf_case_eq :=
   xpull_himpl_hforall_r;
   eapply himpl_hwand_hpure_r; intros E;
   cf_case_destruct; inverts E;
-  xsimpl_himpl_hforall_l;
-  applys himpl_hwand_hpure_l; [ reflexivity | ].
-
+  try cf_case_eq_end.
 
 Ltac cf_case :=
   let H := fresh "__MatchHyp" in
@@ -741,10 +744,15 @@ Definition val_max : val :=
     If_ 'x '< 'y Then 'y Else 'x.
 *)
 
+Axiom triple_infix_eq__ : forall (n1 n2:int),
+  triple (infix_eq__ n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 = n2)]).
 
 Hint Resolve triple_infix_minus__ triple_ignore triple_and triple_or
   triple_neg triple_infix_lt__ triple_infix_lt_eq__ 
-  triple_infix_gt__ triple_infix_gt_eq__ : triple_builtin.
+  triple_infix_gt__ triple_infix_gt_eq__ 
+  triple_infix_eq__ : triple_builtin.
 
 
 
@@ -896,13 +904,35 @@ Proof using.
     { cf_match_fail. } }
 Qed.
 
+Lemma Formula_formula_let_val : forall A1 (V:A1) {EA1:Enc A1} (F2of:A1->Formula) f1 f2of,
+  \[] ==> f1 (fun x => \[x = enc V]) ->
+  (forall (X:A1), Formula_formula (F2of X) (f2of (enc X))) ->
+  structural f1 ->
+  Formula_formula (Wpgen_let_val V F2of) (wpgen_let f1 f2of).
+Admitted.
+(*
+Proof using.
+  introv M1 M2 S1.
+  hnf. intros. applys Formula_formula_mkstruct. clears A.
+  hnf. intros. xpull. intros Q1 HQ1. applys* Formula_formula_inv M1.
+  intros x. unfold Post at 1. xpull. intros X1 ->.
+  xchange HQ1. applys M2.
+Qed.
+*)
+
+Ltac cf_letval :=
+  cf_inlined_if_needed;
+  eapply Formula_formula_let_val;
+    [ try cf_inlined_compute | | applys structural_mkstruct ].
+
 Lemma lookup_tree_cf_def : lookup_tree_cf_def__.
 Proof using.
   cf_main.
   cf_match.
   cf_case.
-  { skip. (* cf_let. cf_val. *) }
-  { cf_case. (* cf_if. 
+  { cf_letval. intros x. cf_if. { cf_val. } { cf_match_fail. } }
+  { cf_case.
+(* cf_inlined_if_needed. cf_if. 
     { cf_val. }
     { cf_match_fail. } }
 Qed.
@@ -916,44 +946,18 @@ Proof using.
   cf_case.
   { cf_fail. } 
   { cf_case.
-    {
-
-  let A := fresh "A" in
-  let EA := fresh "EA" in
-  let Q := fresh "Q" in
-  let E := fresh "__MatchEq" in
-  hnf; intros A EA Q;
-  xpull_himpl_hforall_r;
-  eapply himpl_hwand_hpure_r; intros E;
-  cf_case_destruct; inverts E;
-  xsimpl_himpl_hforall_l;
-  applys himpl_hwand_hpure_l; [ try reflexivity | ].
-skip.
-skip. }
-cf_case.
-
-  let A := fresh "A" in
-  let EA := fresh "EA" in
-  let Q := fresh "Q" in
-  let E := fresh "__MatchEq" in
-  hnf; intros A EA Q;
-  xpull_himpl_hforall_r;
-  eapply himpl_hwand_hpure_r; intros E;
-  cf_case_destruct; inverts E;
-  xsimpl_himpl_hforall_l.
-  applys himpl_hwand_hpure_l; [ try reflexivity | ].
-
-
-
-
-
- destruct d; inverts H1. reflexivity. } 
-    { cf_app. }
-    cf_case.
-    { fequals. destruct d; inverts H1. fequals. reflexivity. } 
- 
-    { cf_val. }
-    { cf_match_fail. } }
+    { destruct d; tryfalse. cf_case_eq_end.
+      cf_app. }
+    { cf_case.
+      { destruct d; tryfalse; inverts H1. cf_case_eq_end.
+        cf_let. 
+        { cf_app. }
+        { intros x. cf_if.
+          { cf_app. }
+          { cf_let. 
+            { cf_app. }
+            { intros y. cf_app. } } } }
+     { cf_match_fail. destruct d; tryfalse. } } }
 Qed.
 
 
