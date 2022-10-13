@@ -37,7 +37,7 @@ Implicit Types b : bool.
 (* ---------------------------------------------------------------------- *)
 (* ** Encoders *)
 
-Class Enc (A:Type) : Type := make_Enc 
+Class Enc (A:Type) : Type := make_Enc
   { enc : A -> val;
     enc_inj : injective enc }.
 
@@ -183,7 +183,7 @@ Inductive tyconstr : Type :=
 (* ---------------------------------------------------------------------- *)
 (* ** Encoder instances *)
 
-(* DEPRECATED 
+(* DEPRECATED
 Global Instance Enc_dyn : Enc dyn.
 Proof using. applys make_Enc dyn_to_val.
   { intros [AX EAX X] [AY EAY Y]. do 2 rewrite dyn_to_val_dyn_make.
@@ -290,7 +290,7 @@ End EncPair.
 Section EncOption.
 Context A1 `{EA1:Enc A1}.
 
-Definition enc_option_impl := 
+Definition enc_option_impl :=
   fun (o:option A1) => match o with
   | None => val_constr "none" nil
   | Some x => val_constr "some" ((``x)::nil)
@@ -301,7 +301,7 @@ Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_option : Enc (option A1) := make_Enc injective_enc_option_impl.
 
-Lemma enc_option_none : 
+Lemma enc_option_none :
   enc (@None A1) = val_constr "none" nil.
 Proof using. auto. Qed.
 
@@ -354,7 +354,7 @@ Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_list : Enc (list A1) := make_Enc injective_enc_list_impl.
 
-Lemma enc_list_nil : 
+Lemma enc_list_nil :
   enc (@nil A1) = val_constr "nil" nil.
 Proof using. auto. Qed.
 

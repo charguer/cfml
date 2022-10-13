@@ -272,7 +272,7 @@ Proof using.
   introv Hf M1. hnf. intros.
   unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q.
   rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
-  intros x. xpull; intros ->. xsimpl.
+  intros x. xpull. intros ->. xsimpl.
 Qed.
 
 
@@ -313,7 +313,8 @@ Proof using.
   xchange HF1. applys Formula_formula_intro_gc Ff.
 Qed.
 
-Lemma Triple_of_CF_and_Formula_formula_fixs : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F (f:var) xs Vs (vs:vals) t,
+Lemma Triple_of_CF_and_Formula_formula_fixs : 
+  forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F (f:var) xs Vs (vs:vals) t,
   F = val_fixs f xs t ->
   H ==> ^F1 (Q \*+ \GC) ->
   trms_to_vals (LibList.map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
@@ -397,8 +398,10 @@ Ltac cf_main :=
   let CF := fresh "CF" in
   hnf; introv CF;
   let A := match goal with |- @Triple ?t ?A ?EA ?H ?Q => constr:(A) end in
-  first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ]
-        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ] ];
+  first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF);
+          [ reflexivity | try reflexivity | try reflexivity | ]
+        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); 
+          [ reflexivity | try reflexivity | try reflexivity | ] ];
   clears A; unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
 
 Lemma triple_builtin_search_1 : forall F ts v1 H (Q:val->hprop),
@@ -409,7 +412,8 @@ Proof using. introv M <-. auto. Qed.
 
 Lemma triple_builtin_search_2 : forall F ts v1 v2 H (Q:val->hprop),
   triple (combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2))) H Q ->
-  combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2)) = (trm_apps (trm_val F) ts) ->
+    combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2)) 
+  = (trm_apps (trm_val F) ts) ->
   triple (trm_apps (trm_val F) ts) H Q.
 Proof using. introv M <-. auto. Qed.
 
@@ -439,18 +443,84 @@ Ltac xsimpl_himpl_hforall_l :=
 
 
 
+(** [cf_struct] removes the leading [mkstruct]. *)
 
-Ltac cf_app :=
-  eapply Formula_formula_app; [ reflexivity ].
+Lemma cf_struct_lemma : forall F H (Q:val->hprop),
+  H ==> F Q ->
+  H ==> mkstruct F Q.
+Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
+
+Tactic Notation "cf_struct" :=
+  applys cf_struct_lemma.
+
+
+(** [cf_truct_if_needed] removes the leading [mkstruct] if there is one. *)
+
+Tactic Notation "cf_struct_if_needed" := (* NEEDED? *)
+  try match goal with |- ?H ==> mkstruct ?F ?Q => cf_struct end.
+
+
+(** [cf_inlined_if_needed] *)
+
+
+Lemma himpl_wpgen_let_aux : forall v1 f1 f2of Q,
+  structural f1 ->
+  \[] ==> f1 (fun r => \[r = v1]) ->
+  \[] ==> f2of v1 Q ->
+  \[] ==> wpgen_let_aux f1 f2of Q.
+Proof using.
+  introv S1 M1 M2. applys cf_struct_lemma. xchange M1. 
+  applys* structural_conseq. xchanges M2. intros ? ->. auto.
+Qed.
+
+Lemma himpl_wpgen_app : forall (f:val) (vs:vals) Q,
+  triple (trm_apps f vs) \[] Q ->
+  \[] ==> wpgen_app f vs Q.
+Proof using.
+  introv M1. applys cf_struct_lemma. rewrite* <- triple_eq_himpl_wp.
+Qed.
+
+
+Ltac cf_inlined_compute :=
+  match goal with |- \[] ==> ?H =>
+  match H with
+  | wpgen_let_aux ?f1 ?f2of ?Q => 
+      eapply himpl_wpgen_let_aux; [ applys structural_mkstruct
+                                  | try cf_inlined_compute
+                                  | try cf_inlined_compute ]
+  | wpgen_app ?f ?vs ?Q =>
+      eapply himpl_wpgen_app; try cf_triple_builtin
+  end end.
+
+Ltac cf_inlined :=
+  eapply Formula_formula_let_inlined; [ applys structural_mkstruct | try cf_inlined_compute | ].
+
+Ltac cf_inlined_app :=
+  eapply Formula_formula_inlined_fun; [ try cf_triple_builtin | ].
+
+Ltac cf_inlined_if_needed :=
+  repeat match goal with 
+  | |- Formula_formula ?F (wpgen_let_aux ?f1 ?f2of) => cf_inlined
+  | |- Formula_formula (Wpgen_val ?V) (wpgen_app ?f ?vs) => cf_inlined_app
+  end.
+
+
+(* Others *)
 
 Ltac cf_let :=
+  cf_inlined_if_needed;
   eapply Formula_formula_let; [ | | applys structural_mkstruct ].
 
 Ltac cf_val :=
-  eapply Formula_formula_val; [ reflexivity ].
+  cf_inlined_if_needed;
+  eapply Formula_formula_val; [ try solve [ reflexivity | fequals ] ].
+  (* fequals needed to force evaluation of opaque encoders *)
 
-Ltac cf_inlined :=
-  eapply Formula_formula_inlined_fun; [ try cf_triple_builtin | ].
+
+Ltac cf_app :=
+  cf_inlined_if_needed;
+  eapply Formula_formula_app; [ reflexivity ].
+
 
 (*
 Ltac cf_letinlined :=
@@ -458,6 +528,7 @@ Ltac cf_letinlined :=
 *)
 
 Ltac cf_if :=
+  cf_inlined_if_needed;
   eapply Formula_formula_if; [ reflexivity | | ].
 
 Ltac cf_case_negpat_eq H :=
@@ -466,6 +537,11 @@ Ltac cf_case_negpat_eq H :=
 Ltac cf_case_destruct :=
   let V := match goal with H: CF_matcharg ?V |- _ => constr:(V) end in
   destruct V.
+
+Ltac cf_case_eq_end :=
+  xsimpl_himpl_hforall_l;
+  applys himpl_hwand_hpure_l;
+  [ reflexivity | ].
 
 Ltac cf_case_eq :=
   let A := fresh "A" in
@@ -476,9 +552,7 @@ Ltac cf_case_eq :=
   xpull_himpl_hforall_r;
   eapply himpl_hwand_hpure_r; intros E;
   cf_case_destruct; inverts E;
-  xsimpl_himpl_hforall_l;
-  applys himpl_hwand_hpure_l; [ reflexivity | ].
-
+  try cf_case_eq_end.
 
 Ltac cf_case :=
   let H := fresh "__MatchHyp" in
@@ -488,9 +562,11 @@ Ltac cf_case :=
   | intros H ].
 
 Ltac cf_fail :=
-  eapply Formula_formula_fail_false.
+  first [ eapply Formula_formula_fail 
+        | eapply Formula_formula_fail_false ].
 
 Ltac cf_match :=
+  cf_inlined_if_needed;
   let H := fresh "__MatchArg" in
   eapply Formula_formula_match; intros H.
 
@@ -597,6 +673,15 @@ let prim x =
 
 *)
 
+Axiom triple_not : forall (b:bool),
+  triple (not b)
+    \[]
+    (fun r => \[r = val_bool (!b)]).
+
+
+Hint Resolve triple_not
+ : triple_builtin.
+
 Axiom triple_infix_minus__ : forall (n1 n2:int),
   triple (infix_minus__ n1 n2)
     \[]
@@ -624,23 +709,23 @@ Axiom triple_neg : forall (b1:bool),
 
 (* TODO: use infix__ names? *)
 
-Axiom triple_lt : forall (n1 n2:int),
-  triple (val_lt n1 n2)
+Axiom triple_infix_lt__ : forall (n1 n2:int),
+  triple (infix_lt__ n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 < n2)]).
 
-Axiom triple_le : forall (n1 n2:int),
-  triple (val_le n1 n2)
+Axiom triple_infix_lt_eq__ : forall (n1 n2:int),
+  triple (infix_lt_eq__ n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 <= n2)]).
 
-Axiom triple_gt : forall (n1 n2:int),
-  triple (val_gt n1 n2)
+Axiom triple_infix_gt__ : forall (n1 n2:int),
+  triple (infix_gt__ n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 > n2)]).
 
-Axiom triple_ge : forall (n1 n2:int),
-  triple (val_ge n1 n2)
+Axiom triple_infix_gt_eq__ : forall (n1 n2:int),
+  triple (infix_gt_eq__ n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 >= n2)]).
 
@@ -659,28 +744,19 @@ Definition val_max : val :=
     If_ 'x '< 'y Then 'y Else 'x.
 *)
 
+Axiom triple_infix_eq__ : forall (n1 n2:int),
+  triple (infix_eq__ n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 = n2)]).
 
 Hint Resolve triple_infix_minus__ triple_ignore triple_and triple_or
-  triple_neg triple_lt triple_le triple_gt triple_ge : triple_builtin.
+  triple_neg triple_infix_lt__ triple_infix_lt_eq__ 
+  triple_infix_gt__ triple_infix_gt_eq__ 
+  triple_infix_eq__ : triple_builtin.
 
 
 
-
-(** [cf_struct] removes the leading [mkstruct]. *)
-
-Lemma cf_struct_lemma : forall F H (Q:val->hprop),
-  H ==> F Q ->
-  H ==> mkstruct F Q.
-Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
-
-Tactic Notation "cf_struct" :=
-  applys cf_struct_lemma.
-
-
-(** [cf_truct_if_needed] removes the leading [mkstruct] if there is one. *)
-
-Tactic Notation "cf_struct_if_needed" := (* NEEDED? *)
-  try match goal with |- ?H ==> mkstruct ?F ?Q => cf_struct end.
+(*
 
 (** [cf_val] proves a [H ==> wgpen_val Q], instantiate the postcondition if needed *)
 
@@ -693,7 +769,7 @@ Lemma cf_val_lemma_inst : forall H v,
   H ==> wpgen_val v (fun x => \[x = v] \* H).
 Proof using. intros. applys cf_val_lemma. xsimpl*. Qed.
 
-Tactic Notation "cf_val" :=
+Tactic Notation "cf_val_inlined" :=
   cf_struct_if_needed; first
   [ eapply cf_val_lemma_inst
   | eapply cf_val_lemma ].
@@ -705,21 +781,23 @@ Lemma cf_let_aux_lemma : forall H F1 F2of Q,
   H ==> wpgen_let_aux F1 F2of Q.
 Proof using. introv M. applys* cf_struct_lemma. Qed.
 
-Tactic Notation "cf_let" :=
+Tactic Notation "cf_let_inlined" :=
   eapply cf_let_aux_lemma.
 
+*)
+
+(* DEPRECATED
 
 Lemma cf_app_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> wp t Q.
 Proof using.
-Admitted.
-(*
-  introv M W. rewrite <- wp_equiv in M. xchange W. xchange M.
-  applys wp_ramified_frame.
+  introv M W. rewrite triple_eq_himpl_wp in M. xchange W. xchange M. 
+  applys structural_elim_nohgc. { applys structural_wp. } { xsimpl. }
+  (*  applys wp_ramified_frame. *)
 Qed.
-*)
+
 
 Lemma cf_apps_lemma_pure : forall (t:trm) (v:val) H Q,
   triple t \[] (fun r => \[r = v]) ->
@@ -774,34 +852,151 @@ Tactic Notation "cf_app_try_subst" :=
       let y := fresh x in intros ? y ->; revert y
   end.
 
+
 Tactic Notation "cf_app" :=
-  cf_app_nosubst; cf_app_try_subst.
+  cf_inlined_if_needed;
+  cf_app_nosubst;
+  cf_app_try_subst.
 
 Tactic Notation "cf_apps" :=
+  cf_inlined_if_needed; 
   first [ eapply cf_apps_lemma_pure_inst
         | eapply cf_apps_lemma_pure; [ cf_app_apply_spec |  ] ].
 
 
+*)
+
+(********************************************************************)
+(** ** CF proof for size and lookup *)
 
 (*
+
+
+let size = function
+  | Leaf x -> 1
+  | Node (w, _, _) -> w
+
+let rec lookup_tree i = function
+  | Leaf x -> if i = 0 then x else raise OutOfBound
+  | Node (w, t1, t2) ->
+      if i < w/2
+        then lookup_tree i t1
+        else lookup_tree (i - w/2) t2
+
+let rec lookup i = function
+  | [] -> raise OutOfBound
+  | Zero :: ts -> lookup i ts
+  | One t :: ts ->
+     if i < size t
+        then lookup_tree i t
+        else lookup (i - size t) ts
+
+*)
+
+Lemma size_cf_def : size_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_val. }
+  { cf_case. 
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
+Lemma Formula_formula_let_val : forall A1 (V:A1) {EA1:Enc A1} (F2of:A1->Formula) f1 f2of,
+  \[] ==> f1 (fun x => \[x = enc V]) ->
+  (forall (X:A1), Formula_formula (F2of X) (f2of (enc X))) ->
+  structural f1 ->
+  Formula_formula (Wpgen_let_val V F2of) (wpgen_let f1 f2of).
+Admitted.
+(*
+Proof using.
+  introv M1 M2 S1.
+  hnf. intros. applys Formula_formula_mkstruct. clears A.
+  hnf. intros. xpull. intros Q1 HQ1. applys* Formula_formula_inv M1.
+  intros x. unfold Post at 1. xpull. intros X1 ->.
+  xchange HQ1. applys M2.
+Qed.
+*)
+
+Ltac cf_letval :=
+  cf_inlined_if_needed;
+  eapply Formula_formula_let_val;
+    [ try cf_inlined_compute | | applys structural_mkstruct ].
+
+Lemma lookup_tree_cf_def : lookup_tree_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_letval. intros x. cf_if. { cf_val. } { cf_match_fail. } }
+  { cf_case.
+(* cf_inlined_if_needed. cf_if. 
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+*)
+Abort.
+
+Lemma lookup_cf_def : lookup_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_fail. } 
+  { cf_case.
+    { destruct d; tryfalse. cf_case_eq_end.
+      cf_app. }
+    { cf_case.
+      { destruct d; tryfalse; inverts H1. cf_case_eq_end.
+        cf_let. 
+        { cf_app. }
+        { intros x. cf_if.
+          { cf_app. }
+          { cf_let. 
+            { cf_app. }
+            { intros y. cf_app. } } } }
+     { cf_match_fail. destruct d; tryfalse. } } }
+Qed.
+
+
+(********************************************************************)
+(** ** CF proof for prim *)
+
+
 Lemma prim_cf_def : prim_cf_def__.
 Proof using.
   cf_main.
-  eapply Formula_formula_let_inlined.
-  { applys structural_mkstruct. }
-  {
-
-
-
-  applys mkstruct_erase_trans.
-  unfold wpgen_app.
-  applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin.
-    applys triple_conseq_frame. eapply triple_infix_minus__. xsimpl. xsimpl. intros ? ->.
-    applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin. }
- { cf_inlined. cf_val. }
+  cf_if.
+  { cf_val. }
+  { cf_val. }
 Qed.
 
-*)
+Lemma prim_cf_def' : prim_cf_def__.
+Proof using.
+  cf_main.
+  cf_inlined_if_needed. cf_if.
+  { cf_inlined_if_needed. cf_val. }
+  { cf_inlined_if_needed. cf_val. }
+Qed.
+
+Lemma prim_cf_def'' : prim_cf_def__.
+Proof using.
+  cf_main.
+  eapply Formula_formula_let_inlined; [ applys structural_mkstruct | | ].
+  { applys himpl_wpgen_let_aux; [ applys structural_mkstruct | | ].
+    { applys himpl_wpgen_app. applys triple_not. }
+    { applys himpl_wpgen_let_aux; [ applys structural_mkstruct | | ].
+      { applys himpl_wpgen_app. applys triple_infix_bar_bar__. }
+      { applys himpl_wpgen_app. applys triple_infix_amp_amp__. } } }
+  { cf_if.
+    { eapply Formula_formula_let_inlined; [ applys structural_mkstruct | | ].
+      { applys himpl_wpgen_let_aux; [ applys structural_mkstruct | | ].
+        { applys himpl_wpgen_let_aux; [ applys structural_mkstruct | | ].
+          { applys himpl_wpgen_let_aux; [ applys structural_mkstruct | | ].
+Abort.
+
 
 (********************************************************************)
 (** ** CF proof for polydepth *)
@@ -825,7 +1020,7 @@ Proof using.
   { cf_case.
     { cf_let.
       { cf_app. }
-      { intros n. cf_inlined. cf_val. } }
+      { intros n. cf_inlined_app. cf_val. } }
     { cf_match_fail. } }
 Qed.
 
@@ -881,8 +1076,8 @@ Qed.
 Lemma bools_cf_def' : bools_cf_def__.
 Proof using.
   cf_main. cf_if.
-  { cf_inlined. cf_val. }
-  { cf_inlined. cf_val. }
+  { cf_inlined_app. cf_val. }
+  { cf_inlined_app. cf_val. }
 Qed.
 
 
@@ -1082,8 +1277,7 @@ Proof using.
   cf_main.
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
-  { intros X.
-    applys Formula_formula_let_inlined_fun; [ applys triple_infix_plus__ | ].
+  { intros X. cf_inlined.
     applys Formula_formula_app; [ reflexivity ]. }
 Qed.
 
@@ -1116,6 +1310,7 @@ let rec g x =
 let v = 2
 
 *)
+
 
 
 

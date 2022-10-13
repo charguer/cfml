@@ -2,10 +2,11 @@
 # ./go.sh
 # ./go.sh mlv
 
+BASE=BinaryRandomAccessList
 
 ARG=$1
 if [[ ${ARG} = "" ]]; then
-  ARG="Debug_ml.vos"
+  ARG="${BASE}_ml.vo"
 fi
 
 
@@ -24,16 +25,16 @@ if [[ ${ARG} = "mlv" ]]; then
 else
 
   make -C ../../lib/coq -f Makefile.dev depend
-  make -j4 -C ../../lib/coq -f Makefile.dev vos
+  make -j4 -C ../../lib/coq -f Makefile.dev
   make -C ../../lib/stdlib -f Makefile.dev depend
-  if [[ ${ARG} = "Debug_ml.vos" ]]; then
-    make -j4 -C ../../lib/stdlib -f Makefile.dev Pervasives_proof.vos
-  else
-    make -j4 -C ../../lib/stdlib -f Makefile.dev vos
-  fi
+if [[ ${ARG} = "${BASE}_ml.vo" ]]; then
+  make -j4 -C ../../lib/stdlib -f Makefile.dev Pervasives_proof.vo
+else
+  make -j4 -C ../../lib/stdlib -f Makefile.dev
+fi
   make -f Makefile.dev depend
   make -f Makefile.dev ${ARG}
-  # make -j4 -C ../../lib/stdlib -f Makefile.dev vos
+  make -j4 -C ../../lib/stdlib -f Makefile.dev
 
 fi
 

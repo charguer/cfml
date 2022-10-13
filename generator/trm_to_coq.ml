@@ -167,12 +167,12 @@ let rec tr_exp env e =
 
    | Texp_apply (funct, oargs) ->
       let args = simplify_apply_args loc oargs in
-      let fo = exp_find_inlined_primitive funct oargs in
+      (*let fo = exp_find_inlined_primitive funct oargs in
       let f = match fo with
-         | Some (coq_name,emb_name) -> coq_var emb_name
+         | Some (coq_name,emb_name) -> coq_var coq_name
          | None -> aux funct
-         in
-      coq_sem "trm_apps" [f; coq_trms (auxs args)]
+         in*)
+      coq_sem "trm_apps" [aux funct; coq_trms (auxs args)]
 
    | Texp_constraint (e, Some ty, None) ->
       aux e
@@ -238,6 +238,8 @@ let rec tr_exp env e =
                  pattern_variables pat
                 pattern_aliases pat *)
 
+   | Texp_assertfalse ->
+      coq_sem "trm_fail" []
 
 (* LATER
 
@@ -247,9 +249,6 @@ let rec tr_exp env e =
 
    | Texp_assert e ->
       Cf_assert (aux e)
-
-   | Texp_assertfalse ->
-      Cf_fail
 
    | Texp_lazy e ->
       aux e
