@@ -3,7 +3,7 @@
 ##############################################################################
 # Configuration
 
-SOURCE=~/versions/coq-8.12/sfdev/_built/slf/full
+SOURCE=~/versions/coq-8.13/sfdev/_built/slf/full
 TARGET=slf
 WEBSITE=website
 
@@ -23,8 +23,10 @@ rm -Rf ${WEBSITE}
 # Import Website files
 
 ${CP} -R ${SOURCE}/common ${TARGET}
+rm ${TARGET}/common/media/image/{vc*,qc*,vfa*,lf*,plf*}
 
-${CP} ${SOURCE}/*.html ${SOURCE}/*.gif ${TARGET}
+${CP} ${SOURCE}/*.html ${TARGET}
+#${SOURCE}/*.gif
 
 # bypass index
 ${CP} ${TARGET}/toc.html ${TARGET}/index.html
@@ -47,13 +49,13 @@ echo "Creating $TARGET.tar.gz"
 tar ${TAROPTIONS} -czf $TARGET.tar.gz $TARGET
 
 # Move the archive into folder to ease upload
-mv $TARGET.tar.gz $TARGET
+cp $TARGET.tar.gz $TARGET
 
 
 ##############################################################################
 # Test archive
 
 cd ${TARGET}
-make -j8
+make
 chromium-browser index.html &
-coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFPreface.v SLFSummary.v
+coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF Preface.v Basic.v Repr.v
