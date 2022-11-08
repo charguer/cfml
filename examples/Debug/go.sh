@@ -1,6 +1,9 @@
+# tested:  opam switch 4.13.1 , coq 8.15.1
+
 # usage:
 # ./go.sh
 # ./go.sh mlv
+
 
 
 ARG=$1
