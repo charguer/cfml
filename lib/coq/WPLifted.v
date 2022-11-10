@@ -53,6 +53,17 @@ Definition Weakestpre (T:forall {A} {EA:Enc A},hprop->(A->hprop)->Prop) : Formul
 Definition Wp (t:trm) : Formula :=
   Weakestpre (@Triple t).
 
+(** Alternative definition of [Wp] *)
+
+Definition Wp' (t:trm) : Formula :=
+  fun (A:Type) (EA:Enc A) (Q:A->hprop) => wp t (Post Q).
+
+Lemma Wp_eq_wp' : Wp = Wp'.
+Proof using.
+  applys fun_ext_4. intros t A EA Q. 
+  unfold Wp, Wp', Weakestpre, Triple, wp, weakestpre. auto.
+Qed.
+
 (** Lifted version of [wpsubst E t] *)
 
 Definition Wpsubst (E:ctx) (t:trm) : Formula :=
