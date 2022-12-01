@@ -66,12 +66,12 @@ let mk_int n =
 
 (* Application *)
 
-let mk_app (c0, cs) =
+let mk_app c0 cs =
   coq_apps c0 cs
 
 (* Conditional *)
 
-let mk_if (c0, c1, c2) =
+let mk_if c0 c1 c2 =
   coq_classical_if c0 c1 c2
 
 (* Simplified pattern matching
@@ -111,21 +111,15 @@ let mk_var_sub =
 (* TODO: deprecated? *)
 
 let mk_app2 (c0, c1, c2) =
-  mk_app (c0, [c1; c2])
+  mk_app c0 [c1; c2]
 
-let mk_lt (c1, c2) =
-  mk_app2 (mk_var_lt, c1, c2)
+let nat_lt = mk_var_lt
 
-let mk_eq (c1, c2) =
-  mk_app2 (mk_var_eq, c1, c2)
+let nat_add = mk_var_add
 
-let mk_add (c1, c2) =
-  mk_app2 (mk_var_add, c1, c2)
+let nat_sub = mk_var_sub
 
-let mk_sub (c1, c2) =
-  mk_app2 (mk_var_sub, c1, c2)
-
-let mk_eq (c1, c2) =
+let mk_eq c1 c2 =
   mk_app2 (mk_var_eq, c1, c2)
 
 
@@ -136,7 +130,7 @@ let mk_eq (c1, c2) =
 (* Function definition --> see doc in demo_sample.ml *)
 
 (* TODO : rename to mk_def_fun *)
-let mk_define(fun_name, lemma_name, typed_args_name, ret_typ, body) =
+let mk_define fun_name lemma_name typed_args_name ret_typ body =
   let args_name, args_typ = List.split typed_args_name in
   let fun_typ = coq_impls args_typ ret_typ in
   [ Coqtop_param (fun_name, fun_typ);
