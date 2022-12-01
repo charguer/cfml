@@ -19,8 +19,10 @@ Termination
 End
 
 Inductive add_rel:
+[~zero:]
   (∀m:num.
     add_rel 0 m m) ∧
+[~suc:]
   (∀m n k.
     add_rel n (SUC m) k ⇒
     add_rel (SUC n) m k)
