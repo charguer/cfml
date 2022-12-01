@@ -28,9 +28,6 @@ let mk_if (c0, c1, c2) =
 let mk_app (c0, cs) =
   coq_apps c0 cs
 
-let mk_eq (c1, c2) =
-  coq_apps (coq_var "Coq.Init.Logic.eq") [c1; c2]
-
 (* Top-level definitions *)
 
 let mk_define(fun_name, lemma_name, typed_args_name, ret_typ, body) =
@@ -40,6 +37,9 @@ let mk_define(fun_name, lemma_name, typed_args_name, ret_typ, body) =
     Coqtop_param (lemma_name, coq_foralls typed_args_name body) ]
 
 (* Usual functions *)
+
+let mk_var_eq =
+  mk_var("Coq.Init.Logic.eq")
 
 let mk_var_lt =
   mk_var("Coq.Init.Peano.lt")
@@ -67,6 +67,9 @@ let mk_add (c1, c2) =
 
 let mk_sub (c1, c2) =
   mk_app2 (mk_var_sub, c1, c2)
+
+let mk_eq (c1, c2) =
+  mk_app2 (mk_var_eq, c1, c2)
 
 
 (*****************************************************************)

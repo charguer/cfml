@@ -51,11 +51,11 @@ let defs =
     mk_eq(
       mk_app(mk_var("fib"), [mk_var("n")]),
       mk_if(
-        mk_app(mk_var("Coq.Init.Peano.lt"), [mk_var("n"); mk_nat(2)]),
+        mk_lt(mk_var("n"), mk_nat(3)),
         mk_var("n"),
-        mk_app(mk_var("Coq.Init.Nat.add"),
-          [mk_app(mk_var("fib"), [mk_app(mk_var "Coq.Init.Nat.sub", [mk_var("n"); mk_nat(1)])]);
-           mk_app(mk_var("fib"), [mk_app(mk_var "Coq.Init.Nat.sub", [mk_var("n"); mk_nat(2)])])]))))
+        mk_add(
+          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(1))]),
+          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(2))])))))
 
 
 let _ = out_prog "demo.v" defs
