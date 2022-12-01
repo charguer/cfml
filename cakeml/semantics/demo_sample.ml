@@ -40,9 +40,10 @@ let defs =
            mk_app(mk_var("fib"), [mk_app(mk_var "Coq.Init.Nat.sub", [mk_var("n"); mk_nat(2)])])]))))
 *)
 
+
 (* Variant using more smart constructors *)
 
-let defs =
+let defs1 =
   mk_define(
     "fib",
     "fib_def",
@@ -58,5 +59,15 @@ let defs =
           mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(2))])))))
 
 
-let _ = out_prog "demo.v" defs
+(* More demos *)
 
+let defs2 =
+    mk_define_val "demo_placeholder" mk_typ_nat (mk_todo "placeholder")
+  @ mk_typedef_abbrev "demo_abbrev" (mk_prod [mk_typ_nat; mk_typ_nat])
+  @ mk_typedef_record "demo_record" ["A"] [ ("f1", mk_typ_nat); ("f2", mk_tvar "A"); ]
+  @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [mk_typ_nat; mk_tvar "A"]); ("C2", []); ("C3", [mk_tvar "B"])]
+
+
+
+
+let _ = out_prog "demo.v" (defs1 @ defs2)

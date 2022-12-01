@@ -1,4 +1,8 @@
 
+Require Export String.
+
+Axiom COQ_HOLE : forall {X:Type} (msg:string), X.
+
 Axiom classicT : forall (P : Prop),
   {P} + {~ P}.
 

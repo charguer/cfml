@@ -3,6 +3,10 @@ GENERATOR=../../generator
 
 all: demo
 
+up:
+	cp demo_sample.ml demo.ml
+	$(MAKE) all
+
 coq.ml print_coq.ml: $(GENERATOR)/coq.ml $(GENERATOR)/print_coq.ml
 	cp $(GENERATOR)/$@ $@
 
