@@ -22,41 +22,23 @@ Below is an example for the lemma presentation,
 which avoids issues with justifying termination.
 *)
 
-(* Variant with explicit calls to mk_app everywhere:
-
-let defs =
-  mk_define(
-    "fib",
-    "fib_def",
-    [("n", mk_typ_nat)],
-    mk_typ_nat,
-    mk_eq(
-      mk_app(mk_var("fib"), [mk_var("n")]),
-      mk_if(
-        mk_app(mk_var("Coq.Init.Peano.lt"), [mk_var("n"); mk_nat(2)]),
-        mk_var("n"),
-        mk_app(mk_var("Coq.Init.Nat.add"),
-          [mk_app(mk_var("fib"), [mk_app(mk_var "Coq.Init.Nat.sub", [mk_var("n"); mk_nat(1)])]);
-           mk_app(mk_var("fib"), [mk_app(mk_var "Coq.Init.Nat.sub", [mk_var("n"); mk_nat(2)])])]))))
-*)
-
-
-(* Variant using more smart constructors *)
+(* Example: fib *)
 
 let defs1 =
-  mk_define(
-    "fib",
-    "fib_def",
-    [("n", mk_typ_nat)],
-    mk_typ_nat,
-    mk_eq(
-      mk_app(mk_var("fib"), [mk_var("n")]),
-      mk_if(
-        mk_lt(mk_var("n"), mk_nat(3)),
-        mk_var("n"),
-        mk_add(
-          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(1))]),
-          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(2))])))))
+  mk_define
+    "fib"
+    "fib_def"
+    [("n", mk_typ_nat)]
+    mk_typ_nat
+    (mk_eq
+      (mk_app (mk_var "fib") [mk_var "n"])
+      (mk_if
+        (mk_app nat_lt [mk_var "n"; mk_nat 2])
+        (mk_var "n")
+        (mk_app
+          nat_add
+          [mk_app (mk_var "fib") [mk_app nat_sub [mk_var "n"; mk_nat 1]];
+           mk_app (mk_var "fib") [mk_app nat_sub [mk_var "n"; mk_nat 2]]])));;
 
 
 (* More demos *)
