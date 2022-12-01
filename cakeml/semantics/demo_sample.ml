@@ -66,8 +66,11 @@ let defs2 =
   @ mk_typedef_abbrev "demo_abbrev" (mk_prod [mk_typ_nat; mk_typ_nat])
   @ mk_typedef_record "demo_record" ["A"] [ ("f1", mk_typ_nat); ("f2", mk_tvar "A"); ]
   @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [mk_typ_nat; mk_tvar "A"]); ("C2", []); ("C3", [mk_tvar "B"])]
-
-
-
+  (*  works, up to a missing type annotation
+  @ mk_define_val "demo_match" mk_wild (
+      mk_match_simple (mk_var "C2") [
+        ("C1", ["x";"y"], mk_int 3);
+        ("C2", [], mk_int 4);
+        ("C3", ["x"], mk_int 5); ]) *)
 
 let _ = out_prog "demo.v" (defs1 @ defs2)
