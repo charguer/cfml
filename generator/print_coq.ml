@@ -192,6 +192,7 @@ let rec expr0 = function
   | Coq_forall _
   | Coq_fix _
   | Coq_fun _
+  | Coq_if _
   | Coq_match _
     as e ->
       parens (expr e)
@@ -260,6 +261,11 @@ and expr3 = function
         (break 1 ^^ colonequals)
       ^/^
       expr3 body
+  | Coq_if (isclassical, e0, e1, e2) ->
+      block
+        (string (if isclassical then "If" else "if") ^^ space ^^ expr e0)
+        (break 1 ^^ string "then" ^^ break 1 ^^ expr e1)
+        (break 1 ^^ string "else" ^^ break 1 ^^ expr e2)
   | Coq_match (carg, branches) ->
       let mk_branch (c1,c2) =
         group (string "|" ^^ space ^^ expr c1 ^^ space ^^ doublearrow ^^ space ^^ expr c2) ^^ hardline in

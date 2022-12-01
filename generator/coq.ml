@@ -43,6 +43,7 @@ and coq =
   | Coq_tuple of coqs
   | Coq_record of (var * coq) list
   | Coq_proj of var * coq
+  | Coq_if of bool(*classical or not*) * coq * coq * coq
   | Coq_match of coq * (coq * coq) list
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
@@ -161,6 +162,14 @@ let coq_nat =
 
 let coq_bool =
   Coq_var "Coq.Init.Datatypes.bool"
+
+(** Conditionals *)
+
+let coq_if c0 c1 c2 =
+  Coq_if (false, c0, c1, c2)
+
+let coq_classical_if c0 c1 c2 =
+  Coq_if (true, c0, c1, c2)
 
 (** Annotation *)
 
@@ -311,7 +320,7 @@ let coq_list ?(typ : coq option) xs =
      | None -> ccons, []
      | Some typ -> (coq_at ccons), [typ]
      in
-   let cnil = Coq_var (Renaming.get_builtin_constructor "Coq.Lists.List.nil") in
+   let cnil = Coq_var ("Coq.Lists.List.nil") in
    List.fold_right (fun arg acc ->
       coq_apps ccons (targs@[arg; acc])) xs cnil
 
