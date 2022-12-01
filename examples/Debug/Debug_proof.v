@@ -313,7 +313,7 @@ Proof using.
   xchange HF1. applys Formula_formula_intro_gc Ff.
 Qed.
 
-Lemma Triple_of_CF_and_Formula_formula_fixs : 
+Lemma Triple_of_CF_and_Formula_formula_fixs :
   forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F (f:var) xs Vs (vs:vals) t,
   F = val_fixs f xs t ->
   H ==> ^F1 (Q \*+ \GC) ->
@@ -400,7 +400,7 @@ Ltac cf_main :=
   let A := match goal with |- @Triple ?t ?A ?EA ?H ?Q => constr:(A) end in
   first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF);
           [ reflexivity | try reflexivity | try reflexivity | ]
-        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); 
+        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF);
           [ reflexivity | try reflexivity | try reflexivity | ] ];
   clears A; unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
 
@@ -412,7 +412,7 @@ Proof using. introv M <-. auto. Qed.
 
 Lemma triple_builtin_search_2 : forall F ts v1 v2 H (Q:val->hprop),
   triple (combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2))) H Q ->
-    combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2)) 
+    combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2))
   = (trm_apps (trm_val F) ts) ->
   triple (trm_apps (trm_val F) ts) H Q.
 Proof using. introv M <-. auto. Qed.
@@ -469,7 +469,7 @@ Lemma himpl_wpgen_let_aux : forall v1 f1 f2of Q,
   \[] ==> f2of v1 Q ->
   \[] ==> wpgen_let_aux f1 f2of Q.
 Proof using.
-  introv S1 M1 M2. applys cf_struct_lemma. xchange M1. 
+  introv S1 M1 M2. applys cf_struct_lemma. xchange M1.
   applys* structural_conseq. xchanges M2. intros ? ->. auto.
 Qed.
 
@@ -484,7 +484,7 @@ Qed.
 Ltac cf_inlined_compute :=
   match goal with |- \[] ==> ?H =>
   match H with
-  | wpgen_let_aux ?f1 ?f2of ?Q => 
+  | wpgen_let_aux ?f1 ?f2of ?Q =>
       eapply himpl_wpgen_let_aux; [ applys structural_mkstruct
                                   | try cf_inlined_compute
                                   | try cf_inlined_compute ]
@@ -499,7 +499,7 @@ Ltac cf_inlined_app :=
   eapply Formula_formula_inlined_fun; [ try cf_triple_builtin | ].
 
 Ltac cf_inlined_if_needed :=
-  repeat match goal with 
+  repeat match goal with
   | |- Formula_formula ?F (wpgen_let_aux ?f1 ?f2of) => cf_inlined
   | |- Formula_formula (Wpgen_val ?V) (wpgen_app ?f ?vs) => cf_inlined_app
   end.
@@ -562,7 +562,7 @@ Ltac cf_case :=
   | intros H ].
 
 Ltac cf_fail :=
-  first [ eapply Formula_formula_fail 
+  first [ eapply Formula_formula_fail
         | eapply Formula_formula_fail_false ].
 
 Ltac cf_match :=
@@ -750,8 +750,8 @@ Axiom triple_infix_eq__ : forall (n1 n2:int),
     (fun b => \[b = isTrue (n1 = n2)]).
 
 Hint Resolve triple_infix_minus__ triple_ignore triple_and triple_or
-  triple_neg triple_infix_lt__ triple_infix_lt_eq__ 
-  triple_infix_gt__ triple_infix_gt_eq__ 
+  triple_neg triple_infix_lt__ triple_infix_lt_eq__
+  triple_infix_gt__ triple_infix_gt_eq__
   triple_infix_eq__ : triple_builtin.
 
 
@@ -793,7 +793,7 @@ Lemma cf_app_lemma : forall t Q1 H1 H Q,
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> wp t Q.
 Proof using.
-  introv M W. rewrite triple_eq_himpl_wp in M. xchange W. xchange M. 
+  introv M W. rewrite triple_eq_himpl_wp in M. xchange W. xchange M.
   applys structural_elim_nohgc. { applys structural_wp. } { xsimpl. }
   (*  applys wp_ramified_frame. *)
 Qed.
@@ -859,7 +859,7 @@ Tactic Notation "cf_app" :=
   cf_app_try_subst.
 
 Tactic Notation "cf_apps" :=
-  cf_inlined_if_needed; 
+  cf_inlined_if_needed;
   first [ eapply cf_apps_lemma_pure_inst
         | eapply cf_apps_lemma_pure; [ cf_app_apply_spec |  ] ].
 
@@ -899,7 +899,7 @@ Proof using.
   cf_match.
   cf_case.
   { cf_val. }
-  { cf_case. 
+  { cf_case.
     { cf_val. }
     { cf_match_fail. } }
 Qed.
@@ -932,7 +932,7 @@ Proof using.
   cf_case.
   { cf_letval. intros x. cf_if. { cf_val. } { cf_match_fail. } }
   { cf_case.
-(* cf_inlined_if_needed. cf_if. 
+(* cf_inlined_if_needed. cf_if.
     { cf_val. }
     { cf_match_fail. } }
 Qed.
@@ -944,17 +944,17 @@ Proof using.
   cf_main.
   cf_match.
   cf_case.
-  { cf_fail. } 
+  { cf_fail. }
   { cf_case.
     { destruct d; tryfalse. cf_case_eq_end.
       cf_app. }
     { cf_case.
       { destruct d; tryfalse; inverts H1. cf_case_eq_end.
-        cf_let. 
+        cf_let.
         { cf_app. }
         { intros x. cf_if.
           { cf_app. }
-          { cf_let. 
+          { cf_let.
             { cf_app. }
             { intros y. cf_app. } } } }
      { cf_match_fail. destruct d; tryfalse. } } }

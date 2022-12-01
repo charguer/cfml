@@ -1,4 +1,6 @@
-open Mytools
+
+let list_make n v =
+  List.init n (fun _ -> v)
 
 (** This file contains facilities for representing Coq expressions. Most of
     the core language is supported. A subset of the top-level declarations
@@ -59,7 +61,7 @@ type coqtop =
   | Coqtop_proof of string
   | Coqtop_ind of coqind list
   | Coqtop_record of coqind
-  | Coqtop_label of var * int
+  (* DEPRECATED? | Coqtop_label of var * int *)
   | Coqtop_implicit of var * (var * implicit) list
   | Coqtop_register of string * var * var
   (* todo: factorize the 3 type of hints into a single constructor *)
@@ -159,6 +161,11 @@ let coq_nat =
 
 let coq_bool =
   Coq_var "Coq.Init.Datatypes.bool"
+
+(** Annotation *)
+
+let coq_annot (term : coq) (term_type : coq)  =
+   Coq_annot (term, term_type)
 
 (** Identifier [x] *)
 
@@ -298,25 +305,15 @@ let coq_prod cs =
 (** List [c1 :: c2 :: .. :: cN] *)
 
 let coq_list ?(typ : coq option) xs =
-   let ccons = Coq_var (Renaming.get_builtin_constructor "::") in
+   let ccons = Coq_var ("Coq.Lists.List.cons") in
    let ccons, targs =
      match typ with
      | None -> ccons, []
      | Some typ -> (coq_at ccons), [typ]
      in
-   let cnil = Coq_var (Renaming.get_builtin_constructor "[]") in
+   let cnil = Coq_var (Renaming.get_builtin_constructor "Coq.Lists.List.nil") in
    List.fold_right (fun arg acc ->
       coq_apps ccons (targs@[arg; acc])) xs cnil
-   (* DEPRECATED ; maybe future ?
-   let coq_list xs =
-     Coq_list xs
-   *)
-   (* DEPRECATED
-   let ccons = get_builtin_constructor "::" in
-   let cnil = get_builtin_constructor "[]" in
-   let cnil = "Coq.Lists.List.nil" in
-   let ccons = "Coq.Lists.List.cons" in
-   *)
 
 (** Logic combinators *)
 
@@ -385,7 +382,11 @@ let coqtops_section_context sname xs ts =
   @ ts
   @ [ Coqtop_end sname ]
 
+
+(*#########################################################################*)
+
 (** Datatype for semantics terms *)
+(* TODO: move to some other file? *)
 
 let pat_type = coq_cfml_var "Semantics.pat"
 
@@ -399,7 +400,7 @@ let val_constr = coq_cfml_var "Semantics.val_constr"
 (*#########################################################################*)
 (* ** Representation of labels (notation of the form "'x" := `1`0`1`0) *)
 
-(** --todo: deprecated *)
+(** --todo: deprecated
 
 type label = string
 
@@ -418,15 +419,13 @@ let coq_tag (tag : string) ?args ?label (term : coq) =
    let args = match args with | None -> [] | Some args -> args in
    Coq_tag ("CFML.CFPrint." ^ tag, args, label, term)
    (* TODO DEPRECATED *)
-
-let coq_annot (term : coq) (term_type : coq)  =
-   Coq_annot (term, term_type)
+ *)
 
 
 (*#########################################################################*)
 (* ** Inversion functions *)
 
-let rec coq_apps_inv c =
+let rec coq_apps_inv c =  (* TODO: where is it used? *)
   (* LATER could reimplement using an accumulator *)
   match c with
   | Coq_app (c1,c2) ->

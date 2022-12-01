@@ -52,6 +52,10 @@ let bool_of_option xo =
 (**************************************************************)
 (** List manipulation functions *)
 
+(* TODO: see which functions are now in OCaml stdlib *)
+(* let list_make n v =
+  List.init n (fun _ -> v) *)
+
 let rec list_make n v =
    if n = 0 then [] else v::(list_make (n-1) v)
 

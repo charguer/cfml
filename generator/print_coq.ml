@@ -468,9 +468,10 @@ let rec top_internal = function
         (inductive_lhs sum_rhs)
         rs
       ^^ dot
+  (* DEPRECATED?
   | Coqtop_label (x, n) ->
       sprintf "Notation \"''%s'\" := (%s) (at level 0) : atom_scope."
-        x (value_variable n)
+        x (value_variable n)*)
   (* DEPRECATED
   | Coqtop_implicit (x, xs) ->
       string "Implicit Arguments " ^^
