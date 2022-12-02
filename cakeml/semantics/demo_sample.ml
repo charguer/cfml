@@ -47,7 +47,11 @@ let defs2 =
     mk_define_val "demo_placeholder" coq_typ_nat (coq_todo "placeholder")
   @ mk_typedef_abbrev "demo_abbrev" (coq_tuple [coq_typ_nat; coq_typ_nat])
   @ mk_typedef_record "demo_record" ["A"] [ ("f1", coq_typ_nat); ("f2", coq_tvar "A"); ]
-  @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [coq_typ_nat; coq_tvar "A"]); ("C2", []); ("C3", [coq_tvar "B"])]
+  @ mk_mutual_inductive [
+      mk_coqind "ind0" ["A B"] [ ("C1", [coq_typ_nat; coq_tvar "A"]); ("C2", []); ("C3", [coq_tvar "B"])] ]
+  @ mk_mutual_inductive [
+      mk_coqind "ind1" ["A"] [ ("D1", [coq_typ_nat; coq_apps_vars "ind2" ["A"]]); ("D2", [])];
+      mk_coqind "ind2" ["A"] [ ("E1", [coq_typ_nat; coq_tvar "A"]); ("E2", [coq_apps_vars "ind1" ["A"]])] ]
   @ let targs = [coq_typ_int; coq_typ_int] in
     mk_define_val "demo_match" coq_wild (
       coq_match (coq_cstr "C2" targs []) [

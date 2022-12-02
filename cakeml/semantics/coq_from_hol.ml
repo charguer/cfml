@@ -53,16 +53,13 @@ let mk_define_val (val_name:var) (val_typ:coq) (val_body:coq) =
 let mk_typedef_abbrev (name:var) (typ_body:coq) : coqtops =
   [ Coqtop_def ((name,Coq_wild), typ_body) ]
 
-(* Auxiliary function, takes as input [name] and [a, b], and returns
-   a list [(a:Coq_type),(b:Coq_type)]. *)
-
-let build_algebraic_targs (name:var) (typvars:var list) =
-  List.map (fun x -> (x,coq_typ_type)) typvars
-
-(* Record definition [type 'a name = { f1 : t1; f2 : t2 } *)
+(* Record definition [type 'a name = { f1 : t1; f2 : t2 }]
+   Note: Coq does not have support for mutual recursion between records, or between
+   records and type abbreviation and inductive. Encodings into mutual-inductive
+   are needed in such cases, let's postpone if we can. *)
 
 let mk_typedef_record (name:var) (typvars:var list) (fields:(var*coq) list) : coqtops =
-  let targs = build_algebraic_targs name typvars in
+  let targs = coq_types typvars in
   [ Coqtop_record {
    coqind_name = name;
    coqind_constructor_name = ("make_" ^ name);
@@ -70,26 +67,38 @@ let mk_typedef_record (name:var) (typvars:var list) (fields:(var*coq) list) : co
    coqind_ret = coq_typ_type;
    coqind_branches = fields; } ]
 
-(* Algebraic definition
-   [type 'a name = C1 of t11 * t12 | C2 of t21 * t22 * t33]
+(* Auxiliary function to build a [coqind] record (defined in coq.ml), which corresponds
+   to one among several mutually-inductive definitions part of a [Coqtop_ind].
+   Here we process one algebraic definition, e.g.
+   [type 'a name = C1 of t11 * t12 | C2 of t21 * t22 * t33] *)
 
-   TODO: generalize to mutual inductive definitions *)
-
-let mk_typedef_inductive (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqtops =
-  let targs = build_algebraic_targs name typvars in
+let mk_coqind (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
+  let targs = coq_types typvars in
   let ret = coq_apps (coq_var name) (coq_vars typvars) in
-  [ Coqtop_ind [ {
-   coqind_name = name;
-   coqind_constructor_name = "__dummy__";
-   coqind_targs = targs;
-   coqind_ret = coq_typ_type;
-   coqind_branches =
-     List.map (fun (cstr,args_typ) -> (cstr, coq_impls args_typ ret)) cstrs; } ] ]
-  @ (List.map (fun (cstr,args) ->
-        Coqtop_implicit (cstr,
-             List.map (fun x -> (x, Coqi_maximal)) typvars
-           @ List.mapi (fun i _ -> ("x" ^ string_of_int i, Coqi_explicit) ) args ))
-      cstrs)
+  { coqind_name = name;
+    coqind_constructor_name = "__dummy__";
+    coqind_targs = targs;
+    coqind_ret = coq_typ_type;
+    coqind_branches =
+      List.map (fun (cstr,args_typ) -> (cstr, coq_impls args_typ ret)) cstrs; }
+
+(* Auxiliary function for building commants such as [Arguments C1 {A1} {A2}] for
+   maximally-inserted arguments. *)
+let mk_arguments_for_constructors cstr typvars : coqtop =
+  let args_mode = List.map (fun x -> (x, Coqi_maximal)) typvars in
+  (* DEPRECATED @ List.mapi (fun i _ -> ("x" ^ string_of_int i, Coqi_explicit) ) args *)
+  Coqtop_implicit (cstr, args_mode)
+
+(* Function to build a mutual inductive definition;
+   one should use [mk_coind] for building arguments. *)
+
+let mk_mutual_inductive (defs:coqind list) : coqtops =
+  let mk_arguments def =
+    let cstrs = List.map fst def.coqind_branches in
+    let typvars = List.map fst def.coqind_targs in
+    List.map (fun cstr -> mk_arguments_for_constructors cstr typvars) cstrs
+    in
+  (Coqtop_ind defs) :: (List.concat_map mk_arguments defs)
 
 
 (*****************************************************************)
