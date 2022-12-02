@@ -263,9 +263,9 @@ and expr3 = function
       expr3 body
   | Coq_if (isclassical, e0, e1, e2) ->
       block
-        (string (if isclassical then "If" else "if") ^^ space ^^ expr e0)
-        (break 1 ^^ string "then" ^^ break 1 ^^ expr e1)
-        (break 1 ^^ string "else" ^^ break 1 ^^ expr e2)
+        (string (if isclassical then "If" else "if") ^^ space ^^ expr e0 ^^ space ^^ string "then")
+        (break 1 ^^ expr e1 ^^ break 1)
+        (string "else" ^^ break 1 ^^ expr e2)
   | Coq_match (carg, branches) ->
       let mk_branch (c1,c2) =
         group (string "|" ^^ space ^^ expr c1 ^^ space ^^ doublearrow ^^ space ^^ expr c2) ^^ hardline in

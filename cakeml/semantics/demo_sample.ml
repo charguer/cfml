@@ -48,11 +48,11 @@ let defs2 =
   @ mk_typedef_abbrev "demo_abbrev" (coq_tuple [coq_typ_nat; coq_typ_nat])
   @ mk_typedef_record "demo_record" ["A"] [ ("f1", coq_typ_nat); ("f2", coq_tvar "A"); ]
   @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [coq_typ_nat; coq_tvar "A"]); ("C2", []); ("C3", [coq_tvar "B"])]
-  (*  works, up to a missing type annotation
-  @ mk_define_val "demo_match" coq_wild (
-      mk_match_simple (coq_var "C2") [
-        ("C1", ["x";"y"], coq_int 3);
-        ("C2", [], coq_int 4);
-        ("C3", ["x"], coq_int 5); ]) *)
+  @ let targs = [coq_typ_int; coq_typ_int] in
+    mk_define_val "demo_match" coq_wild (
+      coq_match (coq_cstr "C2" targs []) [
+        ((coq_apps_vars "C1" ["x";"y"]), coq_int 3);
+        ((coq_apps_vars "C2" []), coq_int 4);
+        ((coq_apps_vars "C3" ["x"]), coq_int 5); ])
 
 let _ = out_prog "demo.v" (defs1 @ defs2)

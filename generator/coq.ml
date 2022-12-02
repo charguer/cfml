@@ -211,6 +211,11 @@ let coq_app_var x c =
 let coq_apps_var x args =
   coq_apps (coq_var x) args
 
+(** Application [x x1 x2 .. xn] *)
+
+let coq_apps_vars x xs =
+  coq_apps (coq_var x) (coq_vars xs)
+
 (** Application to wildcards [c _ _ .. _] *)
 
 let coq_app_wilds c n =
@@ -342,7 +347,7 @@ let coq_typ_bool =
   Coq_var "Coq.Init.Datatypes.bool"
 
 let coq_typ_int =
-  Coq_var "Coq.ZArith.BinInt.Z"
+  Coq_var "Coq.Numbers.BinNums.Z"
 
 let coq_typ_z =
   coq_typ_int

@@ -17,22 +17,12 @@ let coq_todo (msg:string) =
 let coq_tvar (x:string) =
   coq_var x
 
+(* [coq_cstr x cs1 cs2] applies the potentially-polymorphic data constructor [x]
+   to the type arguments [cs1] and to the arguments [cs2]. Thoses lists may be empty. *)
 
-(*****************************************************************)
-(* Encoding for programming language constructs *)
+let coq_cstr x cs1 cs2 =
+  coq_apps (coq_var_at x) (cs1 @ cs2)
 
-(* Simplified pattern matching
-     match scrunity with
-     | C1 x1 x2 => body1
-     | C2 x1 x2 x3 => body2
-     end
-  *)
-
-let mk_match_simple (scrunity:coq) (branches:(var*(var list)*coq) list) =
-  let mk_branch (cstr_name, pat_vars, body) =
-    let pattern = coq_apps (coq_var cstr_name) (coq_vars pat_vars) in
-    (pattern,body) in
-  coq_match scrunity (List.map mk_branch branches)
 
 
 (*****************************************************************)
@@ -122,3 +112,24 @@ let out_prog filename defs =
     :: defs in
   let text = Print_coq.tops defs in
   file_put_contents filename text
+
+
+
+
+(*****************************************************************)
+(* Encoding for programming language constructs *)
+
+(* TODO : DEPRECATED *)
+
+(* Simplified pattern matching
+     match scrunity with
+     | C1 x1 x2 => body1
+     | C2 x1 x2 x3 => body2
+     end
+
+let mk_match_simple (scrunity:coq) (branches:(var*(var list)*coq) list) =
+  let mk_branch (cstr_name, pat_vars, body) =
+    let pattern = coq_apps (coq_var cstr_name) (coq_vars pat_vars) in
+    (pattern,body) in
+  coq_match scrunity (List.map mk_branch branches)
+  *)

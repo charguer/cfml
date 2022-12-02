@@ -1,5 +1,6 @@
 
 Require Export String.
+Require Export Coq.Numbers.BinNums.
 
 Axiom COQ_HOLE : forall {X:Type} (msg:string), X.
 
