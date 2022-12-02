@@ -70,10 +70,10 @@ fun export_ty ty =
   let
     val n = dest_vartype ty
     val n = adjust_tyvar_name n
-  in app "coq_tvar" [quote n] end handle HOL_ERR _ => (* TODO; what is mk_var_type? *)
+  in app "coq_tvar" [quote n] end handle HOL_ERR _ =>
   let
     val (n,tys) = dest_type ty
-  in app "coq_apps" [quote n, list (map export_ty tys)] end (* TODO; what is mk_type? *)
+  in app "coq_apps_var" [quote n, list (map export_ty tys)] end
 
 fun mk_app f x =
   case f of
@@ -88,7 +88,7 @@ fun export tm =
   let
     val (v,x) = dest_abs tm
     val (s,ty) = dest_var v
-  in app "coq_lam" [quote s, export x] end handle HOL_ERR _ => (* TODO: coq_lam should be coq_fun(x,ty),body) *)
+  in app "coq_lam" [tuple [quote s, export_ty ty], export x] end handle HOL_ERR _ =>
   let
     val n = numSyntax.dest_numeral tm
   in app "coq_nat" [String (Arbnum.toString n)] end handle HOL_ERR _ =>
