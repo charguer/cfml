@@ -346,9 +346,22 @@ let coq_impl c1 c2 =
 let coq_impls cs c =
   List.fold_right (fun ci acc -> Coq_impl (ci, acc)) cs c
 
+(** Predicate type [A->Prop] *)
+
+let coq_pred c =
+  coq_impl c Coq_prop
+
+(** N-ary predicate [c1 -> c2 -> .. -> cn -> Prop] *)
+
+let coq_preds cs =
+  coq_impls cs Coq_prop
+
 
 (*#########################################################################*)
 (* ** Smart constructors for base types *)
+
+let coq_typ_prop =
+  Coq_prop
 
 let coq_typ_type =
   Coq_type
@@ -374,11 +387,6 @@ let coq_typ_nat =
 
 (*#########################################################################*)
 (* ** Smart constructors for compound types *)
-
-(** Predicate type [A->Prop] *)
-
-let coq_pred c =
-  Coq_impl (c, Coq_prop)
 
 (** Product type [(c1 * c2)%type] *)
 

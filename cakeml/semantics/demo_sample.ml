@@ -73,5 +73,14 @@ let defs2 =
   @ mk_define_val "demo_list_cons" (coq_wild) (coq_cons ~typ:nat nzero (coq_nil()))
   @ mk_define_val "demo_list_list" (coq_wild) (coq_list [nzero; nzero])
   @ mk_define_val "demo_list_list_annot" (coq_wild) (coq_list ~typ:nat [nzero; nzero])
+  @ mk_mutual_inductive_pred [
+      mk_coqind_pred "foo" (coq_types ["A"]) (coq_preds [coq_typ_list (coq_tvar "A")])
+        [ ("F1", coq_apps (coq_var_at "foo") [coq_tvar "A"; coq_nil()]);
+          ("F2", coq_foralls
+                   [ ("x", coq_wild);
+                     ("l", coq_wild);
+                     ("_", coq_apps (coq_var "foo") [coq_var "l"]) ]
+                   (coq_apps (coq_var "foo") [coq_cons (coq_var "x") (coq_var "l")])) ]
+    ]
 
 let _ = out_prog "demo.v" (defs1 @ defs2)

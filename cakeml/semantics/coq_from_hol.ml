@@ -74,13 +74,14 @@ let mk_typedef_record (name:var) (typvars:var list) (fields:(var*coq) list) : co
    to one among several mutually-inductive definitions part of a [Coqtop_ind],
    for the case of a type definition.
    Here we process one algebraic definition, e.g.
-   [type 'a name = C1 of t11 * t12 | C2 of t21 * t22 * t33] *)
+   [type 'a name = C1 of t11 * t12 | C2 of t21 * t22 * t33]
+   Note that this is a particular case of the constructor [mk_coind_pred]. *)
 
 let mk_coqind_type (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
   let targs = coq_types typvars in
   let ret = coq_apps (coq_var name) (coq_vars typvars) in
   { coqind_name = name;
-    coqind_constructor_name = "__dummy__";
+    coqind_constructor_name = "__dummy__"; (* only useful for records; TODO: make this an option? *)
     coqind_targs = targs;
     coqind_ret = coq_typ_type;
     coqind_branches =
@@ -105,21 +106,22 @@ let mk_mutual_inductive_type (defs:coqind list) : coqtops =
   (Coqtop_ind defs) :: (list_concat_map mk_arguments defs)
 
 (* Auxiliary function to build a [coqind], for a predicate definition.
-   [Inductive foo (A:Type) : list A -> Prop : =
+   [Inductive foo (A:Type) : list A -> Prop :=
       | F1 : foo nil
-      | F2 : forall x l, foo l -> foo (x::l)] *)
+      | F2 : forall x l, foo l -> foo (x::l)]
+   In this example,
+   - [name] is [foo],
+   - [params] is the singleton list [(A,Type)]
+   - [ret_type] is [list A -> Prop]
+   - [cstrs] is a list whose second item is the pair [("F1",c)],
+     where [c] denotes the encoding of the coq_statement [forall x l, foo l -> foo (x::l)]. *)
 
-(* TODO
-let mk_coqind_type (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
-  let targs = coq_types typvars in
-  let ret = coq_apps (coq_var name) (coq_vars typvars) in
+let mk_coqind_pred (name:var) (params:(var*coq) list) (ret_type:coq) (cstrs:(var*coq) list) : coqind =
   { coqind_name = name;
-    coqind_constructor_name = "__dummy__";
-    coqind_targs = targs;
-    coqind_ret = coq_typ_type;
-    coqind_branches =
-      List.map (fun (cstr,args_typ) -> (cstr, coq_impls args_typ ret)) cstrs; }
-*)
+    coqind_constructor_name = "__dummy__"; (* only useful for records *)
+    coqind_targs = params;
+    coqind_ret = ret_type;
+    coqind_branches = cstrs; }
 
 (* Function to build a mutual inductive predicates;
    one should use [mk_coind_pred] for building arguments. *)
