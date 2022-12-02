@@ -1,78 +1,25 @@
 
+include Coq
 
-open Coq
 (* Remark: [type var = string] *)
 
 
 (*****************************************************************)
-(* Placeholder *)
+(** Complement to coq.ml *)
 
-let mk_todo (msg:string) =
-  coq_app_var "Prelude.COQ_HOLE" (coq_string_val msg)
+(* Placeholder for missing Coq subterms: [COQ_HOLE] admits any type. *)
 
-let mk_wild =  (* [_] in Coq, can be written e.g. where a type is expected *)
-  Coq_wild
+let coq_todo (msg:string) =
+  coq_app_var "Prelude.COQ_HOLE" (coq_string msg)
 
+(* Alias [coq_tvar] to record references to type variables, as opposed to program variables *)
 
-(*****************************************************************)
-(* Types *)
-
-(* Type [Type] in Coq *)
-
-let mk_typ_type =
-  Coq_type
-
-(* Type [nat] *)
-
-let mk_typ_nat =
-  coq_nat
-
-(* Type [int] *)
-
-let mk_typ_int =
-  coq_int
-
-(* Type [c1 -> c2] *)
-
-let mk_arrow (c1,c2) =
-  coq_impl c1 c2
-
-(* Type variable *)
-
-let mk_tvar (x:string) =
-  Coq_var x
-
-(* Product type [c1 * c2 * c3] product type *)
-let mk_prod cs =
-  coq_prod cs
-
-
-(*****************************************************************)
-(* Constants *)
-
-let mk_var x =
+let coq_tvar (x:string) =
   coq_var x
 
-let mk_nat n =
-  Coq_nat n
-
-let mk_int n =
-  Coq_int n
-
-
 
 (*****************************************************************)
-(* Structures *)
-
-(* Application *)
-
-let mk_app c0 cs =
-  coq_apps c0 cs
-
-(* Conditional *)
-
-let mk_if c0 c1 c2 =
-  coq_classical_if c0 c1 c2
+(* Encoding for programming language constructs *)
 
 (* Simplified pattern matching
      match scrunity with
@@ -89,43 +36,7 @@ let mk_match_simple (scrunity:coq) (branches:(var*(var list)*coq) list) =
 
 
 (*****************************************************************)
-(* Usual functions *)
-
-let mk_var_eq =
-  mk_var("Coq.Init.Logic.eq")
-
-let mk_var_lt =
-  mk_var("Coq.Init.Peano.lt")
-
-let mk_var_eq =
-  mk_var("Coq.Init.Logic.eq")
-
-let mk_var_add =
-  mk_var("Coq.Init.Nat.add")
-
-let mk_var_sub =
-  mk_var("Coq.Init.Nat.sub")
-
-
-(*****************************************************************)
-(* TODO: deprecated? *)
-
-let mk_app2 (c0, c1, c2) =
-  mk_app c0 [c1; c2]
-
-let nat_lt = mk_var_lt
-
-let nat_add = mk_var_add
-
-let nat_sub = mk_var_sub
-
-let mk_eq c1 c2 =
-  mk_app2 (mk_var_eq, c1, c2)
-
-
-
-(*****************************************************************)
-(* Value definitions *)
+(* Toplevel value definitions *)
 
 (* Function definition --> see doc in demo_sample.ml *)
 
@@ -143,7 +54,7 @@ let mk_define_val (val_name:var) (val_typ:coq) (val_body:coq) =
 
 
 (*****************************************************************)
-(* Type definitions *)
+(* Toplevel type definitions *)
 
 (* Type abbreviation [type name = typ_body]
    Note: for polymorphism, you can instantiate [typ_body] as
@@ -156,7 +67,7 @@ let mk_typedef_abbrev (name:var) (typ_body:coq) : coqtops =
    a list [(a:Coq_type),(b:Coq_type)]. *)
 
 let build_algebraic_targs (name:var) (typvars:var list) =
-  List.map (fun x -> (x,mk_typ_type)) typvars
+  List.map (fun x -> (x,coq_typ_type)) typvars
 
 (* Record definition [type 'a name = { f1 : t1; f2 : t2 } *)
 
@@ -166,7 +77,7 @@ let mk_typedef_record (name:var) (typvars:var list) (fields:(var*coq) list) : co
    coqind_name = name;
    coqind_constructor_name = ("make_" ^ name);
    coqind_targs = targs;
-   coqind_ret = mk_typ_type;
+   coqind_ret = coq_typ_type;
    coqind_branches = fields; } ]
 
 (* Algebraic definition
@@ -181,7 +92,7 @@ let mk_typedef_inductive (name:var) (typvars:var list) (cstrs:(var*(coq list)) l
    coqind_name = name;
    coqind_constructor_name = "__dummy__";
    coqind_targs = targs;
-   coqind_ret = mk_typ_type;
+   coqind_ret = coq_typ_type;
    coqind_branches =
      List.map (fun (cstr,args_typ) -> (cstr, coq_impls args_typ ret)) cstrs; } ] ]
   @ (List.map (fun (cstr,args) ->

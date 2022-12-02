@@ -185,7 +185,7 @@ let qimpl q1 q2 =
 (** Specialized post-conditions [fun (_:unit) => H], i.e. [# H] *)
 
 let post_unit h =
-  coq_fun ("_",coq_unit) h
+  coq_fun ("_",coq_typ_unit) h
 
 (** Separating conjunction [H1 * H2] *)
 

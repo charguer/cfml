@@ -80,8 +80,8 @@ let rec coqtops_of_cf cf =
       (* Optimization: don't quantify arguments of type unit
           --bad idea, it breaks notations. we'll remove them in ltac instead.
       let args = List.map (fun (x,t) ->
-         coq_dyn_of t (if t <> coq_unit then coq_var x else coq_tt)) targs in
-      let targs_nonunit = List.filter (fun (x,t) -> t <> coq_unit) targs in
+         coq_dyn_of t (if t <> coq_typ_unit then coq_var x else coq_tt)) targs in
+      let targs_nonunit = List.filter (fun (x,t) -> t <> coq_typ_unit) targs in
       *)
       (* TODO: use name tt1__ for generated names of unit type *)
       let args = List.map (fun (x,t) -> coq_dyn_of t (coq_var x)) targs in
@@ -108,7 +108,7 @@ let rec coqtops_of_cf cf =
       let hyp_on_x = coq_forall_types (*coq_forall_enc_types *) fvs_strict (coq_app (app_on_tvars "P1") (app_on_tvars x)) in
       let c2 = coq_foralls [(x,type_of_x)] (coq_impl (hyp_on_x) (himpl_formula_app h1 (aux cf2) q)) in
       let type_of_p1 = coq_forall_types (*coq_forall_enc_types*) fvs_strict (coq_pred typ) in
-      let c = coq_exists [("P1",type_of_p1); ("H1",hprop)] (coq_conj c1 c2) in (* TODO:name conflicts?*)
+      let c = coq_exists [("P1",type_of_p1); ("H1",hprop)] (coq_app_conj c1 c2) in (* TODO:name conflicts?*)
       let body = formula_def aname qname (coq_fun (hname,hprop) c) in
       wpgen_app "WPLifted.Wpgen_let_trm_poly" [body]
       (* Define CF as:  (HO is named h above)
@@ -162,25 +162,25 @@ let rec coqtops_of_cf cf =
         let calias = wpgen_app "WPLifted.Wpgen_let_val" [lifted_v; coq_fun typed_name c] in
         wpgen_app "WPLifted.Wpgen_alias" [calias] in
       let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
-      let same = coq_eq v pat in
-      let same_when = match vwhenopt with None -> same | Some w -> coq_conj same w in
+      let same = coq_app_eq v pat in
+      let same_when = match vwhenopt with None -> same | Some w -> coq_app_conj same w in
       let c1_body = hforalls tps (hwand_hpure same_when (formula_app (cf1_aliased) q)) in
       let c1 = formula_def aname qname c1_body in
-      let diff = coq_neq v pat in
-      let diff_when = match vwhenopt with None -> diff | Some w -> coq_disj diff (coq_neg w) in
+      let diff = coq_app_neq v pat in
+      let diff_when = match vwhenopt with None -> diff | Some w -> coq_app_disj diff (coq_app_neg w) in
       let diff_hyp = coq_apps_cfml_var "WPLifted.Wpgen_negpat" [coq_foralls tps diff_when] in
       wpgen_app "WPLifted.Wpgen_case" [c1; diff_hyp; aux cf2]
 
      (* DEPRECATED
       let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
-      let same = coq_eq v pat in
+      let same = coq_app_eq v pat in
       let same_when = match vwhenopt with None -> [same] | Some w -> [same; w] in
       let c1 = coq_foralls tps (coq_impls same_when (coq_apps (cf1_aliased) [h;q])) in
-      let diff = coq_neq v pat in
-      let diff_when = match vwhenopt with None -> diff | Some w -> coq_disj diff (coq_neg w) in
+      let diff = coq_app_neq v pat in
+      let diff_when = match vwhenopt with None -> diff | Some w -> coq_app_disj diff (coq_app_neg w) in
       let c2 = Coq_impl (coq_foralls tps diff_when, coq_apps (aux cf2) [h;q]) in
       let tag = match vwhenopt with None -> "tag_case" | Some w -> "tag_casewhen" in
-      funhq tag (coq_conj c1 c2)
+      funhq tag (coq_app_conj c1 c2)
       (* (!C a: (fun H Q => (forall x1, x = p [-> trueb w] -> (!L a: y := v in F1) H Q)
                       /\ ((forall x1, x <> p [\/ trueb !w]) -> F2 H Q)))
           where trueb are implicit by coercions *)
@@ -200,7 +200,7 @@ let rec coqtops_of_cf cf =
         | For_loop_up -> "WPLifted.Wpgen_for_int"
         | For_loop_down -> "WPLifted.Wpgen_for_downto_int"
         in
-      let body = coq_fun (i_name, coq_int) (aux cf1) in
+      let body = coq_fun (i_name, coq_typ_int) (aux cf1) in
       wpgen_app pred [v1; v2; body]
 
   | Cf_while (cf1,cf2) ->
@@ -243,7 +243,7 @@ let coqtops_of_cftop coq_of_cf cft =
 
   | Cftop_val_cf (x,fvs_strict,fvs_other,v) ->
       (* Parameter x_cf : (forall Ai Bi, x = v). *)
-      let hyp = coq_forall_enc_types (fvs_strict @ fvs_other) (coq_eq (coq_var x) v) in
+      let hyp = coq_forall_enc_types (fvs_strict @ fvs_other) (coq_app_eq (coq_var x) v) in
       [ Coqtop_param (cf_axiom_name x, hyp)]
       (* DEPRECATED let t = coq_tag "tag_top_val" hyp in *)
 

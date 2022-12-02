@@ -39,14 +39,14 @@ QED
 (* sketch of some automation *)
 
 val term_patterns =
-  [(“arithmetic$+”,"nat_add"),
-   (“arithmetic$-”,"nat_sub"),
-   (“prim_rec$<”,"nat_lt"),
-   (“arithmetic$<=”,"nat_le"),
-   (“num$SUC”,"nat_suc"),
-   (“_m = _n:'a”,"mk_eq"),
-   (“_m ⇒ _n:bool”,"mk_imp"),
-   (“if _a then _b else _c”,"mk_if")];
+  [(“arithmetic$+”,"coq_nat_add"),
+   (“arithmetic$-”,"coq_nat_sub"),
+   (“prim_rec$<”,"coq_nat_lt"),
+   (“arithmetic$<=”,"coq_nat_le"),
+   (“num$SUC”,"coq_nat_succ"),
+   (“_m = _n:'a”,"coq_app_eq"),
+   (“_m ⇒ _n:bool”,"coq_impl"),
+   (“if _a then _b else _c”,"coq_if_prop")];
 
 datatype output_type = FunApp of string | Tuple | List;
 datatype output = String of string
@@ -58,34 +58,34 @@ fun tuple xs = App (false,Tuple,xs);
 fun quote s = String ("\"" ^ s ^ "\"")
 
 fun export_ty ty =
-  if ty = “:bool” then String "mk_typ_bool" else
-  if ty = “:unit” then String "mk_typ_unit" else
-  if ty = “:num”  then String "mk_typ_nat" else
-  if ty = “:int”  then String "mk_typ_int" else
+  if ty = “:bool” then String "coq_typ_bool" else
+  if ty = “:unit” then String "coq_typ_unit" else
+  if ty = “:num”  then String "coq_typ_nat" else
+  if ty = “:int”  then String "coq_typ_int" else
   let
     val n = dest_vartype ty
-  in app "mk_var_type" [quote n] end handle HOL_ERR _ =>
+  in app "mk_var_type" [quote n] end handle HOL_ERR _ => (* TODO; what is mk_var_type? *)
   let
     val (n,tys) = dest_type ty
-  in app "mk_type" (quote n :: map export_ty tys)  end
+  in app "mk_type" (quote n :: map export_ty tys)  end (* TODO; what is mk_type? *)
 
 fun mk_app f x =
   case f of
-    App (false,FunApp "mk_app",[g,App (false,List,xs)]) =>
-      app "mk_app" [g,list (xs @ [x])]
-  | _ => app "mk_app" [f,list [x]];
+    App (false,FunApp "coq_app",[g,App (false,List,xs)]) =>
+      app "coq_app" [g,list (xs @ [x])]
+  | _ => app "coq_app" [f,list [x]];
 
 fun export tm =
   let
     val (v,ty) = dest_var tm
-  in app "mk_var" [quote v] end handle HOL_ERR _ =>
+  in app "coq_var" [quote v] end handle HOL_ERR _ =>
   let
     val (v,x) = dest_abs tm
     val (s,ty) = dest_var v
-  in app "mk_lam" [quote s, export x] end handle HOL_ERR _ =>
+  in app "coq_lam" [quote s, export x] end handle HOL_ERR _ => (* TODO: coq_lam should be coq_fun(x,ty),body) *)
   let
     val n = numSyntax.dest_numeral tm
-  in app "mk_nat" [String (Arbnum.toString n)] end handle HOL_ERR _ =>
+  in app "coq_nat" [String (Arbnum.toString n)] end handle HOL_ERR _ =>
   let
     fun match_pat (pat,s) = let
       val (i,j) = match_term pat tm
@@ -101,7 +101,7 @@ fun export tm =
   in mk_app (export f) (export x) end handle HOL_ERR _ =>
   let
     val (n,ty) = dest_const tm
-  in app "mk_var" [quote n] end;
+  in app "coq_var" [quote n] end;
 
 fun print_output out =
   let

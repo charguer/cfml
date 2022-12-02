@@ -28,31 +28,31 @@ let defs1 =
   mk_define
     "fib"
     "fib_def"
-    [("n", mk_typ_nat)]
-    mk_typ_nat
-    (mk_eq
-      (mk_app (mk_var "fib") [mk_var "n"])
-      (mk_if
-        (mk_app nat_lt [mk_var "n"; mk_nat 2])
-        (mk_var "n")
-        (mk_app
-          nat_add
-          [mk_app (mk_var "fib") [mk_app nat_sub [mk_var "n"; mk_nat 1]];
-           mk_app (mk_var "fib") [mk_app nat_sub [mk_var "n"; mk_nat 2]]])));;
+    [("n", coq_typ_nat)]
+    coq_typ_nat
+    (coq_app_eq
+      (coq_apps (coq_var "fib") [coq_var "n"])
+      (coq_if_prop
+        (coq_apps coq_nat_lt [coq_var "n"; coq_nat 2])
+        (coq_var "n")
+        (coq_apps
+          coq_nat_add
+          [coq_apps (coq_var "fib") [coq_apps coq_nat_sub [coq_var "n"; coq_nat 1]];
+           coq_apps (coq_var "fib") [coq_apps coq_nat_sub [coq_var "n"; coq_nat 2]]])));;
 
 
 (* More demos *)
 
 let defs2 =
-    mk_define_val "demo_placeholder" mk_typ_nat (mk_todo "placeholder")
-  @ mk_typedef_abbrev "demo_abbrev" (mk_prod [mk_typ_nat; mk_typ_nat])
-  @ mk_typedef_record "demo_record" ["A"] [ ("f1", mk_typ_nat); ("f2", mk_tvar "A"); ]
-  @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [mk_typ_nat; mk_tvar "A"]); ("C2", []); ("C3", [mk_tvar "B"])]
+    mk_define_val "demo_placeholder" coq_typ_nat (coq_todo "placeholder")
+  @ mk_typedef_abbrev "demo_abbrev" (coq_tuple [coq_typ_nat; coq_typ_nat])
+  @ mk_typedef_record "demo_record" ["A"] [ ("f1", coq_typ_nat); ("f2", coq_tvar "A"); ]
+  @ mk_typedef_inductive "demo_induct" ["A B"] [ ("C1", [coq_typ_nat; coq_tvar "A"]); ("C2", []); ("C3", [coq_tvar "B"])]
   (*  works, up to a missing type annotation
-  @ mk_define_val "demo_match" mk_wild (
-      mk_match_simple (mk_var "C2") [
-        ("C1", ["x";"y"], mk_int 3);
-        ("C2", [], mk_int 4);
-        ("C3", ["x"], mk_int 5); ]) *)
+  @ mk_define_val "demo_match" coq_wild (
+      mk_match_simple (coq_var "C2") [
+        ("C1", ["x";"y"], coq_int 3);
+        ("C2", [], coq_int 4);
+        ("C3", ["x"], coq_int 5); ]) *)
 
 let _ = out_prog "demo.v" (defs1 @ defs2)

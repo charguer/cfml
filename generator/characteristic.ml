@@ -830,7 +830,7 @@ let rec cfg_exp env e =
       let ts2 = coq_typ loc newval in
       let func = coq_cfml_var "WPRecord.val_set_field" in
       let op = coq_app func (coq_var (record_field_name lbl.lbl_name)) in
-      Cf_app ([ts1; ts2], coq_unit, op, [lift arg; lift newval])
+      Cf_app ([ts1; ts2], coq_typ_unit, op, [lift arg; lift newval])
 
    | Texp_try(body, pat_expr_list) -> unsupported loc "try expression"
    | Texp_variant(l, arg) ->  unsupported loc "variant expression"
@@ -1176,7 +1176,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
    let repr_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
    let repr_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ fields_types @ (list_make n id_repr) @ vconcretes)) in
    let repr_elems = helems in
-   let repr_convert_body = coq_eq repr_folded (hexistss tconcretes (hstar repr_unfolded repr_elems)) in
+   let repr_convert_body = coq_app_eq repr_folded (hexistss tconcretes (hstar repr_unfolded repr_elems)) in
    let repr_focus_body =himpl repr_folded (hexistss tconcretes (hstar repr_unfolded repr_elems)) in
    let repr_unfocus_body =himpl (hstar repr_unfolded repr_elems) repr_folded in
    let repr_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
@@ -1199,7 +1199,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let helemi = nth i helems_items in
       let field_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
       let field_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ (list_replace_nth i fields_types vlogicals) @ (list_replace i id_repr vreprs) @ (list_replace_nth i vconcretes vabstracts))) in
-      let field_convert_body = coq_eq field_folded (hexists_one tconcretei (hstar field_unfolded helemi)) in
+      let field_convert_body = coq_app_eq field_folded (hexists_one tconcretei (hstar field_unfolded helemi)) in
       let field_focus_body =himpl field_folded (hexists_one tconcretei (hstar field_unfolded helemi)) in
       let field_unfocus_body =himpl (hstar field_unfolded helemi) field_folded in
       let field_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
@@ -1235,7 +1235,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let r = "R" in
       let vr = coq_var r in
       let trget = (r, formula_type_of (nth i fields_types)) in
-      let trset = (r, formula_type_of coq_unit) in
+      let trset = (r, formula_type_of coq_typ_unit) in
       let x' = sprintf "_X%d'" i in
       let vx' = coq_var x' in
       let tx' = (x', nth i fields_types) in
@@ -1248,7 +1248,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let data_targs = vparams @ replaced_vlogicals @ replaced_vreprs in
       let data_initial = hdata vloc (coq_apps (coq_var_at repr_name) (data_targs @ vabstracts)) in
       let data_updated = hdata vloc (coq_apps (coq_var_at repr_name) (data_targs @ update_vabstracts)) in
-      let post_get = coq_funs [("x", Coq_wild)] (hstar (hpure (coq_eq (Coq_var "x") (nth i vabstracts))) data_initial) in
+      let post_get = coq_funs [("x", Coq_wild)] (hstar (hpure (coq_app_eq (Coq_var "x") (nth i vabstracts))) data_initial) in
       let post_set = post_unit data_updated in
       let body_quantif = replaced_tabstracts @ selected_treprs in
       let body_get = coq_funs [tloc; trget] (coq_foralls body_quantif (coq_apps vr [data_initial; post_get])) in
@@ -1286,7 +1286,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let set_name_spec = set_name ^ "_spec_unfocus" in
       let r = "R" in
       let vr = coq_var r in
-      let trset = (r, formula_type_of coq_unit) in
+      let trset = (r, formula_type_of coq_typ_unit) in
       let x_concrete = "x0" in
       let tx_concrete = (x_concrete, nth i fields_types) in
       let vlogical0 = Coq_var "_A0" in
@@ -1425,7 +1425,7 @@ and cfg_algebraics decls =
                 coq_app encoder arg
                 in
              let pat = coq_apps (coq_var c) (list_init n (fun i -> coq_var (patvar_name i))) in
-             let res = coq_apps val_constr [(coq_string_val c); (coq_list ~typ:val_type (List.mapi enc_arg ts))] in
+             let res = coq_apps val_constr [(coq_string c); (coq_list ~typ:val_type (List.mapi enc_arg ts))] in
              (pat, res) in
 
           let impl_body = coq_match (coq_var arg_name) (List.map impl_branch branches) in

@@ -299,7 +299,7 @@ let rec tr_exp env e =
       let ts2 = coq_typ loc newval in
       let func = coq_cfml_var "WPRecord.val_set_field" in
       let op = coq_app func (coq_var (record_field_name lbl.lbl_name)) in
-      Cf_app ([ts1; ts2], coq_unit, op, [lift arg; lift newval])
+      Cf_app ([ts1; ts2], coq_typ_unit, op, [lift arg; lift newval])
 
 *)
    | Texp_function (_, pat_expr_list, partial) -> not_normal ~s:"The function involved has not been lifted properly during normalization;\n check the normalized file in _output folder.\n" ()
@@ -352,7 +352,7 @@ and tr_func env rf pat bod =
    let body' = tr_exp env' body in
    let cstr = if is_value then "val_fixs" else "trm_fixs" in
    let farg = if is_recursive then Coq_string fname else coq_var "LibSepBind.bind_anon" in
-   coq_sem cstr [farg; (coq_list (List.map coq_string_val args)); body']
+   coq_sem cstr [farg; (coq_list (List.map coq_string args)); body']
 
 
 (** Generate the deep embedding of a top-level OCaml function [fun pat -> body] *)
