@@ -62,12 +62,16 @@ fun export_ty ty =
   if ty = “:unit” then String "coq_typ_unit" else
   if ty = “:num”  then String "coq_typ_nat" else
   if ty = “:int”  then String "coq_typ_int" else
+  if ty = alpha then app "coq_tvar" [quote "A"] else
+  if ty = beta  then app "coq_tvar" [quote "B"] else
+  if ty = gamma then app "coq_tvar" [quote "C"] else
+  if ty = delta then app "coq_tvar" [quote "D"] else
   let
     val n = dest_vartype ty
-  in app "mk_var_type" [quote n] end handle HOL_ERR _ => (* TODO; what is mk_var_type? *)
+  in app "coq_tvar" [quote n] end handle HOL_ERR _ => (* TODO; what is mk_var_type? *)
   let
     val (n,tys) = dest_type ty
-  in app "mk_type" (quote n :: map export_ty tys)  end (* TODO; what is mk_type? *)
+  in app "coq_apps" [quote n, list (map export_ty tys)] end (* TODO; what is mk_type? *)
 
 fun mk_app f x =
   case f of
@@ -105,7 +109,7 @@ fun export tm =
 
 fun print_output out =
   let
-    val threshold = 80
+    val threshold = 60
     fun size_aux (FunApp s) = size s + 3 | size_aux _ = 2;
     fun annotate (String s) = (String s, size s)
       | annotate (App (_,s,xs)) =
@@ -180,21 +184,46 @@ fun export_def def =
 
 val _ = print_output $ export_def fib_def;
 
-(*
-let defs =
-  mk_define(
-    "fib",
-    "fib_def",
-    [("n", mk_typ_nat)],
-    mk_typ_nat,
-    mk_eq(
-      mk_app(mk_var("fib"), [mk_var("n")]),
-      mk_if(
-        mk_lt(mk_var("n"), mk_nat(3)),
-        mk_var("n"),
-        mk_add(
-          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(1))]),
-          mk_app(mk_var("fib"), [mk_sub(mk_var("n"), mk_nat(2))])))))
-*)
+Datatype:
+  ind1 = D1 num ind2 | D2 ;
+  ind2 = E1 num 'a | E2 ind1
+End
+
+fun dest_fun_type ty = let
+  val (name,args) = dest_type ty
+  in if name = "fun" then (el 1 args, el 2 args) else failwith("not fun type") end
+
+fun dest_curried_fun_type ty = let
+  val (t1,t2) = dest_fun_type ty
+  in t1 :: dest_curried_fun_type t2 end handle HOL_ERR _ => [ty]
+
+fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
+  fun is_pair_ty ty = fst (dest_type ty) = "prod"
+  val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
+  in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
+
+fun export_ty_def ty = let
+  val tys = find_mutrec_types “:'a ind2”
+  val css = map (fn ty => (ty,TypeBase.constructors_of ty)) tys
+  fun process (ty,cs) = let
+    val (ty_n,ts) = dest_type ty
+    val vs = ts |> map dest_vartype
+    fun f c = let
+      val (n,ct) = dest_const c
+      val ctys = dest_curried_fun_type ct
+      val xs = butlast ctys
+      val x = last ctys
+      val _ = (x = ty) orelse failwith "info from TypeBase is malformed"
+      in (n,xs) end
+    in (ty_n,vs,map f cs) end
+  val xs = map process css
+  fun export_case (n,vs,cs) =
+    app "mk_coqind"
+      [quote n,
+       list (map quote vs),
+       list (map (fn (n,tys) => tuple [quote n, list (map export_ty tys)]) cs)]
+  in app "mk_mutual_inductive" [list (map export_case xs)] end
+
+val _ = print_output $ export_ty_def “:'a ind2”;
 
 val _ = export_theory();
