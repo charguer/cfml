@@ -191,6 +191,10 @@ Datatype:
   ind2 = E1 num 'a | E2 ind1
 End
 
+Datatype:
+  state = <| red : num; blue : 'a list |>
+End
+
 fun dest_fun_type ty = let
   val (name,args) = dest_type ty
   in if name = "fun" then (el 1 args, el 2 args) else failwith("not fun type") end
@@ -204,28 +208,40 @@ fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
-fun export_ty_def ty = let
-  val tys = find_mutrec_types “:'a ind2”
-  val css = map (fn ty => (ty,TypeBase.constructors_of ty)) tys
-  fun process (ty,cs) = let
-    val (ty_n,ts) = dest_type ty
-    val vs = ts |> map dest_vartype |> map adjust_tyvar_name
-    fun f c = let
-      val (n,ct) = dest_const c
-      val ctys = dest_curried_fun_type ct
-      val xs = butlast ctys
-      val x = last ctys
-      val _ = (x = ty) orelse failwith "info from TypeBase is malformed"
-      in (n,xs) end
-    in (ty_n,vs,map f cs) end
-  val xs = map process css
-  fun export_case (n,vs,cs) =
-    app "mk_coqind"
-      [quote n,
-       list (map quote vs),
-       list (map (fn (n,tys) => tuple [quote n, list (map export_ty tys)]) cs)]
-  in app "mk_mutual_inductive" [list (map export_case xs)] end
+fun export_ty_def ty =
+  if TypeBase.is_record_type ty then let
+    val ty = TypeBase.case_const_of ty |> type_of |> dest_fun_type |> fst
+    val ts = TypeBase.fields_of ty |> map (fn (b,{ty = ty, ...}) => (b,ty))
+    val (ty_n,ts1) = dest_type ty
+    val vs = ts1 |> map dest_vartype |> map adjust_tyvar_name
+    in app "mk_typedef_record"
+         [quote ty_n,
+          list (map quote vs),
+          list (map (fn (n,t) => tuple [quote n, export_ty t]) ts)] end
+  else let
+    val ty = TypeBase.case_const_of ty |> type_of |> dest_fun_type |> fst
+    val tys = find_mutrec_types ty
+    val css = map (fn ty => (ty,TypeBase.constructors_of ty)) tys
+    fun process (ty,cs) = let
+      val (ty_n,ts) = dest_type ty
+      val vs = ts |> map dest_vartype |> map adjust_tyvar_name
+      fun f c = let
+        val (n,ct) = dest_const c
+        val ctys = dest_curried_fun_type ct
+        val xs = butlast ctys
+        val x = last ctys
+        val _ = (x = ty) orelse failwith "info from TypeBase is malformed"
+        in (n,xs) end
+      in (ty_n,vs,map f cs) end
+    val xs = map process css
+    fun export_case (n,vs,cs) =
+      app "mk_coqind"
+        [quote n,
+         list (map quote vs),
+         list (map (fn (n,tys) => tuple [quote n, list (map export_ty tys)]) cs)]
+    in app "mk_mutual_inductive" [list (map export_case xs)] end
 
 val _ = print_output $ export_ty_def “:'a ind2”;
+val _ = print_output $ export_ty_def “:num state”;
 
 val _ = export_theory();
