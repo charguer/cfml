@@ -57,17 +57,19 @@ fun list xs = App (false,List,xs);
 fun tuple xs = App (false,Tuple,xs);
 fun quote s = String ("\"" ^ s ^ "\"")
 
+fun adjust_tyvar_name s =
+  if String.isPrefix "'" s then
+    (explode s |> tl (* |> map Char.toUpper *) |> implode)
+  else s;
+
 fun export_ty ty =
   if ty = “:bool” then String "coq_typ_bool" else
   if ty = “:unit” then String "coq_typ_unit" else
   if ty = “:num”  then String "coq_typ_nat" else
   if ty = “:int”  then String "coq_typ_int" else
-  if ty = alpha then app "coq_tvar" [quote "A"] else
-  if ty = beta  then app "coq_tvar" [quote "B"] else
-  if ty = gamma then app "coq_tvar" [quote "C"] else
-  if ty = delta then app "coq_tvar" [quote "D"] else
   let
     val n = dest_vartype ty
+    val n = adjust_tyvar_name n
   in app "coq_tvar" [quote n] end handle HOL_ERR _ => (* TODO; what is mk_var_type? *)
   let
     val (n,tys) = dest_type ty
@@ -207,7 +209,7 @@ fun export_ty_def ty = let
   val css = map (fn ty => (ty,TypeBase.constructors_of ty)) tys
   fun process (ty,cs) = let
     val (ty_n,ts) = dest_type ty
-    val vs = ts |> map dest_vartype
+    val vs = ts |> map dest_vartype |> map adjust_tyvar_name
     fun f c = let
       val (n,ct) = dest_const c
       val ctys = dest_curried_fun_type ct
