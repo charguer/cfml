@@ -3,6 +3,9 @@ include Coq
 
 (* Remark: [type var = string] *)
 
+(* Compatibility OCaml: *)
+let list_concat_map f l =
+  List.concat (List.map f l)
 
 (*****************************************************************)
 (** Complement to coq.ml *)
@@ -68,11 +71,12 @@ let mk_typedef_record (name:var) (typvars:var list) (fields:(var*coq) list) : co
    coqind_branches = fields; } ]
 
 (* Auxiliary function to build a [coqind] record (defined in coq.ml), which corresponds
-   to one among several mutually-inductive definitions part of a [Coqtop_ind].
+   to one among several mutually-inductive definitions part of a [Coqtop_ind],
+   for the case of a type definition.
    Here we process one algebraic definition, e.g.
    [type 'a name = C1 of t11 * t12 | C2 of t21 * t22 * t33] *)
 
-let mk_coqind (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
+let mk_coqind_type (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
   let targs = coq_types typvars in
   let ret = coq_apps (coq_var name) (coq_vars typvars) in
   { coqind_name = name;
@@ -90,15 +94,39 @@ let mk_arguments_for_constructors cstr typvars : coqtop =
   Coqtop_implicit (cstr, args_mode)
 
 (* Function to build a mutual inductive definition;
-   one should use [mk_coind] for building arguments. *)
+   one should use [mk_coind_type] for building arguments. *)
 
-let mk_mutual_inductive (defs:coqind list) : coqtops =
+let mk_mutual_inductive_type (defs:coqind list) : coqtops =
   let mk_arguments def =
     let cstrs = List.map fst def.coqind_branches in
     let typvars = List.map fst def.coqind_targs in
     List.map (fun cstr -> mk_arguments_for_constructors cstr typvars) cstrs
     in
-  (Coqtop_ind defs) :: (List.concat_map mk_arguments defs)
+  (Coqtop_ind defs) :: (list_concat_map mk_arguments defs)
+
+(* Auxiliary function to build a [coqind], for a predicate definition.
+   [Inductive foo (A:Type) : list A -> Prop : =
+      | F1 : foo nil
+      | F2 : forall x l, foo l -> foo (x::l)] *)
+
+(* TODO
+let mk_coqind_type (name:var) (typvars:var list) (cstrs:(var*(coq list)) list) : coqind =
+  let targs = coq_types typvars in
+  let ret = coq_apps (coq_var name) (coq_vars typvars) in
+  { coqind_name = name;
+    coqind_constructor_name = "__dummy__";
+    coqind_targs = targs;
+    coqind_ret = coq_typ_type;
+    coqind_branches =
+      List.map (fun (cstr,args_typ) -> (cstr, coq_impls args_typ ret)) cstrs; }
+*)
+
+(* Function to build a mutual inductive predicates;
+   one should use [mk_coind_pred] for building arguments. *)
+
+let mk_mutual_inductive_pred (defs:coqind list) : coqtops =
+  [ Coqtop_ind defs ]
+
 
 
 (*****************************************************************)
