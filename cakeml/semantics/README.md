@@ -17,3 +17,29 @@ A sample `demo_sample.ml` can be used (automatically by `make`) to generate a sa
    make
 ```
 
+# Installation of HOL4
+
+First one needs to install PolyML, e.g., as follows.
+```
+cd
+git clone https://github.com/polyml/polyml
+cd polyml
+./configure --prefix=/usr
+make
+make compiler
+make install
+```
+
+Then one needs to download and build a recent HOL4:
+```
+cd
+git clone https://github.com/HOL-Theorem-Prover/HOL
+cd HOL
+poly --script tools/smart-configure.sml
+bin/build
+```
+
+Now one can build the sampleScript.sml with:
+```
+~/HOL/bin/Holmake -j1
+```
