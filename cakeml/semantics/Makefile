@@ -3,12 +3,15 @@ GENERATOR=../../generator
 
 all: demo
 
+coq.ml:
+	ln -s $(GENERATOR)/coq.ml coq.ml
+
+print_coq.ml:
+	ln -s $(GENERATOR)/print_coq.ml print_coq.ml
+
 up:
 	cp demo_sample.ml demo.ml
 	$(MAKE) all
-
-coq.ml print_coq.ml: $(GENERATOR)/coq.ml $(GENERATOR)/print_coq.ml
-	cp $(GENERATOR)/$@ $@
 
 demo: demo.vo
 
@@ -30,3 +33,9 @@ clean:
 	rm -Rf _build
 	rm -f coq.ml print_coq.ml
 	rm -f demo.v *.vo
+
+
+
+# --DEPRECATED
+# coq.ml print_coq.ml: $(GENERATOR)/coq.ml $(GENERATOR)/print_coq.ml
+#	cp $(GENERATOR)/$@ $@

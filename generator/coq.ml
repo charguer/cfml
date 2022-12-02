@@ -211,6 +211,11 @@ let coq_app_var x c =
 let coq_apps_var x args =
   coq_apps (coq_var x) args
 
+(** Application [@x c1 c2 .. cn] *)
+
+let coq_apps_var_at x args =
+  coq_apps (coq_var_at x) args
+
 (** Application [x x1 x2 .. xn] *)
 
 let coq_apps_vars x xs =
@@ -239,6 +244,14 @@ let coq_app_var_at x args =
 
 let coq_types names =
    List.map (fun n -> (n, Coq_type)) names
+
+(** Builds either [c] or [_], depending on whether the value passed in
+    [Some c] or [None] *)
+
+let coq_typ_or_wild copt =
+  match copt with
+  | None -> coq_wild
+  | Some c -> c
 
 
 (*#########################################################################*)
@@ -335,7 +348,7 @@ let coq_impls cs c =
 
 
 (*#########################################################################*)
-(* ** Smart constructors for types *)
+(* ** Smart constructors for base types *)
 
 let coq_typ_type =
   Coq_type
@@ -358,6 +371,10 @@ let coq_typ_string =
 let coq_typ_nat =
   Coq_var "Coq.Init.Datatypes.nat"
 
+
+(*#########################################################################*)
+(* ** Smart constructors for compound types *)
+
 (** Predicate type [A->Prop] *)
 
 let coq_pred c =
@@ -376,13 +393,38 @@ let coq_prods cs =
   | [c] -> c
   | c0::cs' -> List.fold_left (fun acc c -> coq_prod acc c) c0 cs'
 
-let coq_tuple =
+let coq_typ_tuple =
   coq_prods
 
 (** Implication [Type -> Type -> .. -> Type] *)
 
 let coq_impl_types n =
    coq_impls (list_make n Coq_type) Coq_type
+
+(** Sum type [(c1 + c2)%type] *)
+
+let coq_sum c1 c2 =
+  coq_apps (Coq_var "Coq.Init.Datatypes.sum") [c1;c2]
+
+(** Sum type [(c1 + c2 + .. + cN)%type];
+    or unit if the list is empty, or [c1] if the list is singleton *)
+    (* TODO: check left vs right associativity *)
+
+let coq_sums cs =
+  match cs with
+  | [] -> coq_typ_unit
+  | [c] -> c
+  | c0::cs' -> List.fold_left (fun acc c -> coq_sum acc c) c0 cs'
+
+(** List type [list A] *)
+
+let coq_typ_list c =
+  coq_app (coq_var "Coq.Init.Datatypes.list") c
+
+(** Option type [option A] *)
+
+let coq_typ_option c =
+  coq_app (coq_var "Coq.Init.Datatypes.option") c
 
 
 (*#########################################################################*)
@@ -414,16 +456,83 @@ let coq_string s =
 
 (** List [c1 :: c2 :: .. :: cN :: nil], with constructors optionally annotated with a type *)
 
-let coq_list ?(typ : coq option) xs =
-   let ccons = Coq_var ("Coq.Lists.List.cons") in
-   let ccons, targs =
-     match typ with
-     | None -> ccons, []
-     | Some typ -> (coq_at ccons), [typ]
-     in
-   let cnil = Coq_var ("Coq.Lists.List.nil") in
-   List.fold_right (fun arg acc ->
-      coq_apps ccons (targs@[arg; acc])) xs cnil
+let coq_nil ?(typ : coq option) () =
+  let f = "Coq.Lists.List.nil" in (* TODO: factorize this code pattern with "coq_none", etc. *)
+  match typ with
+  | None -> coq_apps_var f []
+  | Some t -> coq_apps_var_at f [t]
+
+let coq_cons ?(typ : coq option) c1 c2 =
+  let f = "Coq.Lists.List.cons" in (* TODO: factorize this code pattern with "coq_none", etc. *)
+  match typ with
+  | None -> coq_apps_var f [c1; c2]
+  | Some t -> coq_apps_var_at f [t; c1; c2]
+
+let coq_list ?(typ : coq option) cs =
+   let cnil = coq_nil ?typ () in
+   let ccons = coq_cons ?typ in
+   List.fold_right ccons cs cnil
+
+(** Pair [(c1,c2)], with optional type arguments *)
+
+let coq_pair ?(typ : (coq*coq) option) c1 c2 =
+  let f = "Coq.Init.Datatypes.pair" in
+  match typ with
+  | None -> coq_apps_var f [c1; c2]
+  | Some (t1,t2) -> coq_apps_var_at f [t1; t2; c1; c2]
+
+(** Tuple [(c1,c2,..,cn)], with optional type arguments;
+    tt if the list empty; c1 if the list is singleton *)
+
+let coq_tuple ?(typ : (coq list) option) cs =
+  let acs =
+    match typ with
+    | None -> cs
+    | Some ts ->
+        if List.length ts <> List.length cs
+          then failwith "invalid length for list of types in coq_tuple";
+        List.map2 (fun c t -> coq_annot c t) cs ts
+    in
+  let rec aux acs =
+    match acs with
+    | [] -> coq_tt
+    | [c] -> c
+    | c1::c2::cs3 -> aux ((coq_pair c1 c2)::cs3)
+    in
+  aux acs
+
+(** Sum constructors [(c1,c2)], with optional type arguments *)
+
+let coq_sum_value (isleft : bool) ?(typ_left : coq option) ?(typ_right : coq option) c =
+  let atyp_left = coq_typ_or_wild typ_left in
+  let atyp_right = coq_typ_or_wild typ_right in
+  let f = if isleft then "inl" else "inr" in
+  coq_apps_var_at ("Coq.Init.Datatypes." ^ f) [atyp_left; atyp_right; c]
+
+let coq_inl =
+  coq_sum_value true
+
+let coq_inr =
+  coq_sum_value false
+
+(** Option constructors *)
+
+let coq_none ?(typ : coq option) () =
+  let f = "Coq.Init.Datatypes.None" in
+  match typ with
+  | None -> coq_apps_var f []
+  | Some t -> coq_apps_var_at f [t]
+
+let coq_some ?(typ : coq option) c =
+  let f = "Coq.Init.Datatypes.Some" in
+  match typ with
+  | None -> coq_apps_var f [c]
+  | Some t -> coq_apps_var_at f [t; c]
+
+let coq_option ?(typ : coq option) copt =
+  match copt with
+  | None -> coq_none ?typ ()
+  | Some c -> coq_some ?typ c
 
 
 (*#########################################################################*)
