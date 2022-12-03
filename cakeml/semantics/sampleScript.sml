@@ -73,6 +73,12 @@ fun export_ty ty =
   if ty = “:char” then app "coq_var" [quote "Prelude.char"] else
   if ty = “:word8”  then app "coq_var" [quote "Prelude.word8"] else
   if ty = “:word64” then app "coq_var" [quote "Prelude.word64"] else
+  let val (t1,t2) = pairSyntax.dest_prod ty
+  in app "coq_prod" [export_ty t1, export_ty t2] end handle HOL_ERR _ =>
+  let val t = listSyntax.dest_list_type ty
+  in app "coq_typ_list" [export_ty t] end handle HOL_ERR _ =>
+  let val t = optionSyntax.dest_option ty
+  in app "coq_typ_option" [export_ty t] end handle HOL_ERR _ =>
   let
     val n = dest_vartype ty
     val n = adjust_tyvar_name n
