@@ -1,4 +1,5 @@
 open HolKernel Parse boolLib bossLib arithmeticTheory integerTheory;
+open astTheory;
 
 val _ = new_theory "sample";
 
@@ -55,7 +56,9 @@ datatype output = String of string
 fun app x y = App (false,FunApp x,y);
 fun list xs = App (false,List,xs);
 fun tuple xs = App (false,Tuple,xs);
-fun quote s = String ("\"" ^ s ^ "\"")
+fun quote s =
+  if s = "If" then quote "If_" else
+    String ("\"" ^ s ^ "\"")
 
 fun adjust_tyvar_name s =
   if String.isPrefix "'" s then
@@ -67,6 +70,9 @@ fun export_ty ty =
   if ty = “:unit” then String "coq_typ_unit" else
   if ty = “:num”  then String "coq_typ_nat" else
   if ty = “:int”  then String "coq_typ_int" else
+  if ty = “:char” then app "coq_var" [quote "Prelude.char"] else
+  if ty = “:word8”  then app "coq_var" [quote "Prelude.word8"] else
+  if ty = “:word64” then app "coq_var" [quote "Prelude.word64"] else
   let
     val n = dest_vartype ty
     val n = adjust_tyvar_name n
@@ -109,7 +115,7 @@ fun export tm =
     val (n,ty) = dest_const tm
   in app "coq_var" [quote n] end;
 
-fun print_output out =
+fun write_output print out =
   let
     val threshold = 60
     fun size_aux (FunApp s) = size s + 3 | size_aux _ = 2;
@@ -155,10 +161,11 @@ fun print_output out =
           (print_o_list sep indent [x];
            print (sep ^ indent);
            print_o_list sep indent (y::xs))
-  val _ = print "\n\n  "
   val _ = print_o "\n  " (fst (annotate out))
-  val _ = print ";;\n\n"
+  val _ = print "\n"
   in () end;
+
+val print_output = write_output print;
 
 fun export_def def =
   let
@@ -235,13 +242,49 @@ fun export_ty_def ty =
       in (ty_n,vs,map f cs) end
     val xs = map process css
     fun export_case (n,vs,cs) =
-      app "mk_coqind"
+      app "mk_coqind_type"
         [quote n,
          list (map quote vs),
          list (map (fn (n,tys) => tuple [quote n, list (map export_ty tys)]) cs)]
-    in app "mk_mutual_inductive" [list (map export_case xs)] end
+    in app "mk_mutual_inductive_type" [list (map export_case xs)] end
 
 val _ = print_output $ export_ty_def “:'a ind2”;
 val _ = print_output $ export_ty_def “:num state”;
+
+fun append_print out = (print "  @ "; print_output out);
+
+val _ = print "\n  []\n"
+val _ = List.app (append_print o export_ty_def)
+
+val es =
+  map export_ty_def
+  [“:('a,'b) id”,
+   “:lit”, “:opn”, “:opb”, “:opw”, “:shift”, “:word_size”,
+   “:fp_cmp”, “:fp_uop”, “:fp_bop”, “:fp_top”, “:fp_opt”,
+   “:real_cmp”, “:real_uop”, “:real_bop”,
+   “:op”,
+   “:op_class”,
+   “:lop”,
+   “:ast_t”,
+   “:pat”,
+   “:locn”, “:locs”,
+   “:exp”,
+   “:dec”];
+
+val ast_defs = app "List.concat" [list es];
+
+(* write to file *)
+
+val f = TextIO.openOut("demo.ml");
+fun write s = (print s; TextIO.output(f,s));
+fun writeln s = (write s; write "\n");
+val _ = writeln "open Coq_from_hol";
+val _ = writeln "";
+val _ = writeln "let ast_defs =";
+val _ = write "  ";
+val _ = write_output write ast_defs;
+val _ = writeln "";
+val _ = writeln "let _ = out_prog \"demo.v\" ast_defs";
+val _ = TextIO.closeOut f;
 
 val _ = export_theory();
