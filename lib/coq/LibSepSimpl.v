@@ -1056,7 +1056,7 @@ Ltac hstars_simpl_pick i :=
 
 Ltac hstars_simpl_start tt :=
   match goal with |- ?H1 ==> ?H2 => idtac end;
-  applys hstars_simpl_start;
+  apply hstars_simpl_start;
   rew_heap_assoc.
 
 Ltac hstars_simpl_step tt :=
@@ -1636,19 +1636,19 @@ Ltac xsimpl_handle_qimpl tt :=
   | |- @qimpl _ _ _ => let r := fresh "r" in intros r
   | |- himpl _ ?H2 => is_evar H2; apply himpl_refl
   | |- himpl _ _ => idtac
-  | |- @eq hprop _ _ => applys himpl_antisym
-  | |- @eq (_ -> hprop) _ _ => applys fun_ext_1; applys himpl_antisym
+  | |- @eq hprop _ _ => apply himpl_antisym
+  | |- @eq (_ -> hprop) _ _ => apply fun_ext_1; apply himpl_antisym
   | _ => fail 1 "not a goal for xsimpl/xpull"
   end.
 
 Ltac xsimpl_intro tt :=
-  applys xsimpl_start.
+  apply xsimpl_start.
 
 Ltac xpull_start tt :=
   pose ltac_mark;
   intros;
   xsimpl_handle_qimpl tt;
-  applys xpull_protect;
+  apply xpull_protect;
   xsimpl_intro tt.
 
 Ltac xsimpl_start tt :=
@@ -1819,16 +1819,16 @@ Ltac xsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
 Ltac xsimpl_hgc_or_htop_step tt :=
   match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
     match constr:((Hrg,H)) with
-    | (\[], \GC) => applys xsimpl_r_hgc_or_htop;
+    | (\[], \GC) => apply xsimpl_r_hgc_or_htop;
                     xsimpl_hgc_or_htop_cancel (\GC) xsimpl_lr_cancel_hgc
-    | (\[], \Top) => applys xsimpl_r_hgc_or_htop;
+    | (\[], \Top) => apply xsimpl_r_hgc_or_htop;
                     xsimpl_hgc_or_htop_cancel (\GC) xsimpl_lr_cancel_htop;
                     xsimpl_hgc_or_htop_cancel (\Top) xsimpl_lr_cancel_htop
-    | (\GC \* \[], \Top) => applys xsimpl_r_htop_replace_hgc;
+    | (\GC \* \[], \Top) => apply xsimpl_r_htop_replace_hgc;
                             xsimpl_hgc_or_htop_cancel (\Top) xsimpl_lr_cancel_htop
-    | (\GC \* \[], \GC) => applys xsimpl_r_hgc_drop
-    | (\Top \* \[], \GC) => applys xsimpl_r_hgc_drop
-    | (\Top \* \[], \Top) => applys xsimpl_r_htop_drop
+    | (\GC \* \[], \GC) => apply xsimpl_r_hgc_drop
+    | (\Top \* \[], \GC) => apply xsimpl_r_hgc_drop
+    | (\Top \* \[], \Top) => apply xsimpl_r_htop_drop
     end end.
 
 Ltac xsimpl_cancel_same H :=
