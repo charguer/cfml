@@ -49,8 +49,8 @@ let nzero = coq_nat 0
 
 let defs2 =
     mk_define_val "demo_placeholder" nat (coq_todo "placeholder")
-  @ mk_typedef_abbrev "demo_abbrev" (coq_tuple [nat; nat])
-  @ mk_typedef_record "demo_record" ["A"] [ ("f1", nat); ("f2", coq_tvar "A"); ]
+  @ mk_typedef_abbrev "demo_typ_abbrev" (coq_tuple [nat; nat])
+  @ mk_typedef_record "demo_typ_record" ["A"] [ ("f1", nat); ("f2", coq_tvar "A"); ]
   @ mk_mutual_inductive_type [
       mk_coqind_type "ind0" ["A B"] [ ("C1", [nat; coq_tvar "A"]); ("C2", []); ("C3", [coq_tvar "B"])] ]
   @ mk_mutual_inductive_type [
@@ -62,6 +62,9 @@ let defs2 =
         ((coq_apps_vars "C1" ["x";"y"]), coq_int 3);
         ((coq_apps_vars "C2" []), coq_int 4);
         ((coq_apps_vars "C3" ["x"]), coq_int 5); ])
+
+  @ mk_define_val "demo_record" (coq_wild) (coq_record [("f1",nzero); ("f2",coq_bool_true)])
+  @ mk_define_val "demo_record_proj" (coq_wild) (coq_record_proj (coq_var "demo_record") "f2")
   @ mk_define_val "demo_tuple" (coq_typ_tuple [nat; nat; bool]) (coq_tuple [nzero; nzero; coq_bool_true])
   @ mk_define_val "demo_sum" (coq_sums [bool; nat; bool]) (coq_inl (coq_inr nzero))
   @ mk_define_val "demo_sum_annot" (coq_wild) (coq_inr ~typ_left:nat (coq_inl ~typ_right:bool nzero))

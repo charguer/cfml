@@ -9,14 +9,10 @@ coq.ml:
 print_coq.ml:
 	ln -s $(GENERATOR)/print_coq.ml print_coq.ml
 
-up:
-	cp demo_sample.ml demo.ml
-	$(MAKE) all
-
 demo: demo.vo
 
 demo.ml:
-	cp demo_sample.ml $@
+	ln -s demo_sample.ml $@
 
 demo.vo: Prelude.vo
 
@@ -39,3 +35,6 @@ clean:
 # --DEPRECATED
 # coq.ml print_coq.ml: $(GENERATOR)/coq.ml $(GENERATOR)/print_coq.ml
 #	cp $(GENERATOR)/$@ $@
+#up:
+#	cp demo_sample.ml demo.ml
+#	$(MAKE) all

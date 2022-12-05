@@ -94,6 +94,14 @@ let braces d =
     (break 1 ^^ d)
     (break 1 ^^ rbrace)
 
+(* Coq-record braces {| ... |} with spacing and indentation. *)
+
+let record_braces d =
+  block
+    (string "{|")
+    (break 1 ^^ d)
+    (break 1 ^^ string "|}")
+
 (* Brackets with spacing and indentation. *)
 
 let brackets d =
@@ -116,10 +124,10 @@ let field (x, t) =
 let fields_value fts =
   separate_map (semi ^^ break 1) field fts
 
-(* Record definition : { f1 := t1; ... } *)
+(* Record definition : {| f1 := t1; ... |} *)
 
 let record_value fts =
-  braces (fields_value fts)
+  record_braces (fields_value fts)
 
 (* -------------------------------------------------------------------------- *)
 
@@ -395,7 +403,7 @@ let parameter x d1 =
     (break 1 ^^ d1)
     dot
 
-(* The right-hand side of a record declaration. [ Foo { ... }]. *)
+(* The right-hand side of a record declaration. [ Foo {| ... |}]. *)
 
 let record_rhs r =
   space ^^

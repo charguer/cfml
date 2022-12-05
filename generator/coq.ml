@@ -501,13 +501,26 @@ let coq_tuple ?(typ : (coq list) option) cs =
           then failwith "invalid length for list of types in coq_tuple";
         List.map2 (fun c t -> coq_annot c t) cs ts
     in
+  Coq_tuple acs
+  (* ALTERNATIVE: encoding using pairs
   let rec aux acs =
     match acs with
     | [] -> coq_tt
     | [c] -> c
     | c1::c2::cs3 -> aux ((coq_pair c1 c2)::cs3)
     in
-  aux acs
+  aux acs *)
+
+(** Record [{ f1 := c1; ...; fn := cn }] *)
+
+let coq_record (fcs : (var*coq) list) =
+  Coq_record fcs
+
+(** Record projection [c.f], actually printed as [(f c)] in print_coq
+    ---the two are equivalent.  *)
+
+let coq_record_proj (c : coq) (field : var) =
+  Coq_proj (field, c)
 
 (** Sum constructors [(c1,c2)], with optional type arguments *)
 
