@@ -37,16 +37,17 @@ Definition var := string.
 
 (** Variables can be compared via [var_eq s1 s2] *)
 
-Definition eq_var_dec := String.string_dec.
-
 Definition var_eq (s1:var) (s2:var) : bool :=
-  if eq_var_dec s1 s2 then true else false.
+  String.eqb s1 s2.
 
 Lemma var_eq_spec : forall s1 s2,
   var_eq s1 s2 = isTrue (s1 = s2).
 Proof using.
-  intros. unfold var_eq. case_if; rew_bool_eq~.
+  intros. unfold var_eq. lets H: (String.eqb_eq s1 s2).
+  extens. rew_bool_eq in *. auto.
 Qed.
+
+Definition eq_var_dec := String.string_dec.
 
 Global Opaque var.
 
