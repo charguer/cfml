@@ -104,16 +104,19 @@ let transfos =
   [ (* Replace definition of [f] with [Definition f a b c = ((a+c)+b)-c],
        and replace calls to [f x y] with calls to [f y x x] *)
     Transfo_alternative ("f",
-      mk_define_val "f"
-        (coq_impls [nat; nat; nat] nat)
-        (coq_funs [("a",nat); ("b",nat); ("c",nat)]
-          (coq_apps coq_nat_sub
-            [coq_apps coq_nat_add [
-              coq_apps coq_nat_add [coq_var "a"; coq_var "c"];
-              coq_var "b"];
-            coq_var "c"])),
+      mk_custom "Definition f (a b c:nat) := ((a+c)+b)-c.",
       [ Transfo_replace("f", 2,
          coq_apps (coq_var "f") [mk_meta 1; mk_meta 0; mk_meta 0]) ])
   ]
+
+(* Deprecated:
+   mk_define_val "f"
+    (coq_impls [nat; nat; nat] nat)
+    (coq_funs [("a",nat); ("b",nat); ("c",nat)]
+      (coq_apps coq_nat_sub
+        [coq_apps coq_nat_add [
+          coq_apps coq_nat_add [coq_var "a"; coq_var "c"];
+          coq_var "b"];
+        coq_var "c"])),*)
 
 let _ = out_prog "Demo" transfos (defs1 @ defs2 @ defs3)

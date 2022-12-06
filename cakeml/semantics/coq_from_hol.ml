@@ -44,6 +44,9 @@ let coq_cstr x cs1 cs2 =
 (*****************************************************************)
 (* Toplevel value definitions *)
 
+let mk_custom (s:string) : coqtops =
+  [ Coqtop_custom s ]
+
 (* Function definition --> see doc in demo_sample.ml *)
 
 (* TODO : rename to mk_def_fun *)
@@ -245,7 +248,7 @@ let apply_transfos (module_name : var) (transfos : transfos) (coqtopss : coqtops
           | Coq_var fname -> fname
           | _ -> failwith "applied function is not a variable; case to investigate"
           in
-          Printf.printf "serach %s\n" fname;
+          (*DEBUG: Printf.printf "serach %s\n" fname;*)
         begin match Hashtbl.find_opt hash_replace fname with
         | None -> coq_apps cf rs
         | Some (Transfo_replace (f,exp_arity,template)) ->
