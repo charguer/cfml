@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib arithmeticTheory integerTheory;
-open astTheory;
+open astTheory namespaceTheory (* fromSexpTheory *);
 
 val _ = new_theory "sample";
 
@@ -57,7 +57,7 @@ fun app x y = App (false,FunApp x,y);
 fun list xs = App (false,List,xs);
 fun tuple xs = App (false,Tuple,xs);
 fun quote s =
-  if s = "If" then quote "If_" else
+  (* if s = "If" then quote "If_" else *)
     String ("\"" ^ s ^ "\"")
 
 fun adjust_tyvar_name s =
@@ -277,7 +277,7 @@ val es =
    “:exp”,
    “:dec”];
 
-val ast_defs = app "List.concat" [list es];
+val ast_defs = list es;
 
 (* write to file *)
 
@@ -290,7 +290,58 @@ val _ = writeln "let ast_defs =";
 val _ = write "  ";
 val _ = write_output write ast_defs;
 val _ = writeln "";
-val _ = writeln "let _ = out_prog \"demo.v\" ast_defs";
+val _ = writeln "let _ = out_prog \"Demo\" [] ast_defs";
 val _ = TextIO.closeOut f;
+
+(*
+
+val tm =
+  listsexp_thm
+  |> DefnBase.one_line_ify NONE
+  |> concl
+  |> dest_eq |> snd
+
+val tm = “case x of Var n => 3 | _ => 2”
+
+  val (_,x,rows) = TypeBase.dest_case tm
+  fun term_mem x [] = false
+    | term_mem x (y::ys) = aconv x y orelse term_mem x ys
+  fun subset [] ys = true
+    | subset (x::xs) ys = term_mem x ys andalso subset xs ys
+  fun disjoint [] ys = true
+    | disjoint (x::xs) ys = not (term_mem x ys) andalso disjoint xs ys
+  fun freevars_check pat tm = disjoint (free_vars pat) (free_vars tm)
+
+  val rows1 = map (fn (pat,tm) => (pat,tm,term_size tm,freevars_check pat tm)) rows
+
+Definition foo_def:
+  foo x =
+    case x of
+    | SOME (INL (4:num) => SOME 1
+    | SOME (INR (x,5:num)) => SOME (x:num)
+    | _ => NONE
+End
+
+
+
+
+  “foo x = SOME y”
+  |> SIMP_CONV (srw_ss()) [foo_def,CaseEq"option",CaseEq"sum",CaseEq"prod"]
+  |> MATCH_MP (METIS_PROVE [] “x = y ⇒ (y ⇒ x)”)
+  |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) [PULL_EXISTS]))
+  |> SIMP_RULE (srw_ss()) [PULL_EXISTS, SF DNF_ss]
+  |> CONJUNCTS |> map GEN_ALL |> map (SIMP_RULE std_ss [])
+
+  “foo x = NONE”
+  |> SIMP_CONV (srw_ss()) [foo_def,AllCaseEqs()]
+  |> MATCH_MP (METIS_PROVE [] “x = y ⇒ (y ⇒ x)”)
+  |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) [PULL_EXISTS]))
+  |> SIMP_RULE (srw_ss()) [PULL_EXISTS, SF DNF_ss]
+  |> CONJUNCTS |> map GEN_ALL |> map (SIMP_RULE std_ss [])
+
+  foo_def |>
+
+
+*)
 
 val _ = export_theory();

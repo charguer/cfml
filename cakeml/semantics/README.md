@@ -39,6 +39,12 @@ poly --script tools/smart-configure.sml
 bin/build
 ```
 
+```
+cd
+git clone https://github.com/CakeML/cakeml.git
+export CAKEMLDIR=~/cakeml
+```
+
 Now one can build the sampleScript.sml with:
 ```
 ~/HOL/bin/Holmake -j1

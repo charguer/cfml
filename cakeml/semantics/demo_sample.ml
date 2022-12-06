@@ -17,7 +17,6 @@ or
     fib n =
       If n < 2 then n else fib (n-1) + fib (n-2).
 
-
 Below is an example for the lemma presentation,
 which avoids issues with justifying termination.
 *)
