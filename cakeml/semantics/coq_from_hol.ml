@@ -66,6 +66,10 @@ let mk_define_val (val_name:var) (val_typ:coq) (val_body:coq) : coqtops =
 let mk_define_axiom (val_name:var) (val_typ:coq) : coqtops =
   [ Coqtop_param (val_name,val_typ) ]
 
+(* List of axioms *)
+
+let mk_define_axioms (names_and_types : (var*coq) list) : coqtops =
+  coqtop_params names_and_types
 
 
 (*****************************************************************)

@@ -84,6 +84,13 @@ let defs2 : coqtopss =
                      ("l", coq_wild);
                      ("_", coq_apps (coq_var "foo") [coq_var "l"]) ]
                    (coq_apps (coq_var "foo") [coq_cons (coq_var "x") (coq_var "l")])) ]
+      ];
+    mk_define_axioms [
+      ("mycases", coq_impls [coq_typ_list nat] nat);
+      ("mycases_nil", coq_app_eq (coq_apps (coq_var "mycases") [coq_nil()]) (coq_nat 0));
+      ("mycases_cons", coq_foralls [("x",coq_wild);("t",coq_wild)]
+         (coq_app_eq (coq_apps (coq_var "mycases") [coq_cons (coq_var "x") (coq_var "t")])
+           (coq_apps coq_nat_add [coq_nat 1; coq_apps (coq_var "mycases") [coq_var "t"]])));
       ]
    ]
 

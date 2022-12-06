@@ -271,9 +271,9 @@ and expr3 = function
         (break 1 ^^ colonequals)
       ^/^
       expr3 body
-  | Coq_if (isclassical, e0, e1, e2) ->
+  | Coq_if (e0, e1, e2) ->
       block
-        (string (if isclassical then "If" else "if") ^^ space ^^ expr e0 ^^ space ^^ string "then")
+        (string "if" ^^ space ^^ expr e0 ^^ space ^^ string "then")
         (break 1 ^^ expr e1 ^^ break 1)
         (string "else" ^^ break 1 ^^ expr e2)
   | Coq_match (carg, branches) ->

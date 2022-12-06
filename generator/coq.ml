@@ -44,7 +44,7 @@ and coq =
   | Coq_tuple of coqs
   | Coq_record of (var * coq) list
   | Coq_proj of var * coq
-  | Coq_if of bool(*classical or not*) * coq * coq * coq
+  | Coq_if of coq * coq * coq
   | Coq_match of coq * (coq * coq) list
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
@@ -174,11 +174,11 @@ let coq_mapper (f : coq -> coq) (c : coq) : coq =
   | Coq_proj (x,c1) ->
       let r1 = f c1 in
       Coq_proj (x,r1)
-  | Coq_if (b,c1,c2,c3) ->
+  | Coq_if (c1,c2,c3) ->
       let r1 = f c1 in
       let r2 = f c2 in
       let r3 = f c3 in
-      Coq_if (b,r1,r2,r3)
+      Coq_if (r1,r2,r3)
   | Coq_match (c1, ccs) ->
       let r1 = f c1 in
       let rrs = List.map (fun (c3,c4) ->
@@ -268,6 +268,11 @@ let coqtops_section_context sname xs ts =
       Coqtop_context xs ]
   @ ts
   @ [ Coqtop_end sname ]
+
+(* List of axioms *)
+
+let coqtop_params xcs =
+  List.map (fun xc -> Coqtop_param xc) xcs
 
 
 (*#########################################################################*)
@@ -416,10 +421,11 @@ let coq_fun_types names c =
 (** Conditionals *)
 
 let coq_if_bool c0 c1 c2 =
-  Coq_if (false, c0, c1, c2)
+  Coq_if (c0, c1, c2)
 
 let coq_if_prop c0 c1 c2 =
-  Coq_if (true, c0, c1, c2)
+  Coq_if (Coq_app (Coq_var "classicT", c0), c1, c2)
+  (* TODO: set the path to TLC? *)
 
 
 (** Let binding [let (x:T) := t1 in t2]
