@@ -24,6 +24,7 @@ and coq_path =
 (** Coq expressions *)
 
 and coq =
+  | Coq_metavar of var (* not meant to be printed out in final syntax *)
   | Coq_var of var
   | Coq_nat of int
   | Coq_int of int
@@ -123,6 +124,129 @@ and implicit =
   | Coqi_maximal
   | Coqi_implicit
   | Coqi_explicit
+
+
+
+(*#########################################################################*)
+(* ** Mapper combinator for the AST *)
+
+let coq_mapper (f : coq -> coq) (c : coq) : coq =
+  match c with
+  | Coq_metavar _
+  | Coq_var _
+  | Coq_nat _
+  | Coq_int _
+  | Coq_string _
+  | Coq_wild
+  | Coq_prop
+  | Coq_type -> c
+  | Coq_app (c1,c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_app (r1,r2)
+  | Coq_impl (c1,c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_impl (r1,r2)
+  | Coq_lettuple (cs,c1,c2) ->
+      let rs = List.map f cs in
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_lettuple (rs,r1,r2)
+  | Coq_forall ((x,c1),c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_forall ((x,r1),r2)
+  | Coq_fun ((x,c1),c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_fun ((x,r1),r2)
+  | Coq_fix (x,n,c1,c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_fix (x,n,r1,r2)
+  | Coq_tuple (cs) ->
+      let rs = List.map f cs in
+      Coq_tuple rs
+  | Coq_record (xcs) ->
+      let xrs = List.map (fun (x,c) -> (x, f c)) xcs in
+      Coq_record (xrs)
+  | Coq_proj (x,c1) ->
+      let r1 = f c1 in
+      Coq_proj (x,r1)
+  | Coq_if (b,c1,c2,c3) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      let r3 = f c3 in
+      Coq_if (b,r1,r2,r3)
+  | Coq_match (c1, ccs) ->
+      let r1 = f c1 in
+      let rrs = List.map (fun (c3,c4) ->
+        let r3 = f c3 in
+        let r4 = f c4 in
+        (r3,r4)) ccs in
+      Coq_match (r1, rrs)
+  | Coq_tag (x, cs, so, c1) ->
+      let rs = List.map f cs in
+      let r1 = f c1 in
+      Coq_tag (x,rs,so,r1)
+  | Coq_annot (c1,c2) ->
+      let r1 = f c1 in
+      let r2 = f c2 in
+      Coq_annot (r1,r2)
+  | Coq_par (c1) ->
+      let r1 = f c1 in
+      Coq_par (r1)
+
+let coq_mapper_in_typedvar (f : coq -> coq) (x,c) : typed_var =
+  (x, f c)
+
+let coq_mapper_in_coqind (f : coq -> coq) (ci : coqind) : coqind =
+  { coqind_name = ci.coqind_name;
+    coqind_constructor_name = ci.coqind_constructor_name;
+    coqind_targs = List.map (coq_mapper_in_typedvar f) ci.coqind_targs;
+    coqind_ret = f ci.coqind_ret;
+    coqind_branches = List.map (coq_mapper_in_typedvar f) ci.coqind_branches; }
+
+let coq_mapper_in_coqtop (f : coq -> coq) (ct : coqtop) : coqtop =
+  match ct with
+  | Coqtop_proof _
+  | Coqtop_implicit _
+  | Coqtop_register _
+  | Coqtop_hint_constructors _
+  | Coqtop_hint_resolve _
+  | Coqtop_hint_unfold _
+  | Coqtop_require _
+  | Coqtop_import _
+  | Coqtop_require_import _
+  | Coqtop_set_implicit_args
+  | Coqtop_text _
+  | Coqtop_declare_module _
+  | Coqtop_module_type_include _
+  | Coqtop_end _
+  | Coqtop_custom _
+  | Coqtop_section _
+  | Coqtop_module _
+  | Coqtop_module_type _ ->
+      ct
+  | Coqtop_param (xc) ->
+      Coqtop_param (coq_mapper_in_typedvar f xc)
+  | Coqtop_instance (xc, co, b) ->
+      let xc2 = coq_mapper_in_typedvar f xc in
+      let co2 = Option.map f co in
+      Coqtop_instance (xc2, co2, b)
+  | Coqtop_lemma (xc) ->
+      Coqtop_lemma (coq_mapper_in_typedvar f xc)
+  | Coqtop_context (xcs) ->
+      Coqtop_context (List.map (coq_mapper_in_typedvar f) xcs)
+  | Coqtop_def (xc,c) ->
+      let xc2 = coq_mapper_in_typedvar f xc in
+      let c2 = f c in
+      Coqtop_def (xc2, c2)
+  | Coqtop_ind cis ->
+      Coqtop_ind (List.map (coq_mapper_in_coqind f) cis)
+  | Coqtop_record ci ->
+      Coqtop_record (coq_mapper_in_coqind f ci)
 
 
 (*#########################################################################*)
@@ -675,6 +799,14 @@ let rec coq_apps_inv c =
       let c0, cs = coq_apps_inv c1 in
       c0, (cs @ [c2])
   | _ -> c, []
+
+let rec coq_funs_inv c =
+  (* LATER could reimplement using an accumulator *)
+  match c with
+  | Coq_fun (arg1,c2) ->
+      let args, body = coq_funs_inv c2 in
+      (arg1 :: args), body
+  | _ -> [], c
 
 
 (*#########################################################################*)

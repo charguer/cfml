@@ -163,6 +163,8 @@ let binding x t =
 (* Expressions. *)
 
 let rec expr0 = function
+  | Coq_metavar s ->
+      string ("COQ_META[" ^ s ^ "]")
   | Coq_var s ->
       string s
   | Coq_nat n ->

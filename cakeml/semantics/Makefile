@@ -9,17 +9,18 @@ coq.ml:
 print_coq.ml:
 	ln -s $(GENERATOR)/print_coq.ml print_coq.ml
 
-demo: demo.vo
+demo: Demo.vo Demo_proofs.vo
 
 demo.ml:
 	ln -s demo_sample.ml $@
 
-demo.vo: Prelude.vo
+Demo.vo: Prelude.vo
+Demo_proofs.vo: Demo_obligations.vo Demo.vo
 
 %.vo: %.v
 	coqc $<
 
-demo.v: demo.byte demo.ml 
+Demo.v Demo_obligations.v: demo.byte demo.ml 
 	./demo.byte
 
 demo.byte: demo.ml coq.ml print_coq.ml coq_from_hol.ml
@@ -28,7 +29,7 @@ demo.byte: demo.ml coq.ml print_coq.ml coq_from_hol.ml
 clean:
 	rm -Rf _build
 	rm -f coq.ml print_coq.ml
-	rm -f demo.v *.vo
+	rm -f Demo.v Demo_obligations.v *.vo
 
 
 
