@@ -57,6 +57,9 @@ and coqs = coq list
 
 type coqtop =
   | Coqtop_def of typed_var * coq
+  | Coqtop_fundef of bool * (var * typed_vars * coq * coq) list
+    (* Coqtop_fundef(isrecursive, [(fun_name,typed_args,ret_type,body)])
+       the list has more than one item for a mutually-recursive definition *)
   | Coqtop_param of typed_var
   | Coqtop_instance of typed_var * coq option * bool
   | Coqtop_lemma of typed_var
@@ -241,8 +244,15 @@ let coq_mapper_in_coqtop (f : coq -> coq) (ct : coqtop) : coqtop =
       Coqtop_context (List.map (coq_mapper_in_typedvar f) xcs)
   | Coqtop_def (xc,c) ->
       let xc2 = coq_mapper_in_typedvar f xc in
-      let c2 = f c in
-      Coqtop_def (xc2, c2)
+      let r = f c in
+      Coqtop_def (xc2, r)
+  | Coqtop_fundef (b, defs) ->
+      let mk_def (fname, xcs, c1, c2) =
+        let xrs = List.map (coq_mapper_in_typedvar f) xcs in
+      let r1 = f c1 in
+      let r2 = f c2 in
+        (fname, xrs, r1, r2) in
+      Coqtop_fundef (b, List.map mk_def defs)
   | Coqtop_ind cis ->
       Coqtop_ind (List.map (coq_mapper_in_coqind f) cis)
   | Coqtop_record ci ->
@@ -273,6 +283,24 @@ let coqtops_section_context sname xs ts =
 
 let coqtop_params xcs =
   List.map (fun xc -> Coqtop_param xc) xcs
+
+(* Non-recursive function.
+   Args: (fname : var) (xcs : typed_vars) (cret : coq) (cbody : coq),
+   e.g. (fname,xcs,cret,cbody) *)
+
+let coqtop_fundef def : coqtop =
+  Coqtop_fundef (false, [def])
+
+(* Recursive function *)
+
+let coqtop_fixdef def : coqtop =
+  Coqtop_fundef (true, [def])
+
+(* Mutually-recursive function.
+   List items of the form [(fname,typed_args,ret_typ,body)]. *)
+
+let coqtop_fixdefs (defs : (var * typed_vars * coq * coq) list) : coqtop =
+  Coqtop_fundef (true, defs)
 
 
 (*#########################################################################*)

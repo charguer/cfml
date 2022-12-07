@@ -47,15 +47,6 @@ let coq_cstr x cs1 cs2 =
 let mk_custom (s:string) : coqtops =
   [ Coqtop_custom s ]
 
-(* Function definition --> see doc in demo_sample.ml *)
-
-(* TODO : rename to mk_def_fun *)
-let mk_define fun_name lemma_name typed_args_name ret_typ body =
-  let args_name, args_typ = List.split typed_args_name in
-  let fun_typ = coq_impls args_typ ret_typ in
-  [ Coqtop_param (fun_name, fun_typ);
-    Coqtop_param (lemma_name, coq_foralls typed_args_name body) ]
-
 (* Value definition (val_typ can be mk_wild) *)
 
 let mk_define_val (val_name:var) (val_typ:coq) (val_body:coq) : coqtops =
@@ -70,6 +61,27 @@ let mk_define_axiom (val_name:var) (val_typ:coq) : coqtops =
 
 let mk_define_axioms (names_and_types : (var*coq) list) : coqtops =
   coqtop_params names_and_types
+
+(* Function definition axiomatized an specified using an equality
+   --> see example in demo_sample.ml *)
+
+let mk_define_fun_via_lemma fun_name lemma_name typed_args_name ret_typ body =
+  let args_name, args_typ = List.split typed_args_name in
+  let fun_typ = coq_impls args_typ ret_typ in
+  [ Coqtop_param (fun_name, fun_typ);
+    Coqtop_param (lemma_name, coq_foralls typed_args_name body) ]
+
+(* Function definition (non-recursive).
+   def is a tuple of (fname : var) (xcs : typed_vars) (cret : coq) (cbody : coq). *)
+
+let mk_define_fun def : coqtops =
+  [ coqtop_fundef def ]
+
+(* Function definition (mutually-recursive)
+   List items of the form [(fun_name,typed_args,ret_typ,body)]. *)
+
+let mk_define_fix (defs : (var * typed_vars * coq * coq) list) : coqtops =
+  [ coqtop_fixdefs defs ]
 
 
 (*****************************************************************)

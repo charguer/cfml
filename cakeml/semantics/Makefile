@@ -1,8 +1,11 @@
 #####################################################
 # Configuration
 
-# user-defined file to store path to directories
+# User-defined file to store path to directories
 -include settings.sh
+
+# Default paths used in case settings.sh is missing
+# and the environment variables are undefined.
 
 HOLDIR ?= ~/softs/cakeml_semantics/HOL
 CAKEMLDIR ?= ~/softs/cakeml_semantics/cakeml
@@ -69,7 +72,7 @@ cakeml_from_sample:
 
 # Real rule for producing `cakeml.ml`
 cakeml.ml: sampleScript.sml
-	~/HOL/bin/Holmake
+	CAKEMLDIR=$(CAKEMLDIR) $(HOLDIR)/bin/Holmake
 
 cakeml.byte: cakeml.ml $(TRANS_LIBRARY)
 	ocamlbuild -package pprint $@

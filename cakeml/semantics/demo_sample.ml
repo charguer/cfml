@@ -21,10 +21,11 @@ Below is an example for the lemma presentation,
 which avoids issues with justifying termination.
 *)
 
-(* Example: fib *)
+(* Examples of function definitions *)
 
 let defs1 : coqtopss =
-  [ mk_define
+  [ (* Axiomatized fib *)
+    mk_define_fun_via_lemma
     "fib"
     "fib_def"
     [("n", coq_typ_nat)]
@@ -37,7 +38,47 @@ let defs1 : coqtopss =
         (coq_apps
           coq_nat_add
           [coq_apps (coq_var "fib") [coq_apps coq_nat_sub [coq_var "n"; coq_nat 1]];
-           coq_apps (coq_var "fib") [coq_apps coq_nat_sub [coq_var "n"; coq_nat 2]]]))) ]
+           coq_apps (coq_var "fib") [coq_apps coq_nat_sub [coq_var "n"; coq_nat 2]]])));
+
+    (* Non recursive function: test for empty list *)
+    mk_define_fun ("isempty",
+      [("A",coq_typ_type); ("l",coq_typ_list (coq_var "A"))],
+      coq_typ_bool,
+      coq_match (coq_var "l") [
+        ((coq_apps_vars "nil" []), coq_bool_true);
+        ((coq_apps_vars "cons" ["x";"t"]), coq_bool_false) ]);
+
+    (* Recursive function: length of a list *)
+    mk_define_fix [
+      ("length",
+      [("A",coq_typ_type); ("l",coq_typ_list (coq_var "A"))],
+      coq_typ_nat,
+      coq_match (coq_var "l") [
+        ((coq_apps_vars "nil" []), coq_nat 0);
+        ((coq_apps_vars "cons" ["x";"t"]),
+          coq_apps coq_nat_add [coq_apps_vars "length" ["t"]; coq_nat 1]) ])];
+
+    (* Mutually recursive function over lists of lists
+     TODO: this currently generates valid code,
+      but the example is not truely mutually recursive, so coq complains
+    mk_define_fix [
+      ("length2",
+       [("A",coq_typ_type); ("l",coq_typ_list (coq_typ_list (coq_var "A")))],
+       coq_typ_nat,
+       coq_match (coq_var "l") [
+        ((coq_apps_vars "nil" []), coq_nat 0);
+        ((coq_apps_vars "cons" ["x";"t"]),
+          coq_apps coq_nat_add [coq_apps_vars "length2" ["t"]; coq_apps_vars "length1" ["x"] ]) ] );
+       ("length1",
+       [("A",coq_typ_type); ("l",coq_typ_list (coq_var "A"))],
+       coq_typ_nat,
+       coq_match (coq_var "l") [
+        ((coq_apps_vars "nil" []), coq_nat 0);
+        ((coq_apps_vars "cons" ["x";"t"]),
+          coq_apps coq_nat_add [coq_apps_vars "length1" ["t"]; coq_nat 1]) ])
+      ];
+      *)
+   ]
 
 
 (* More demos *)

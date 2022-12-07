@@ -459,6 +459,22 @@ let rec top_internal = function
       string "Definition" ^^
       definition (string x) (expr e1) ^/^
       expr e2 ^^ dot
+  | Coqtop_fundef (isrec, defs) ->
+      let first_keyword, other_keyword =
+        if isrec
+          then ("Fixpoint"," with")
+          else ("Definition","Definition")
+        in
+      let i = ref 0 in (* TODO: need concat_mapi *)
+      let mk_def (fname,typed_args,ret_typ,body) =
+        let keyword = (incr i; if !i = 1 then first_keyword else other_keyword) in
+        string keyword ^^ space ^^
+        string fname ^^ space ^^
+        pvars typed_args ^^ spacecolon ^^
+        space ^^ expr ret_typ ^^ colonequals ^^ break 1 ^^
+        expr body (* TODO: ident?*)
+        in
+    concat_map mk_def defs ^^ dot
   | Coqtop_param (x, e1) ->
       string "Parameter" ^^
       parameter (string x) (expr e1)
