@@ -1230,6 +1230,108 @@ Qed.
 End Derived.
 
 
+
+(* ********************************************************************** *)
+(* Omnisemantics *)
+
+(* ---------------------------------------------------------------------- *)
+(** Omni-big steps *)
+
+Section Omnibig.
+
+  (** ** Definition of Omni-Big-step *)
+
+  Local Open Scope fmap_scope.
+
+  (** heap predicates *)
+  Definition hprop := state -> Prop.
+  Implicit Types H : hprop.
+  Implicit Type Q : val -> hprop.
+
+
+  (** Unary expressions *)
+
+  Inductive omnievalunop : state -> prim -> val -> (val->state->Prop) -> Prop :=
+  | omnievalunop_neg : forall s b1 Q,
+      Q (val_bool (neg b1)) s ->
+      omnievalunop s val_neg (val_bool b1) Q
+  | omnievalunop_opp : forall s n1 Q,
+      Q (val_int (- n1)) s ->
+      omnievalunop s val_opp (val_int n1) Q.
+
+  (** Binary expressions *)
+
+  Inductive omnievalbinop  : state -> prim -> val -> val -> (val->state->Prop) -> Prop :=
+  | omnievalbinop_ptr_add : forall l' l n s Q,
+      (l':nat) = (l:nat) + n :> int ->
+      Q (val_loc l') s ->
+      omnievalbinop s val_ptr_add (val_loc l) (val_int n) Q
+  | omnievalbinop_eq : forall b1 b2 s Q,
+      Q (val_bool (isTrue (b1 = b2))) s ->
+      omnievalbinop s val_eq b1 b2 Q
+  | omnievalbinop_neq : forall b1 b2 s Q,
+      Q (val_bool (isTrue (b1 <> b2))) s ->
+      omnievalbinop s val_neq b1 b2 Q
+  | omnievalbinop_add : forall n1 n2 s Q,
+      Q (val_int (n1+n2)) s ->
+      omnievalbinop s val_add (val_int n1) (val_int n2) Q
+  | omnievalbinop_sub : forall n1 n2 s Q,
+      Q (val_int (n1-n2)) s ->
+      omnievalbinop s val_sub (val_int n1) (val_int n2) Q
+  | omnievalbinop_mul : forall n1 n2 s Q,
+      Q (val_int (n1*n2)) s ->
+      omnievalbinop s val_mul (val_int n1) (val_int n2) Q
+  | omnievalbinop_div : forall n1 n2 s Q,
+      n2 <> 0 ->
+      Q (val_int (n1/n2)) s ->
+      omnievalbinop s val_div (val_int n1) (val_int n2) Q
+  | omnievalbinop_le : forall n1 n2 s Q,
+      Q (val_bool (isTrue (n1 <= n2))) s ->
+      omnievalbinop s val_le (val_int n1) (val_int n2) Q
+  | omnievalbinop_lt : forall n1 n2 s Q,
+      Q (val_bool (isTrue (n1 < n2))) s ->
+      omnievalbinop s val_lt (val_int n1) (val_int n2) Q
+  | omnievalbinop_ge : forall n1 n2 s Q,
+      Q (val_bool (isTrue (n1 >= n2))) s ->
+      omnievalbinop s val_ge (val_int n1) (val_int n2) Q
+  | omnievalbinop_gt : forall n1 n2 s Q,
+      Q (val_bool (isTrue (n1 > n2))) s ->
+      omnievalbinop s val_gt (val_int n1) (val_int n2) Q.
+
+
+  (** Judgment [omnieval s t Q]*)
+
+  Inductive omnieval : state -> trm -> (val->state->Prop) -> Prop :=
+  (* [omnieval] for ctx *)
+  | omnieval_ctx_not_val : forall C t1 s Q1 Q,
+      evalctx C ->
+      ~ trm_is_val t1 ->
+      omnieval s t1 Q1 ->
+      (forall v1 s2, Q1 v1 s2 -> omnieval s2 (C v1) Q) ->
+      omnieval s (C t1) Q
+  (* [omnieval] for language constructs *)
+  | omnieval_val : forall v s Q,
+      Q v s -> omnieval s (trm_val v) Q
+  | omnieval_fix : forall s f xs t1 Q,
+      xs <> nil ->
+      Q (val_fixs f xs t1) s ->
+      omnieval s (trm_fixs f xs t1) Q
+  (* pas besoin des constructeurs ? *)
+  | omnieval_if : forall s b t1 t2 Q,
+      omnieval s (if b then t1 else t2) Q ->
+      omnieval s (trm_if (val_bool b) t1 t2) Q
+  (* [let] je sais pas du coup. Oui mais il va falloir bidouiller la
+     syntaxe pour rajouter des annotations de type ? *)
+  | omnieval_app_funs_fixs : forall s f v0 xs vs t Q,
+      v0 = val_fixs f xs t ->
+      var_fixs f xs (length vs) ->
+      omnieval s (substn xs vs (subst1 f v0 t)) Q ->
+      omnieval s (trm_apps v0 vs) Q.
+  (* do smthg for [while], [for], etc.. *)
+  
+End Omnibig.
+
+
 (* ********************************************************************** *)
 (* * Size of a term *)
 
