@@ -1300,6 +1300,8 @@ Section Omnibig.
 
 
   (** Judgment [omnieval s t Q]*)
+  (* FIXME: pour l'instant, aucune modif de la syntaxe.
+     Peut-être le faire en plusieurs passes ?*)
 
   Inductive omnieval : state -> trm -> (val->state->Prop) -> Prop :=
   (* [omnieval] for ctx *)
@@ -1316,18 +1318,35 @@ Section Omnibig.
       xs <> nil ->
       Q (val_fixs f xs t1) s ->
       omnieval s (trm_fixs f xs t1) Q
-  (* pas besoin des constructeurs ? *)
+  | omnieval_constr : forall s id vs Q,
+      Q (val_constr id vs) s ->
+      omnieval s (trm_constr id (trms_vals vs)) Q
   | omnieval_if : forall s b t1 t2 Q,
       omnieval s (if b then t1 else t2) Q ->
       omnieval s (trm_if (val_bool b) t1 t2) Q
-  (* [let] je sais pas du coup. Oui mais il va falloir bidouiller la
-     syntaxe pour rajouter des annotations de type ? *)
+  | omnieval_let : forall s x v1 t2 Q,
+      omnieval s (subst1 x v1 t2) Q ->
+      omnieval s (trm_let x v1 t2) Q
   | omnieval_app_funs_fixs : forall s f v0 xs vs t Q,
       v0 = val_fixs f xs t ->
       var_fixs f xs (length vs) ->
       omnieval s (substn xs vs (subst1 f v0 t)) Q ->
-      omnieval s (trm_apps v0 vs) Q.
-  (* do smthg for [while], [for], etc.. *)
+      omnieval s (trm_apps v0 vs) Q
+  | omnieval_while : forall s t1 t2 Q,
+      omnieval s (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) Q ->
+      omnieval s (trm_while t1 t2) Q
+  | omnieval_for : forall (x:var) n1 n2 t3 s Q,
+      omnieval s (If (n1 <= n2)
+                  then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
+                  else val_unit) Q ->
+      omnieval s (trm_for x n1 n2 t3) Q
+  (* TODO pattern matching ? *)
+  | omnieval_unop : forall op s v Q,
+      omnievalunop s op v Q ->
+      omnieval s (op v) Q
+  | omnieval_binop : forall op s v1 v2 Q,
+      omnievalbinop s op v1 v2 Q ->
+      omnieval s (op v1 v2) Q.
   
 End Omnibig.
 
