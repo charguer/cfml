@@ -1251,7 +1251,7 @@ Section Omnibig.
 
   (** Unary expressions *)
 
-  Inductive omnievalunop : state -> prim -> val -> (val->state->Prop) -> Prop :=
+  Variant omnievalunop : state -> prim -> val -> (val->state->Prop) -> Prop :=
   | omnievalunop_neg : forall s b1 Q,
       Q (val_bool (neg b1)) s ->
       omnievalunop s val_neg (val_bool b1) Q
@@ -1261,7 +1261,7 @@ Section Omnibig.
 
   (** Binary expressions *)
 
-  Inductive omnievalbinop  : state -> prim -> val -> val -> (val->state->Prop) -> Prop :=
+  Variant omnievalbinop  : state -> prim -> val -> val -> (val->state->Prop) -> Prop :=
   | omnievalbinop_ptr_add : forall l' l n s Q,
       (l':nat) = (l:nat) + n :> int ->
       Q (val_loc l') s ->
@@ -1314,7 +1314,7 @@ Section Omnibig.
   (* [omnieval] for language constructs *)
   | omnieval_val : forall v s Q,
       Q v s -> omnieval s (trm_val v) Q
-  | omnieval_fix : forall s f xs t1 Q,
+  | omnieval_fixs : forall s f xs t1 Q,
       xs <> nil ->
       Q (val_fixs f xs t1) s ->
       omnieval s (trm_fixs f xs t1) Q
@@ -1340,14 +1340,54 @@ Section Omnibig.
                   then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
                   else val_unit) Q ->
       omnieval s (trm_for x n1 n2 t3) Q
-  (* TODO pattern matching ? *)
+  (* FIXME pattern matching correct ? *)
+  | omnieval_match_yes : forall s v p t1 G pts Q,
+      Ctx.dom G = patvars p ->
+      v = patsubst G p ->
+      omnieval s (isubst G t1) Q ->
+      omnieval s (trm_match v ((p,t1)::pts)) Q
+  | omnieval_match_no : forall s v p t1 pts Q,
+      (forall G, Ctx.dom G = patvars p -> v <> patsubst G p) ->
+      omnieval s (trm_match v pts) Q ->
+      omnieval s (trm_match v ((p,t1)::pts)) Q
   | omnieval_unop : forall op s v Q,
       omnievalunop s op v Q ->
       omnieval s (op v) Q
   | omnieval_binop : forall op s v1 v2 Q,
       omnievalbinop s op v1 v2 Q ->
-      omnieval s (op v1 v2) Q.
-  
+      omnieval s (op v1 v2) Q
+  | omneval_ref : forall s v l Q,
+      ~Fmap.indom s l ->
+      l <> null ->
+      Q (val_loc l) (Fmap.update s l v) ->
+      omnieval s (val_ref v) Q
+  | omnieval_get : forall s l Q,
+      Fmap.indom s l ->
+      Q (Fmap.read s l) s ->
+      omnieval s (val_get (val_loc l)) Q
+  | omnieval_set : forall s v l Q,
+      Fmap.indom s l ->
+      Q val_unit (Fmap.update s l v) ->
+      omnieval s (val_set (val_loc l) v) Q
+  | omnieval_free : forall s l Q,
+      Fmap.indom s l ->
+      Q val_unit (Fmap.remove s l) ->
+      omnieval s (val_free (val_loc l)) Q
+  | omnieval_alloc : forall l k n sa sb Q,
+      sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
+      n = nat_to_Z k ->
+      l <> null ->
+      Fmap.disjoint sa sb ->
+      Q (val_loc l) (sa \+ sb) ->
+      omnieval sa (val_alloc (val_int n)) Q
+  | omnieval_dealloc : forall (n:int) vs l sa sb Q,
+      sb = Fmap.conseq vs l ->
+      n = LibList.length vs ->
+      Fmap.disjoint sa sb ->
+      Q val_unit sa ->
+      omnieval (sa \+ sb) (val_dealloc (val_int n) (val_loc l)) Q.
+
+
 End Omnibig.
 
 
