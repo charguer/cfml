@@ -1266,12 +1266,12 @@ Section Omnibig.
       (l':nat) = (l:nat) + n :> int ->
       Q (val_loc l') s ->
       omnievalbinop s val_ptr_add (val_loc l) (val_int n) Q
-  | omnievalbinop_eq : forall b1 b2 s Q,
-      Q (val_bool (isTrue (b1 = b2))) s ->
-      omnievalbinop s val_eq b1 b2 Q
-  | omnievalbinop_neq : forall b1 b2 s Q,
-      Q (val_bool (isTrue (b1 <> b2))) s ->
-      omnievalbinop s val_neq b1 b2 Q
+  | omnievalbinop_eq : forall v1 v2 s Q,
+      Q (val_bool (isTrue (v1 = v2))) s ->
+      omnievalbinop s val_eq v1 v2 Q
+  | omnievalbinop_neq : forall v1 v2 s Q,
+      Q (val_bool (isTrue (v1 <> v2))) s ->
+      omnievalbinop s val_neq v1 v2 Q
   | omnievalbinop_add : forall n1 n2 s Q,
       Q (val_int (n1+n2)) s ->
       omnievalbinop s val_add (val_int n1) (val_int n2) Q
@@ -1283,8 +1283,12 @@ Section Omnibig.
       omnievalbinop s val_mul (val_int n1) (val_int n2) Q
   | omnievalbinop_div : forall n1 n2 s Q,
       n2 <> 0 ->
-      Q (val_int (n1/n2)) s ->
+      Q (val_int (Z.quot n1 n2)) s ->
       omnievalbinop s val_div (val_int n1) (val_int n2) Q
+  | omnievalbinop_mod : forall n1 n2 s Q,
+      n2 <> 0 ->
+      Q (val_int (Z.rem n1 n2)) s ->
+      omnievalbinop s val_mod (val_int n1) (val_int n2) Q
   | omnievalbinop_le : forall n1 n2 s Q,
       Q (val_bool (isTrue (n1 <= n2))) s ->
       omnievalbinop s val_le (val_int n1) (val_int n2) Q
@@ -1387,6 +1391,41 @@ Section Omnibig.
       Q val_unit sa ->
       omnieval (sa \+ sb) (val_dealloc (val_int n) (val_loc l)) Q.
 
+
+  (** ** Properties of the judgement *)
+
+  Hint Constructors evalctx.
+  
+
+
+  (** If [omnieval s t Q] holds, then any [(s',v)] that [(s,t)] may
+      evaluate to according to [eval] is in [Q] *)
+
+  Lemma omni_and_eval_unop_inv : forall s op v v' Q,
+      omnievalunop s op v Q -> evalunop op v v' -> Q v' s.
+  Proof using.
+    introv [] Heval; inversion Heval; subst; assumption.
+  Qed.
+  
+  Lemma omni_and_eval_binop_inv : forall s op v1 v2 v' Q,
+      omnievalbinop s op v1 v2 Q -> evalbinop op v1 v2 v' -> Q v' s.
+  Proof using.
+    Set Printing Coercions.
+    introv [] Heval; inversion Heval; subst; try congruence.
+    replace l'0 with l'. assumption.
+    {rewrite <-H3 in H. apply eq_nat_of_eq_int. apply H.}
+  Qed.
+
+
+      
+  Lemma omnieval_and_eval_inv : forall s t s' v Q,
+      omnieval s t Q -> eval s t s' v -> Q v s'.
+  Proof using.
+    
+    intros. gen v s'.
+    induction H; introv Heval.
+  
+      
 
 End Omnibig.
 
