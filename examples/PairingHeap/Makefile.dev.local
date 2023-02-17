@@ -1,0 +1,3 @@
+OCAMLINCLUDE := -I . -I ../../lib/ocaml
+ARG_EXAMPLEINCLUDE := -R .. EXAMPLES
+
