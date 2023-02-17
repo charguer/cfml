@@ -1394,8 +1394,6 @@ Section Omnibig.
 
   (** ** Properties of the judgement *)
 
-  Hint Constructors evalctx.
-  
 
 
   (** If [omnieval s t Q] holds, then any [(s',v)] that [(s,t)] may
@@ -1417,14 +1415,47 @@ Section Omnibig.
   Qed.
 
 
-      
+  (* TODO à déplacer ailleurs *)
+  Lemma match_list_on_first_non_val : forall vs vs' ts ts' t t',
+      ~ trm_is_val t ->
+      ~ trm_is_val t' ->
+      trms_vals vs ++ t::ts = trms_vals vs' ++ t'::ts' ->
+      vs = vs' /\ ts = ts' /\ t = t'.
+  Proof using.
+    induction vs; intros; destruct vs'; cbn in H1.
+    - rewrite !app_nil_l in H1. intuition congruence.
+    - rewrite app_nil_l in H1.
+      cut (t = trm_val v). firstorder.
+      rewrite app_cons_l in H1. congruence.
+    - rewrite app_nil_l in H1.
+      cut (t' = trm_val a). firstorder.
+      rewrite app_cons_l in H1. congruence.
+    - rewrite! app_cons_l in H1. 
+      forwards *:IHvs vs' ts ts' t t'.
+      fold (trms_vals vs) in H1. fold (trms_vals vs') in H1.
+      congruence.
+      firstorder. congruence.
+  Qed.
+  
+                                           
+
+  
   Lemma omnieval_and_eval_inv : forall s t s' v Q,
       omnieval s t Q -> eval s t s' v -> Q v s'.
   Proof using.
-    
     intros. gen v s'.
     induction H; introv Heval.
-  
+    - inversion H; subst.
+      + inversion Heval as []; subst.
+        * inversion H4 as []; subst; try discriminate.
+          inversion H9.
+          forwards *:match_list_on_first_non_val vs vs0 ts ts0 t1.
+          destruct H8 as (<-&<-&<-). 
+          eapply H3. eapply IHomnieval. eapply H6. subst. eapply H7.
+        * 
+        
+
+      
       
 
 End Omnibig.
