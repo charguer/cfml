@@ -226,7 +226,7 @@ let rec tr_exp env e =
         let env' = env_extend env (pattern_idents pat) in
         Coq_tuple [tr_pat pat; tr_exp env' body]
         in
-        coq_sem "trm_match" [ tested; coq_list ~typ:(coq_prod [pat_type; trm_type]) (List.map build_branch pat_expr_list) ]
+        coq_sem "trm_match" [ tested; coq_list ~typ:(coq_prods [pat_type; trm_type]) (List.map build_branch pat_expr_list) ]
               (* FUTURE USE:
               let w =
                  try lift_val env econd

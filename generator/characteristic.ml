@@ -87,7 +87,7 @@ let rec lift_btyp loc t =
    | Btyp_constr (id,ts) ->
       coq_apps (Coq_var (type_constr_name (lift_path_name id))) (List.map aux ts)
    | Btyp_tuple ts ->
-      coq_prod (List.map aux ts)
+      coq_prods (List.map aux ts)
    | Btyp_var (s,ty) ->
       typvar_mark_used ty;
       Coq_var s
