@@ -84,15 +84,6 @@ Inductive inv : node -> elems -> Prop :=
       E = \{x} \u (list_union Es) ->
       inv (Node x ns) E.
 
-(** [repr h E] relates a heap representation [h] with the multiset [E] made of the items
-    that the heap contains *)
-
-Inductive repr : heap -> elems -> Prop :=
-  | repr_None :
-      repr None \{}
-  | repr_Some : forall n E,
-      inv n E ->
-      repr (Some n) E.
 
 (* ******************************************************* *)
 (** ** Lemmas and tactics *)
@@ -197,11 +188,9 @@ Qed.
 (* ******************************************************* *)
 (** ** Representation predicates *)
 
+(** [q ~> Tree n] is a notation for [Tree n q]. It relates a pointer [q] with the
+    functional tree structure [n] that it represents in memory *)
 
-
-
-(** [q ~> Tree n] related a pointer [q] with the functional tree structure [n]
-    that it represents in memory *)
 
 Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
   match n with
@@ -317,13 +306,13 @@ Proof using.
   xchange (Tree_Node q1) ;=> l1.
   xchange (Tree_Node q2) ;=> l2.
   inverts I1 as Is1 Ks1. inverts I2 as Is2 Ks2.
-  xapp. xapp. xif ;=> C.
-  { xapp. xchange <- (Tree_Node q2). xapp (>> __ Enc_loc).
-    xval. xchange <- Tree_Node. xchange <- Repr_eq.
-    applys* merge_lemma. xsimpl*. }
-  { xapp. xchange <- (Tree_Node q1). xapp (>> __ Enc_loc).
-    xval. xchange <- Tree_Node. xchange <- Repr_eq.
-    applys* merge_lemma. xsimpl*. }
+  xif ;=> C.
+  { xapp. xchange <- (Tree_Node q2). xapp. 
+    xchange <- Tree_Node. xchange <- Repr_eq.
+    applys* merge_lemma. xvals*. }
+  { xapp. xchange <- (Tree_Node q1). xapp.
+    xchange <- Tree_Node. xchange <- Repr_eq.
+    applys* merge_lemma. xvals*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec merge) => Provide Triple_merge.
@@ -333,9 +322,8 @@ Lemma Triple_insert : forall p x E,
     PRE (p ~> Heap E)
     POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
-  xcf. xchange Heap_eq ;=> q. xapp (>> __ Tree) ;=> l.
-  xapp ;=> q2. xchange <- Tree_Node.
-  xchange <- Repr_eq. { applys* inv_Node. }
+  xcf. xchange Heap_eq ;=> q. xapp ;=> l. xapp ;=> q2.
+  xchange <- Tree_Node. xchange <- Repr_eq. { applys* inv_Node. }
   rew_listx. xapp. xmatch; simpl.
   { xpull ;=> ->. xapp. xchanges* Heap_Nonempty. }
   { xapp ;=> r. xapp. xchanges* Heap_Nonempty. }
@@ -350,12 +338,12 @@ Lemma Triple_merge_pairs : forall ns l Es,
     PRE (l ~> MListOf Tree ns)
     POST (fun q => q ~> Repr (list_union Es)).
 Proof using.
-  intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
+  intros ns. induction_wf IH: list_sub ns; introv N Is.
   xcf. xapp~ ;=> q1 n1 ns' ->. inverts Is as I1 Is. rename r into Es'.
-  xapp (>> __ Tree). xif ;=> C.
+  xif ;=> C.
   { subst. inverts Is. rew_listx. xval. xchanges* <- Repr_eq. }
   { xapp~ ;=> q2 n2 ns'' ->. inverts Is as I2 Is. rename r into Es''.
-    do 2 xchange* <- Repr_eq. xapp ;=> r. xapp (>> __ Tree). xif ;=> C'.
+    do 2 xchange* <- Repr_eq. xapp ;=> r. xif ;=> C'.
     { subst. inverts Is. rew_listx. xval. xsimpl. }
     { xapp* ;=> r'. xapp ;=> r''. rew_listx. xsimpl*. } }
 Qed.
@@ -371,8 +359,7 @@ Proof using.
   introv HE. xcf. xchange Heap_eq ;=> c. xapp. 
   destruct c as [|q]; simpl; xpull. 
   xchange Repr_eq ;=> [x hs] I. invert I ;=> ? ? ? ? Is Ks Eq -> -> ->.
-  xchange Tree_Node ;=> l. xmatch.
-  xapp. xapp. xapp (>> __ Tree).
+  xchange Tree_Node ;=> l. xmatch. xapp. xapp. xapp.
   xseq (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC).
   { xif ;=> C2. 
     { subst. inverts Is. inverts Ks. rew_listx. xapp. xchanges* Heap_Empty. }
