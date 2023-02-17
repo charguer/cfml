@@ -5,6 +5,10 @@ From EXAMPLES Require Import PairingHeap_ml MList_proof.
 From TLC Require Import LibListZ LibMultiset.
 Open Scope comp_scope.
 
+(* TODO: move *)
+Axiom haffine_any : forall H, haffine H.
+Hint Resolve haffine_any.
+
 (**
 
 Formalization of pairing heaps, covering both
@@ -89,7 +93,6 @@ Inductive repr : heap -> elems -> Prop :=
   | repr_Some : forall n E,
       inv n E ->
       repr (Some n) E.
-
 
 (* ******************************************************* *)
 (** ** Lemmas and tactics *)
@@ -194,27 +197,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Representation predicates *)
 
-(**
 
-Definition is_ge (x y:elem) : Prop :=
-  x <= y.
-
-(** [list_union Es] computes the iterated union of the multisets in the list [Es] *)
-
-Definition list_union (Es:list elems) : elems :=
-  LibList.fold_right union \{} Es.
-
-(** [inv n E] relates a tree node [n] with the multiset [E] made of
-    the items that the tree contains *)
-
-Inductive inv : node -> elems -> Prop :=
-  | inv_Node : forall x ns Es E,
-      Forall2 inv ns Es ->
-      Forall (foreach (is_ge x)) Es ->
-      E = \{x} \u (list_union Es) ->
-      inv (Node x ns) E.
-
-*)
 
 
 (** [q ~> Tree n] related a pointer [q] with the functional tree structure [n]
@@ -228,15 +211,14 @@ Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
       \* q' ~> MListOf Tree hs
   end.
 
-
 (** [q ~> Repr E] related a pointer [q] with the multiset of items [E]
     that are stored in the tree *)
 
 Definition Repr (E:elems) (q:loc) : hprop :=
   \exists n, q ~> Tree n \* \[inv n E].
 
-(** [q ~> Heap E] relates a possibly-null pointer [q] with the multiset of items [E]
-    that are stored in the heap. It uses [Contents E q] as an auxiliary definition. *)
+(** [q ~> Heap E] relates a pointer on a heap [p] with the multiset of items [E]
+    that are stored in the heap. It uses [Contents E c] as an auxiliary definition. *)
 
 Definition Contents (E:elems) (c:contents_) : hprop :=
   match c with
@@ -249,39 +231,13 @@ Definition Heap (E:elems) (p:heap_) : hprop :=
 
 
 (* ******************************************************* *)
-(** ** Lemmas for the representation predicates *)
-
-(** For [Tree] *)
+(** ** Paraphrase definitions as equalities *)
 
 Lemma Tree_Node : forall q x hs,
   q ~> Tree (Node x hs) =
       \exists l, q ~~~> `{ value' := x; sub' := l }
               \* l ~> MListOf Tree hs.
 Proof using. auto. Qed.
-
-(** For [Repr] *)
-
-Lemma Repr_eq : forall q E,
-  q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
-Proof using. auto. Qed.
-
-Lemma Repr_not_empty : forall q E,
-  q ~> Repr E ==> \[E <> \{}] \* q ~> Repr E.
-Proof using.
-  intros. xunfold Repr. xpull ;=> n I. lets: inv_not_empty I. xsimpl*.
-Qed.
-
-(*
-Lemma Repr_not_null : forall q E,
-  q ~> Repr E ==> \[q <> null] \* q ~> Repr E.
-Proof using.
-  intros. xunfold Repr. xpull ;=> n I. destruct n as [x hs].
-  rewrite Tree_Node. xpull ;=> l. xchange* Record_not_null ;=> N.
-  xsimpl~ (Node x hs). rewrite Tree_Node. xsimpl.
-Qed.
-*)
-
-(** For [Contents] *)
 
 Lemma Contents_eq : forall E c,
   Contents E c = (match c with
@@ -290,16 +246,23 @@ Lemma Contents_eq : forall E c,
   end).
 Proof using. auto. Qed.
 
-(*
-Lemma Contents_not_empty : forall E c,
-  E <> \{} ->
-  Contents E c = (c ~> Repr E).
+Lemma Heap_eq : forall p E,
+  p ~> Heap E = \exists c, p ~~> c \* Contents E c.
+Proof using. auto. Qed.
+
+Lemma Repr_eq : forall q E,
+  q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
+Proof using. auto. Qed.
+
+
+(* ******************************************************* *)
+(** ** Lemmas about representation predicates *)
+
+Lemma Repr_not_empty : forall q E,
+  q ~> Repr E ==> \[E <> \{}] \* q ~> Repr E.
 Proof using.
-  introv N. unfold Contents. applys himpl_antisym.
-  { case_if; xsimpl. }
-  { xchange Repr_not_null ;=> N'. case_if*. }
+  intros. xunfold Repr. xpull ;=> n I. lets: inv_not_empty I. xsimpl*.
 Qed.
-*)
 
 Lemma Contents_is_empty : forall c E,
   Contents E c ==> \[c = Empty <-> E = \{}] \* Contents E c.
@@ -309,30 +272,16 @@ Proof using.
   { xchange Repr_not_empty ;=> N. xsimpl. iff H; false. }
 Qed.
 
-(*
-Lemma Contents_null :
-  \[] ==> Contents \{} null.
-Proof using. unfold Contents. case_if. xsimpl*. Qed.
-
-*)
-
-(** For [Heap] *)
-
-Lemma Heap_eq : forall p E,
-  p ~> Heap E = \exists c, p ~~> c \* Contents E c.
-Proof using. auto. Qed.
-
-Lemma Heap_of_Repr : forall p q E, (* TODO: Heap_of_Nonempty *)
+Lemma Heap_Nonempty : forall p q E,
   p ~~> Nonempty q \* q ~> Repr E ==> p ~> Heap E.
 Proof using.
   intros. xchanges Repr_not_empty ;=> N. xunfold Heap. xsimpl.
 Qed.
 
-(*
-Lemma Heap_of_null : forall p,
-  p ~~> null ==> p ~> Heap \{}.
-Proof using. intros. xchanges Contents_null. xchange <- Heap_eq. Qed.
-*)
+Lemma Heap_Empty : forall p,
+  p ~~> Empty ==> p ~> Heap \{}.
+Proof using. intros. xunfold Heap. unfold Contents. xsimpl*. Qed.
+
 
 (* ******************************************************* *)
 (** ** Verification *)
@@ -388,13 +337,12 @@ Proof using.
   xapp ;=> q2. xchange <- Tree_Node.
   xchange <- Repr_eq. { applys* inv_Node. }
   rew_listx. xapp. xmatch; simpl.
-  { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
-  { xapp ;=> r. xapp. xchanges* Heap_of_Repr. }
+  { xpull ;=> ->. xapp. xchanges* Heap_Nonempty. }
+  { xapp ;=> r. xapp. xchanges* Heap_Nonempty. }
 Qed.
 
 Hint Extern 1 (RegisterSpec insert) => Provide Triple_insert.
 
-(*
 Lemma Triple_merge_pairs : forall ns l Es,
   ns <> nil ->
   Forall2 inv ns Es ->
@@ -420,17 +368,17 @@ Lemma Triple_pop_min : forall p E,
     PRE (p ~> Heap E)
     POST (fun x => \exists E', \[min_of E x /\ E = \{x} \u E'] \* p ~> Heap E').
 Proof using.
-  introv HE. xcf. xchange Heap_eq ;=> q. xapp. xchange~ Contents_not_empty.
+  introv HE. xcf. xchange Heap_eq ;=> c. xapp. 
+  destruct c as [|q]; simpl; xpull. 
   xchange Repr_eq ;=> [x hs] I. invert I ;=> ? ? ? ? Is Ks Eq -> -> ->.
-  xchange Tree_Node ;=> l. xapp.
-  xseq. xapp. xapp (>> __ Tree).
-  xpost (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC). xif ;=> C.
-  { { subst. inverts Is. inverts Ks. rew_listx.
-      xapp (>> Triple_set Enc_loc). xchange <- Tree_Node. xchanges* Heap_of_null. } }
-    { xapp. xapp; eauto ;=> r. xapp. xchange Heap_of_Repr. xsimpl*. }
-  { intros _. xpull ;=> E' ->. xval. xsimpl. split~.
-    { rewrite Eq. applys~ pop_min_lemma. } }
+  xchange Tree_Node ;=> l. xmatch.
+  xapp. xapp. xapp (>> __ Tree).
+  xseq (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC).
+  { xif ;=> C2. 
+    { subst. inverts Is. inverts Ks. rew_listx. xapp. xchanges* Heap_Empty. }
+    { xapp. xapp* ;=> r. xapp. xchange Heap_Nonempty. xsimpl*. } }
+  { xpull ;=> E' ->. xval. xsimpl. split~. { rewrite Eq. applys~ pop_min_lemma. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec pop_min) => Provide Triple_pop_min.
-*)
+
