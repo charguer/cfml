@@ -219,6 +219,10 @@ Hint Rewrite trms_vals_fold_start trms_vals_fold_next : rew_trms_vals.
 
 Tactic Notation "rew_trms_vals" :=
   autorewrite with rew_trms_vals.
+Tactic Notation "rew_trms_vals" "in" hyp(H) :=
+  autorewrite with rew_trms_vals in H.
+Tactic Notation "rew_trms_vals" "in" "*" :=
+  autorewrite with rew_trms_vals in *.
 
 Import LibList.
 
@@ -1437,27 +1441,79 @@ Section Omnibig.
       firstorder. congruence.
   Qed.
   
-                                           
+  (* TODO trouver un meilleur nom + déplacer ailleurs *)
+  Lemma vals_are_vals : forall vs ts t ts',
+      trms_vals vs = ts ++ t::ts' ->
+      trm_is_val t.
+  Proof using.
+    induction vs; intros.
+    - cbn in H. forwards * : app_not_empty_r ts (t::ts'). congruence. congruence.
+    - destruct ts.
+      + cbn in H. assert (trm_val a = t). {rewrite app_nil_l in H. congruence.}
+        unfold trm_is_val. exists a. auto.
+      + apply (IHvs ts t ts'). rewrite <-trms_vals_fold_next, app_cons_l in H.
+        congruence.
+  Qed.
 
+  (* TODO trouver un meilleur nom + déplacer ailleurs *)
+  Lemma val_is_val : forall v,
+      trm_is_val (trm_val v).
+  Proof using.
+    unfold trm_is_val. eauto.
+  Qed.
+
+
+  Ltac not_val :=
+    match goal with
+    | _ : ~ trm_is_val (trm_val ?V) |- _ =>
+        forwards* :val_is_val V
+    | H : trms_vals ?V = trms_vals ?V' ++ ?T :: ?TS |- _ =>
+        forwards* : vals_are_vals H
+    end.
   
+  
+  Ltac inverts_ctx :=
+    match goal with
+    | H : evalctx ?C |- _ => inverts H; try discriminate
+    end.
+  
+
+  Lemma trms_vals_eq : forall vs vs',
+      trms_vals vs = trms_vals vs' -> vs = vs'.
+  Proof.
+    induction vs; intros [|a' vs'] Hvs; inverts Hvs. auto.
+    fequal. apply IHvs. auto.
+  Qed.
+
   Lemma omnieval_and_eval_inv : forall s t s' v Q,
       omnieval s t Q -> eval s t s' v -> Q v s'.
   Proof using.
     intros. gen v s'.
     induction H; introv Heval.
-    - inversion H; subst.
-      + inversion Heval as []; subst.
-        * inversion H4 as []; subst; try discriminate.
-          inversion H9.
-          forwards *:match_list_on_first_non_val vs vs0 ts ts0 t1.
-          destruct H8 as (<-&<-&<-). 
-          eapply H3. eapply IHomnieval. eapply H6. subst. eapply H7.
-        * 
+    - inverts H; inverts Heval as [H _];
+        try solve [rew_trms_vals in *; not_val];
+        inverts_ctx; inverts H; eauto; try not_val.
+      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
+        destruct Hvals as (<-&<-&<-). eauto.
+      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
+        destruct Hvals as (<-&<-&<-). eauto.
+    - inverts Heval. forwards* : evalctx_not_val t1 v. auto.
+    - inverts Heval. inverts_ctx. auto.
+    - inverts Heval. inverts_ctx. inverts H0. symmetry in H6. not_val. 
+      rewrites (>> trms_vals_eq H3). auto.
+    - inverts Heval; auto. inverts_ctx. inverts H0. not_val.
+    - inverts Heval; auto. inverts_ctx. inverts H0. not_val. 
+    - inverts Heval; try solve [inverts TEMP].
+      + inverts_ctx; inverts H2. not_val. symmetry in H8. not_val.
+      + rewrites (>> trms_vals_eq H3) in *. inverts TEMP. eauto.
+    - inverts Heval. inverts_ctx. eauto.
+    - inverts Heval; eauto. inverts_ctx; inverts H0; not_val.
+    - inverts Heval.
+      + inverts_ctx. inverts H2. not_val.
+      + 
+
+
         
-
-      
-      
-
 End Omnibig.
 
 
