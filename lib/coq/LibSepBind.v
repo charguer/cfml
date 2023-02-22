@@ -246,6 +246,13 @@ Lemma app_empty_r : forall E,
   app E empty = E.
 Proof using. intros. unfold app, empty. rewrite LibListExec.app_eq. rew_list~. Qed.
 
+Lemma app_assoc : forall E1 E2 E3,
+    app (app E1 E2) E3 = app E1 (app E2 E3).
+Proof using.
+  intros. unfold app. rewrite LibListExec.app_eq. rew_list~.
+Qed.
+
+
 Lemma app_rev_add : forall E1 E2 x X,
    app (LibList.rev E1) (add x X E2)
  = app (LibList.rev (add x X E1)) E2.

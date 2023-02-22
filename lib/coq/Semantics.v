@@ -12,7 +12,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibString LibList LibCore.
+From TLC Require Export LibString LibList LibCore LibInt.
 From CFML Require Export LibSepBind LibSepTLCbuffer.
 From CFML Require Import LibSepFmap.
 Module Fmap := LibSepFmap.
@@ -390,6 +390,63 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Induction principle for patterns *)
+
+(** Inspired by section [Trm_induct], provides support for [induction
+    p using pat_induct] to provide an induction hypothesis for the
+    case [pat_constr]. *)
+
+Section Pat_induct.
+
+  Variables
+    (P : pat -> Prop)
+    (Q : list pat -> Prop)
+    (Q1 : Q nil)
+    (Q2 : forall p l, P p -> Q l -> Q (p::l))
+    (fv : forall (x : var), P x)
+    (fu : P pat_unit)
+    (fb : forall (b : bool), P b)
+    (fi : forall (n : int), P n)
+    (fc : forall (i : idconstr) (l : list pat), Q l -> P (pat_constr i l)).
+  
+
+  Definition pat_induct_gen := fix F (p : pat) : P p :=
+    let pat_induct_list := fix f (l : list pat) : Q l :=
+        match l as x return Q x with
+        | nil => Q1
+        | p::l' => Q2 (F p) (f l')
+        end in
+    match p as p0 return (P p0) with
+    | pat_var x => @fv x
+    | pat_unit => @fu
+    | pat_bool b => @fb b
+    | pat_int n => @fi n
+    | pat_constr id ps => @fc id ps (pat_induct_list ps)
+    end.
+  
+End Pat_induct.
+
+(** An induction principle for [pat]. *)
+
+Lemma pat_induct : forall P : pat -> Prop,
+    (forall v : var, P v) ->
+    P pat_unit ->
+    (forall b : bool, P b) ->
+    (forall z : int, P z) ->
+    (forall (i : idconstr) (l : list pat),
+        (forall p, mem p l -> P p) -> P (pat_constr i l)) ->
+    forall p : pat, P p.
+Proof using.
+  intros. gen p. eapply pat_induct_gen with
+    (Q := fun l => forall p, mem p l -> P p); eauto; intros.
+  - inversion H4.
+  - inversion H6; eauto.
+Qed.
+
+    
+    
+      
 
 (* ********************************************************************** *)
 (* * Definition of substitution *)
@@ -1415,7 +1472,7 @@ Section Omnibig.
     Set Printing Coercions.
     introv [] Heval; inversion Heval; subst; try congruence.
     replace l'0 with l'. assumption.
-    {rewrite <-H3 in H. apply eq_nat_of_eq_int. apply H.}
+    {rewrite <-H3 in H. apply TLC.LibInt.eq_nat_of_eq_int. apply H.}
   Qed.
 
 
@@ -1496,9 +1553,9 @@ Section Omnibig.
     - case_eq (var_eq x v); intro; cbn; case_var*.
       assert (xs = Ctx.dom G) by congruence. apply IHxs; auto.
   Qed.
-  
+
   Lemma app_ctx_dom : forall G xs xs',
-      (Ctx.dom G)%list = (xs ++ xs')%list ->
+      Ctx.dom G = xs ++ xs' ->
       exists G0 G1, Ctx.dom G0 = xs
                /\ Ctx.dom G1 = xs'
                /\ G = Ctx.app G0 G1.
@@ -1513,81 +1570,113 @@ Section Omnibig.
   Qed.
   
 
-  
-  Lemma isubst_pat_ctx : forall t p G G',
-      Ctx.dom G = patvars p ->
-      Ctx.dom G' = patvars p ->
-      patsubst G p = patsubst G' p ->
-      isubst G t = isubst G' t.
+  Lemma ctx_dom_app : forall G G0 G1,
+      G = Ctx.app G0 G1 ->
+      Ctx.dom G = (Ctx.dom G0) ++ (Ctx.dom G1).
   Proof using.
-    intros until p. gen t. induction p; intros t G G' HdG HdG' Heq; cbn in HdG, HdG'.
-    - forwards *(v0&HG):in_ctx_dom (v::nil) G v. cbn. auto.
-      forwards *(v0'&HG'):in_ctx_dom (v::nil) G' v. cbn. auto.
-      unfold Ctx.dom in HdG. destruct G; try discriminate. fold Ctx.dom in HdG.
-      unfold Ctx.dom in HdG'. destruct G'; try discriminate. fold Ctx.dom in HdG'.
-      destruct p, p0. inverts HdG. inverts HdG'.
-      rewrites (>> Ctx.dom_eq_nil_inv H1).
-      rewrites (>> Ctx.dom_eq_nil_inv H2).
-      inversion HG. inversion HG'. inversion Heq. case_var*.
-      congruence.
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - gen G G' t. induction l; intros.
-      + unfold Ctx.dom in HdG; unfold Ctx.dom in HdG'.
-        destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-      + cbn in HdG, HdG'.
-        forwards *(G0&G1&HG0&HG1&HGapp):app_ctx_dom G (patvars a)%list
-          (List.fold_right (fun p (acc : list var) => patvars p ++ acc) nil l)%list.
-        admit.
-        forwards *(G0'&G1'&HG0'&HG1'&HGapp'):app_ctx_dom G' (patvars a)%list
-          (List.fold_right (fun p (acc : list var) => patvars p ++ acc) nil l)%list.
-        admit.
-        rewrite HGapp, HGapp'. rewrite !isubst_app_eq_isubst_isubst.
+    intros. gen G. induction G0; intros; cbn; rew_ctx in *.
+    - rewrite Ctx.app_empty_l in H. rew_list. congruence.
+    - destruct a. rew_list. destruct G. discriminate.
+      cbn in H. fold (Ctx.app G0 G1) in H. simpl Ctx.dom. destruct p.
+      inverts H. f_equal. apply IHG0. auto.
+  Qed.
+  
+  (* Identity Coercion vars_to_list : vars >-> list. *)
+
+  Lemma ctx_ext_patsubt_eq : forall G G0 p,
+      (exists G1, G = Ctx.app G0 G1) ->
+      Ctx.dom G0 = patvars p ->
+      patsubst G p = patsubst G0 p.
+    Proof using.
+      intros until p. gen G G0. induction p using pat_induct; intros; eauto.
+      - destruct H as [G1 HG]. destruct G0; rew_ctx in *.
+        + discriminate H0.
+        + cbn in HG. inversion H0. destruct p. inverts H1.
+          rewrite HG. cbn. case_var*.
+      - cbn in *. f_equal. apply List.map_ext_in_iff. intros.
+        apply (H a). 
+
+
+        gen G G0. induction l; intros. eauto.
+        cbn in *.
+        forwards *(G2&G3&HG2&HG3&HGeq):app_ctx_dom G0 (patvars a). admit.
+        forwards *:H a G G2.
+        {destruct H0 as (G1&HG1). exists (Ctx.app G3 G1). rewrite HGeq in HG1.
+         rewrite <-Ctx.app_assoc. auto.}
+        forwards *:H a G0 G2. rewrite <-H3 in H2. rewrite H2. f_equal. f_equal.
+        forwards *:IHl G3.
+
         
+  
+  (* Lemma isubst_pat_ctx : forall t p G G', *)
+  (*     Ctx.dom G = patvars p -> *)
+  (*     Ctx.dom G' = patvars p -> *)
+  (*     patsubst G p = patsubst G' p -> *)
+  (*     isubst G t = isubst G' t. *)
+  (* Proof using. *)
+  (*   intros until p. gen t. induction p using pat_induct; intros t G G' HdG HdG' Heq; cbn in HdG, HdG'. *)
+  (*   - forwards *(v0&HG):in_ctx_dom (v::nil) G v. cbn. auto. *)
+  (*     forwards *(v0'&HG'):in_ctx_dom (v::nil) G' v. cbn. auto. *)
+  (*     unfold Ctx.dom in HdG. destruct G; try discriminate. fold Ctx.dom in HdG. *)
+  (*     unfold Ctx.dom in HdG'. destruct G'; try discriminate. fold Ctx.dom in HdG'. *)
+  (*     destruct p, p0. inverts HdG. inverts HdG'. *)
+  (*     rewrites (>> Ctx.dom_eq_nil_inv H1). *)
+  (*     rewrites (>> Ctx.dom_eq_nil_inv H2). *)
+  (*     inversion HG. inversion HG'. inversion Heq. case_var*. *)
+  (*     congruence. *)
+  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
+  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
+  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
+  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
+  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
+  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
+  (*   - gen G G' t. induction l; intros. *)
+  (*     + unfold Ctx.dom in HdG; unfold Ctx.dom in HdG'. *)
+  (*       destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
+  (*     + cbn in HdG, HdG'. *)
+  (*       forwards *(G0&G1&HG0&HG1&HGapp):app_ctx_dom G (patvars a)%list *)
+  (*         (List.fold_right (fun p (acc : list var) => (patvars p ++ acc)%list) nil l)%list. *)
+  (*       admit. *)
+  (*       forwards *(G0'&G1'&HG0'&HG1'&HGapp'):app_ctx_dom G' (patvars a)%list *)
+  (*         (List.fold_right (fun p (acc : list var) => (patvars p ++ acc)%list) nil l)%list. *)
+  (*       admit. *)
+  (*       rewrite HGapp, HGapp'. rewrite !isubst_app_eq_isubst_isubst. *)
+  (*       inversion Heq. fold patsubst in H2. *)
+  (*       assert (isubst G0 t = isubst G0' t). *)
+  (*       { apply H with a; eauto. admit. } (* another lemma *) *)
+  (*       rewrite H0. apply IHl; eauto.  apply HG1. *)
         
 
       
       
     
-    induction t; intros p G G' HdG HdG' Heq; eauto.
-    - destruct p; inversion Heq.
-      + cbn in HdG, HdG'. destruct (v =? v0) eqn:Hvv0;
-          [apply eqb_eq in Hvv0 | apply eqb_neq in Hvv0].
-        * subst. cbn. forwards *(v&HvG):in_ctx_dom (v0::nil) G v0. cbn. auto.
-          forwards *(v'&HvG'):in_ctx_dom (v0::nil) G' v0. cbn. auto.
-          rewrite HvG, HvG' in *. congruence.
-        * 
 
-  Lemma omnieval_and_eval_inv : forall s t s' v Q,
-      omnieval s t Q -> eval s t s' v -> Q v s'.
-  Proof using.
-    intros. gen v s'.
-    induction H; introv Heval.
-    - inverts H; inverts Heval as [H _];
-        try solve [rew_trms_vals in *; not_val];
-        inverts_ctx; inverts H; eauto; try not_val.
-      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
-        destruct Hvals as (<-&<-&<-). eauto.
-      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
-        destruct Hvals as (<-&<-&<-). eauto.
-    - inverts Heval. forwards* : evalctx_not_val t1 v. auto.
-    - inverts Heval. inverts_ctx. auto.
-    - inverts Heval. inverts_ctx. inverts H0. symmetry in H6. not_val. 
-      rewrites (>> trms_vals_eq H3). auto.
-    - inverts Heval; auto. inverts_ctx. inverts H0. not_val.
-    - inverts Heval; auto. inverts_ctx. inverts H0. not_val. 
-    - inverts Heval; try solve [inverts TEMP].
-      + inverts_ctx; inverts H2. not_val. symmetry in H8. not_val.
-      + rewrites (>> trms_vals_eq H3) in *. inverts TEMP. eauto.
-    - inverts Heval. inverts_ctx. eauto.
-    - inverts Heval; eauto. inverts_ctx; inverts H0; not_val.
-    - inverts Heval.
-      + inverts_ctx. inverts H2. not_val.
-      + 
+  (* Lemma omnieval_and_eval_inv : forall s t s' v Q, *)
+  (*     omnieval s t Q -> eval s t s' v -> Q v s'. *)
+  (* Proof using. *)
+  (*   intros. gen v s'. *)
+  (*   induction H; introv Heval. *)
+  (*   - inverts H; inverts Heval as [H _]; *)
+  (*       try solve [rew_trms_vals in *; not_val]; *)
+  (*       inverts_ctx; inverts H; eauto; try not_val. *)
+  (*     + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1. *)
+  (*       destruct Hvals as (<-&<-&<-). eauto. *)
+  (*     + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1. *)
+  (*       destruct Hvals as (<-&<-&<-). eauto. *)
+  (*   - inverts Heval. forwards* : evalctx_not_val t1 v. auto. *)
+  (*   - inverts Heval. inverts_ctx. auto. *)
+  (*   - inverts Heval. inverts_ctx. inverts H0. symmetry in H6. not_val.  *)
+  (*     rewrites (>> trms_vals_eq H3). auto. *)
+  (*   - inverts Heval; auto. inverts_ctx. inverts H0. not_val. *)
+  (*   - inverts Heval; auto. inverts_ctx. inverts H0. not_val.  *)
+  (*   - inverts Heval; try solve [inverts TEMP]. *)
+  (*     + inverts_ctx; inverts H2. not_val. symmetry in H8. not_val. *)
+  (*     + rewrites (>> trms_vals_eq H3) in *. inverts TEMP. eauto. *)
+  (*   - inverts Heval. inverts_ctx. eauto. *)
+  (*   - inverts Heval; eauto. inverts_ctx; inverts H0; not_val. *)
+  (*   - inverts Heval. *)
+  (*     + inverts_ctx. inverts H2. not_val. *)
+  (*     +  *)
 
 
         
