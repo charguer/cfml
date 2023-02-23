@@ -1554,6 +1554,26 @@ Section Omnibig.
       assert (xs = Ctx.dom G) by congruence. apply IHxs; auto.
   Qed.
 
+  (* Vraiment à déplacer ailleurs... *)
+  Lemma app_eq_app : forall (A : Type) (l l' : list A),
+      Datatypes.app l l' = l ++ l'.
+  Proof using.
+    intros. gen l'. Transparent app. Transparent fold_right. unfold app.
+    induction l; intros; eauto.
+    cbn. intuition congruence.
+    Opaque app. Opaque fold_right.
+  Qed.
+
+  Ltac rew_app :=
+    match goal with
+    | H : ?X = ?XS ++ ?XS' |- _ =>
+        rewrite <-app_eq_app in H
+    | H : ?X = Datatypes.app ?XS ?XS' |- _ =>
+        rewrite app_eq_app in H
+    end.
+
+
+
   Lemma app_ctx_dom : forall G xs xs',
       Ctx.dom G = xs ++ xs' ->
       exists G0 G1, Ctx.dom G0 = xs
@@ -1568,7 +1588,7 @@ Section Omnibig.
       exists ((v,v0)::G0) G1. firstorder; cbn. congruence.
       unfold Ctx.app in Happ. congruence.
   Qed.
-  
+
 
   Lemma ctx_dom_app : forall G G0 G1,
       G = Ctx.app G0 G1 ->
@@ -1580,76 +1600,77 @@ Section Omnibig.
       cbn in H. fold (Ctx.app G0 G1) in H. simpl Ctx.dom. destruct p.
       inverts H. f_equal. apply IHG0. auto.
   Qed.
-  
+
   (* Identity Coercion vars_to_list : vars >-> list. *)
 
-  Lemma ctx_ext_patsubt_eq : forall G G0 p,
-      (exists G1, G = Ctx.app G0 G1) ->
-      Ctx.dom G0 = patvars p ->
-      patsubst G p = patsubst G0 p.
-    Proof using.
-      intros until p. gen G G0. induction p using pat_induct; intros; eauto.
-      - destruct H as [G1 HG]. destruct G0; rew_ctx in *.
-        + discriminate H0.
-        + cbn in HG. inversion H0. destruct p. inverts H1.
-          rewrite HG. cbn. case_var*.
-      - cbn in *. f_equal. apply List.map_ext_in_iff. intros.
-        apply (H a). 
 
-
-        gen G G0. induction l; intros. eauto.
-        cbn in *.
-        forwards *(G2&G3&HG2&HG3&HGeq):app_ctx_dom G0 (patvars a). admit.
-        forwards *:H a G G2.
-        {destruct H0 as (G1&HG1). exists (Ctx.app G3 G1). rewrite HGeq in HG1.
-         rewrite <-Ctx.app_assoc. auto.}
-        forwards *:H a G0 G2. rewrite <-H3 in H2. rewrite H2. f_equal. f_equal.
-        forwards *:IHl G3.
-
-        
-  
-  (* Lemma isubst_pat_ctx : forall t p G G', *)
-  (*     Ctx.dom G = patvars p -> *)
-  (*     Ctx.dom G' = patvars p -> *)
-  (*     patsubst G p = patsubst G' p -> *)
-  (*     isubst G t = isubst G' t. *)
-  (* Proof using. *)
-  (*   intros until p. gen t. induction p using pat_induct; intros t G G' HdG HdG' Heq; cbn in HdG, HdG'. *)
-  (*   - forwards *(v0&HG):in_ctx_dom (v::nil) G v. cbn. auto. *)
-  (*     forwards *(v0'&HG'):in_ctx_dom (v::nil) G' v. cbn. auto. *)
-  (*     unfold Ctx.dom in HdG. destruct G; try discriminate. fold Ctx.dom in HdG. *)
-  (*     unfold Ctx.dom in HdG'. destruct G'; try discriminate. fold Ctx.dom in HdG'. *)
-  (*     destruct p, p0. inverts HdG. inverts HdG'. *)
-  (*     rewrites (>> Ctx.dom_eq_nil_inv H1). *)
-  (*     rewrites (>> Ctx.dom_eq_nil_inv H2). *)
-  (*     inversion HG. inversion HG'. inversion Heq. case_var*. *)
-  (*     congruence. *)
-  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
-  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
-  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
-  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
-  (*   - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'. *)
-  (*     destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
-  (*   - gen G G' t. induction l; intros. *)
-  (*     + unfold Ctx.dom in HdG; unfold Ctx.dom in HdG'. *)
-  (*       destruct G; destruct G'; auto; try solve [destruct p; discriminate]. *)
-  (*     + cbn in HdG, HdG'. *)
-  (*       forwards *(G0&G1&HG0&HG1&HGapp):app_ctx_dom G (patvars a)%list *)
-  (*         (List.fold_right (fun p (acc : list var) => (patvars p ++ acc)%list) nil l)%list. *)
+  (* Lemma ctx_ext_patsubt_eq : forall G G0 p, *)
+  (*     (exists G1, G = Ctx.app G0 G1) -> *)
+  (*     Ctx.dom G0 = patvars p -> *)
+  (*     patsubst G p = patsubst G0 p. *)
+  (*   Proof using. *)
+  (*     intros until p. gen G G0. induction p using pat_induct; intros; eauto. *)
+  (*     - destruct H as [G1 HG]. destruct G0; rew_ctx in *. *)
+  (*       + discriminate H0. *)
+  (*       + cbn in HG. inversion H0. destruct p. inverts H1. *)
+  (*         rewrite HG. cbn. case_var*. *)
+  (*     - cbn in *. f_equal. gen G G0. induction l; intros; eauto. cbn in *. *)
+  (*       forwards *(G2&G3&HG2&HG3&HGeq):app_ctx_dom G0 (patvars a). {rewrite app_eq_app in H1. apply H1.} *)
+  (*       forwards *:H a G G2. *)
+  (*       {destruct H0 as (G1&HG1). exists (Ctx.app G3 G1). rewrite HGeq in HG1. *)
+  (*        rewrite <-Ctx.app_assoc. auto.} *)
+  (*       forwards *:H a G0 G2. rewrite <-H3 in H2. rewrite H2. f_equal.  *)
   (*       admit. *)
-  (*       forwards *(G0'&G1'&HG0'&HG1'&HGapp'):app_ctx_dom G' (patvars a)%list *)
-  (*         (List.fold_right (fun p (acc : list var) => (patvars p ++ acc)%list) nil l)%list. *)
-  (*       admit. *)
-  (*       rewrite HGapp, HGapp'. rewrite !isubst_app_eq_isubst_isubst. *)
-  (*       inversion Heq. fold patsubst in H2. *)
-  (*       assert (isubst G0 t = isubst G0' t). *)
-  (*       { apply H with a; eauto. admit. } (* another lemma *) *)
-  (*       rewrite H0. apply IHl; eauto.  apply HG1. *)
-        
+  (*   Admitted. *)
+
+
+
+  Lemma isubst_pat_ctx : forall t p G G',
+      Ctx.dom G = patvars p ->
+      Ctx.dom G' = patvars p ->
+      patsubst G p = patsubst G' p ->
+      isubst G t = isubst G' t.
+  Proof using.
+    intros until p. gen t. induction p using pat_induct; intros t G G' HdG HdG' Heq; cbn in HdG, HdG'.
+    - forwards *(v0&HG):in_ctx_dom (v::nil) G v. cbn. auto.
+      forwards *(v0'&HG'):in_ctx_dom (v::nil) G' v. cbn. auto.
+      unfold Ctx.dom in HdG. destruct G; try discriminate. fold Ctx.dom in HdG.
+      unfold Ctx.dom in HdG'. destruct G'; try discriminate. fold Ctx.dom in HdG'.
+      destruct p, p0. inverts HdG. inverts HdG'.
+      rewrites (>> Ctx.dom_eq_nil_inv H1).
+      rewrites (>> Ctx.dom_eq_nil_inv H2).
+      inversion HG. inversion HG'. inversion Heq. case_var*.
+      congruence.
+    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
+      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
+    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
+      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
+    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
+      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
+    - inversion Heq.
+
 
       
-      
-    
+      gen G G' t. induction l; intros.
+      + unfold Ctx.dom in HdG; unfold Ctx.dom in HdG'.
+        destruct G; destruct G'; auto; try solve [destruct p; discriminate].
+      + cbn in HdG, HdG'.
+        forwards *(G0&G1&HG0&HG1&HGapp):app_ctx_dom G (patvars a).
+        rewrite app_eq_app in HdG. apply HdG.
+        forwards *(G0'&G1'&HG0'&HG1'&HGapp'):app_ctx_dom G' (patvars a).
+        rewrite app_eq_app in HdG'. apply HdG'.
+        rewrite HGapp, HGapp'. rewrite !isubst_app_eq_isubst_isubst.
+        inversion Heq.
+        assert (isubst G0 t = isubst G0' t).
+        { apply H with a; eauto. transitivity (patsubst G a). symmetry.
+          apply ctx_ext_patsubt_eq; eauto. rewrite H1.
+          apply ctx_ext_patsubt_eq; eauto.}
+        rewrite H0. apply IHl; eauto. cbn.
+
+
+
+
+
 
   (* Lemma omnieval_and_eval_inv : forall s t s' v Q, *)
   (*     omnieval s t Q -> eval s t s' v -> Q v s'. *)
@@ -1679,7 +1700,7 @@ Section Omnibig.
   (*     +  *)
 
 
-        
+
 End Omnibig.
 
 
