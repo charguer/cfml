@@ -1406,10 +1406,9 @@ Section Omnibig.
                   else val_unit) Q ->
       omnieval s (trm_for x n1 n2 t3) Q
   (* FIXME pattern matching correct ? *)
-  | omnieval_match_yes : forall s v p t1 G pts Q,
-      Ctx.dom G = patvars p ->
-      v = patsubst G p ->
-      omnieval s (isubst G t1) Q ->
+  | omnieval_match_yes : forall s v p t1 pts Q,
+      (forall G, Ctx.dom G = patvars p -> v = patsubst G p -> omnieval s (isubst G t1) Q) ->
+      (exists G, Ctx.dom G = patvars p /\ v = patsubst G p) ->
       omnieval s (trm_match v ((p,t1)::pts)) Q
   | omnieval_match_no : forall s v p t1 pts Q,
       (forall G, Ctx.dom G = patvars p -> v <> patsubst G p) ->
@@ -1601,106 +1600,58 @@ Section Omnibig.
       inverts H. f_equal. apply IHG0. auto.
   Qed.
 
-  (* Identity Coercion vars_to_list : vars >-> list. *)
-
-
-  (* Lemma ctx_ext_patsubt_eq : forall G G0 p, *)
-  (*     (exists G1, G = Ctx.app G0 G1) -> *)
-  (*     Ctx.dom G0 = patvars p -> *)
-  (*     patsubst G p = patsubst G0 p. *)
-  (*   Proof using. *)
-  (*     intros until p. gen G G0. induction p using pat_induct; intros; eauto. *)
-  (*     - destruct H as [G1 HG]. destruct G0; rew_ctx in *. *)
-  (*       + discriminate H0. *)
-  (*       + cbn in HG. inversion H0. destruct p. inverts H1. *)
-  (*         rewrite HG. cbn. case_var*. *)
-  (*     - cbn in *. f_equal. gen G G0. induction l; intros; eauto. cbn in *. *)
-  (*       forwards *(G2&G3&HG2&HG3&HGeq):app_ctx_dom G0 (patvars a). {rewrite app_eq_app in H1. apply H1.} *)
-  (*       forwards *:H a G G2. *)
-  (*       {destruct H0 as (G1&HG1). exists (Ctx.app G3 G1). rewrite HGeq in HG1. *)
-  (*        rewrite <-Ctx.app_assoc. auto.} *)
-  (*       forwards *:H a G0 G2. rewrite <-H3 in H2. rewrite H2. f_equal.  *)
-  (*       admit. *)
-  (*   Admitted. *)
 
 
 
-  Lemma isubst_pat_ctx : forall t p G G',
-      Ctx.dom G = patvars p ->
-      Ctx.dom G' = patvars p ->
-      patsubst G p = patsubst G' p ->
-      isubst G t = isubst G' t.
+
+
+
+  Lemma omnieval_and_eval_inv : forall s t s' v Q,
+      omnieval s t Q -> eval s t s' v -> Q v s'.
   Proof using.
-    intros until p. gen t. induction p using pat_induct; intros t G G' HdG HdG' Heq; cbn in HdG, HdG'.
-    - forwards *(v0&HG):in_ctx_dom (v::nil) G v. cbn. auto.
-      forwards *(v0'&HG'):in_ctx_dom (v::nil) G' v. cbn. auto.
-      unfold Ctx.dom in HdG. destruct G; try discriminate. fold Ctx.dom in HdG.
-      unfold Ctx.dom in HdG'. destruct G'; try discriminate. fold Ctx.dom in HdG'.
-      destruct p, p0. inverts HdG. inverts HdG'.
-      rewrites (>> Ctx.dom_eq_nil_inv H1).
-      rewrites (>> Ctx.dom_eq_nil_inv H2).
-      inversion HG. inversion HG'. inversion Heq. case_var*.
-      congruence.
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - unfold Ctx.dom in HdG. unfold Ctx.dom in HdG'.
-      destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-    - inversion Heq.
-
-
-      
-      gen G G' t. induction l; intros.
-      + unfold Ctx.dom in HdG; unfold Ctx.dom in HdG'.
-        destruct G; destruct G'; auto; try solve [destruct p; discriminate].
-      + cbn in HdG, HdG'.
-        forwards *(G0&G1&HG0&HG1&HGapp):app_ctx_dom G (patvars a).
-        rewrite app_eq_app in HdG. apply HdG.
-        forwards *(G0'&G1'&HG0'&HG1'&HGapp'):app_ctx_dom G' (patvars a).
-        rewrite app_eq_app in HdG'. apply HdG'.
-        rewrite HGapp, HGapp'. rewrite !isubst_app_eq_isubst_isubst.
-        inversion Heq.
-        assert (isubst G0 t = isubst G0' t).
-        { apply H with a; eauto. transitivity (patsubst G a). symmetry.
-          apply ctx_ext_patsubt_eq; eauto. rewrite H1.
-          apply ctx_ext_patsubt_eq; eauto.}
-        rewrite H0. apply IHl; eauto. cbn.
-
-
-
-
-
-
-  (* Lemma omnieval_and_eval_inv : forall s t s' v Q, *)
-  (*     omnieval s t Q -> eval s t s' v -> Q v s'. *)
-  (* Proof using. *)
-  (*   intros. gen v s'. *)
-  (*   induction H; introv Heval. *)
-  (*   - inverts H; inverts Heval as [H _]; *)
-  (*       try solve [rew_trms_vals in *; not_val]; *)
-  (*       inverts_ctx; inverts H; eauto; try not_val. *)
-  (*     + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1. *)
-  (*       destruct Hvals as (<-&<-&<-). eauto. *)
-  (*     + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1. *)
-  (*       destruct Hvals as (<-&<-&<-). eauto. *)
-  (*   - inverts Heval. forwards* : evalctx_not_val t1 v. auto. *)
-  (*   - inverts Heval. inverts_ctx. auto. *)
-  (*   - inverts Heval. inverts_ctx. inverts H0. symmetry in H6. not_val.  *)
-  (*     rewrites (>> trms_vals_eq H3). auto. *)
-  (*   - inverts Heval; auto. inverts_ctx. inverts H0. not_val. *)
-  (*   - inverts Heval; auto. inverts_ctx. inverts H0. not_val.  *)
-  (*   - inverts Heval; try solve [inverts TEMP]. *)
-  (*     + inverts_ctx; inverts H2. not_val. symmetry in H8. not_val. *)
-  (*     + rewrites (>> trms_vals_eq H3) in *. inverts TEMP. eauto. *)
-  (*   - inverts Heval. inverts_ctx. eauto. *)
-  (*   - inverts Heval; eauto. inverts_ctx; inverts H0; not_val. *)
-  (*   - inverts Heval. *)
-  (*     + inverts_ctx. inverts H2. not_val. *)
-  (*     +  *)
-
-
-
+    intros. gen v s'.
+    induction H; introv Heval.
+    - inverts H; inverts Heval as [H _];
+        try solve [rew_trms_vals in *; not_val];
+        inverts_ctx; inverts H; eauto; try not_val.
+      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
+        destruct Hvals as (<-&<-&<-). eauto.
+      + forwards *Hvals:match_list_on_first_non_val vs vs0 ts ts0 t1.
+        destruct Hvals as (<-&<-&<-). eauto.
+    - inverts Heval. forwards* : evalctx_not_val t1 v. auto.
+    - inverts Heval. inverts_ctx. auto.
+    - inverts Heval. inverts_ctx. inverts H0. symmetry in H6. not_val.
+      rewrites (>> trms_vals_eq H3). auto.
+    - inverts Heval; auto. inverts_ctx. inverts H0. not_val.
+    - inverts Heval; auto. inverts_ctx. inverts H0. not_val.
+    - inverts Heval; try solve [inverts TEMP].
+      + inverts_ctx; inverts H2. not_val. symmetry in H8. not_val.
+      + rewrites (>> trms_vals_eq H3) in *. inverts TEMP. eauto.
+    - inverts Heval. inverts_ctx. eauto.
+    - inverts Heval; eauto. inverts_ctx; inverts H0; not_val.
+    - inverts Heval; eauto.
+      + inverts_ctx. inverts H2. not_val.
+      + destruct H1 as (G&Hdom&Hv). exfalso. applys* H9 G.
+    - inverts Heval; eauto.
+      + inverts_ctx. inverts H1. not_val.
+      + forwards * : H G.
+    - inverts Heval as [H _]; try discriminate; try solve [inversion H].
+      + inverts_ctx; inverts H0. not_val.
+        destruct vs. rew_list in H6. inverts H6. not_val.
+        cbn in H6. rew_list in H6. inverts H6. symmetry in H4. forwards *(_&Hfalse):nil_eq_app_inv H4.
+        discriminate.
+      + applys* omni_and_eval_unop_inv.
+    - inverts Heval as [H _]; try discriminate; try solve [inversion H].
+      + inverts_ctx; inverts H0. not_val.
+        destruct vs. rew_list in H6. inverts H6. not_val.
+        simpl in H6. rew_list in H6. inverts H6.
+        destruct vs. rew_list in H4. inverts H4. not_val.
+        simpl in H4. rew_list in H4. inverts H4. symmetry in H6. forwards *(_&Hfalse):nil_eq_app_inv H6.
+        discriminate.
+      + applys* omni_and_eval_binop_inv.
+    - inverts Heval as [H _]; try discriminate.
+                    
+        
 End Omnibig.
 
 
