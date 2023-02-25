@@ -7,27 +7,39 @@ Import SpecMListOf.
 Open Scope comp_scope.
 
 
-
-
-
-Lemma haffine_any : forall H,
-  haffine H.
-Hint Resolve haffine_any.
-
-(* TODO: move
-Proof using.
-Transparent heap heap_affine.
- intros. rewrite haffine_eq. unfolds* heap_affine. Qed.
-
-
- *)
-
-
 (* Copy-paste of earlier definitions to work around a notation bug in Coq *)
 
 Notation "<[ e ]>" :=
  e
  (at level 0, e custom wp at level 99) : wp_scope.
+
+Notation "'Pay' F" :=
+ ((*Wptag*) (Wpgen_pay F))
+ (in custom wp at level 69, F at level 0) : wp_scope.
+
+Notation "'Fail'" :=
+ ((*Wptag*) (Wpgen_fail))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Done'" :=
+ ((*Wptag*) (Wpgen_done))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Match' V F1" :=
+ ((*Wptag*) (Wpgen_match V F1))
+ (in custom wp at level 69,
+  V custom wp at level 0,
+  F1 custom wp at level 69,
+  format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : wp_scope.
+
+Notation "'Assert' F" :=
+ ((*Wptag*) (Wpgen_assert F))
+ (in custom wp at level 69,
+  F custom wp at level 99) : wp_scope.
+
+Notation "'Val' v" :=
+ ((*Wptag*) (Wpgen_val v))
+ (in custom wp at level 69) : wp_scope.
 
 Notation "'Let' x ':=' F1 'in' F2" :=
  ((*Wptag*) (Wpgen_let_trm F1 (fun x => F2)))
@@ -38,6 +50,24 @@ Notation "'Let' x ':=' F1 'in' F2" :=
   right associativity,
  format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
 
+Notation "'LetVal' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_val V (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Alias' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_alias (Wpgen_let_val V (fun x => F1))))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Alias'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
 Notation "'Seq' F1 ; F2" :=
  ((*Wptag*) (Wpgen_seq F1 F2))
  (in custom wp at level 68,
@@ -45,6 +75,68 @@ Notation "'Seq' F1 ; F2" :=
   F2 custom wp at level 99,
   right associativity,
   format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f x1 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) .. (cons (Dyn xn) nil) ..)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+(* TODO: why need both? *)
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+Notation "'If_' v 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_if v F1 F2))
+ (in custom wp at level 69,
+  v constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'If_'  v  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'While' F1 'Do' F2 'Done'" :=
+ ((*Wptag*) (Wpgen_while F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  format "'[v' '[' 'While'  F1  'Do'  ']' '/' '['   F2 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'To'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_downto_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'Downto'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
 
 
 
@@ -127,6 +219,38 @@ Inductive inv : node -> elems -> Prop :=
 
 (* ******************************************************* *)
 (** ** Lemmas and tactics *)
+
+(** An induction principle for trees -- should be automatically generated *)
+
+Section Node_induct.
+Variables
+(P : node -> Prop)
+(Q : list node -> Prop)
+(P2 : forall x l, Q l -> P (Node x l))
+(Q1 : Q nil)
+(Q2 : forall t l, P t -> Q l -> Q (t::l)).
+
+Fixpoint node_induct_gen (n : node) : P n :=
+  match n as x return P x with
+  | Node x l => P2 x
+      ((fix node_list_induct (l : list node) : Q l :=
+      match l as x return Q x with
+      | nil   => Q1
+      | t::l' => Q2 (node_induct_gen t) (node_list_induct l')
+      end) l)
+  end.
+
+End Node_induct.
+
+Lemma node_induct : forall (P : node -> Prop),
+  (forall (x : int) (l : list node),
+    (forall n, mem n l -> P n) -> P (Node x l)) ->
+  forall n : node, P n.
+Proof using.
+  introv Hn. eapply node_induct_gen with (Q := fun l =>
+    forall t, mem t l -> P t); intros.
+  auto. auto. inversions H. inversions~ H1.
+Qed.
 
 (** Implicit Types *)
 
@@ -282,6 +406,15 @@ Proof using. auto. Qed.
 Lemma Repr_eq : forall q E,
   q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
 Proof using. auto. Qed.
+
+Lemma haffine_Tree : forall n p, 
+  haffine (p ~> Tree n).
+Proof using.
+  intros n. induction n using node_induct.
+  intros. xunfold Tree. xaffine.
+Qed.
+
+Hint Resolve haffine_Tree : haffine.
 
 
 (* ******************************************************* *)

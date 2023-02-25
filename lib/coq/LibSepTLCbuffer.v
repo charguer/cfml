@@ -58,3 +58,10 @@ Tactic Notation "list_cases" "in" "*"  :=
   rew_list_cases in *; list_cases_post tt.
 Tactic Notation "list_cases" "*" "in" "*"  :=
   list_cases in *; auto_star.
+
+
+(* TODO Move to TLC *)
+Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
+  length l1 = length l2 ->
+  l1 = nil <-> l2 = nil.
+Proof using. intros. destruct l1; destruct l2; auto_false*. Qed.

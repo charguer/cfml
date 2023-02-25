@@ -157,10 +157,50 @@ Proof using.
   intros Q'. xsimpl. intros Q1 R1. intros []. auto.
 Qed.
 
-Parameter Lifted_new : forall (Lup:Record_fields) (fields:fields) (values:vals),
+(* TODO generalized*)
+Parameter
+ Lifted_new : forall (Lup:Record_fields) (fields:fields) (values:vals),
+  List.length fields = List.length Lup ->
+  List.length fields = List.length values ->
   List.map (fun '(f,_) => f) Lup = fields ->
   List.map enc (List.map (fun '(_,d) => dyn_to_val d) Lup) = values ->
   Lifted (Wpgen_record_new (fun _ : loc => Lup)) (wpgen_app ((val_record_init fields)) values).
+
+
+Lemma var_funs_exec_eq : forall (b:bool) (P:Prop),
+  b = isTrue P -> b = true -> P.
+Proof using. intros. subst. Search isTrue. rewrite isTrue_eq_true_eq in H0. auto. Qed.
+
+(* LATER
+Lemma Lifted_new2 : forall (Lup:Record_fields) (fields:fields) (values:vals),
+  List.length fields = 2%nat ->
+  List.length Lup = 2%nat ->
+  List.length values = 2%nat ->
+  List.map (fun '(f,_) => f) Lup = fields ->
+  List.map enc (List.map (fun '(_,d) => dyn_to_val d) Lup) = values ->
+  Lifted (Wpgen_record_new (fun _ : loc => Lup)) (wpgen_app ((val_record_init fields)) values).
+Proof using.
+  introv E1 E2 E3 M1 M2.
+  destruct Lup as [|R1 [|R2 []]]; simpls; tryfalse.
+  destruct fields as [|f1 [|f2 []]]; simpls; tryfalse.
+  destruct values as [|v1 [|v2 []]]; simpls; tryfalse.
+  hnf. intros. unfold Wpgen_record_new, wpgen_app.
+  applys Lifted_mkstruct. clears A. hnf. intros. rewrite <- triple_eq_himpl_wp. 
+  unfold val_record_init. simpl. 
+  match goal with |- context [ trm_apps ?F _ ] => set (G := F) end. 
+  set (H0 :=((fun r : loc => r ~~~> (R1 :: R2 :: nil)) \--* PostCast loc Q)).
+  set (vs := (v1 :: v2 :: nil)).
+ applys triple_apps_funs vs H0 (Post Q). reflexivity.
+  { applys var_funs_exec_eq. eapply (var_funs_exec_eq _ _). auto. auto. } (* todo: improve *)
+  simpl. repeat case_if.
+  applys triple_let. unfold val_record_alloc.
+  applys triple_alloc. 
+eapply triple_conseq_frame.
+  eapply  triple_apps_funs. 
+  applys (>> triple_conseq_frame (fun r : loc => r ~~~> (R1 :: R2 :: nil))).
+Qed.
+*)
+
 
 Lemma Lifted_app : forall (A:Type) {EA:Enc A} (f:val) (Vs:dyns) (vs:vals),
   LibList.map (fun V => trm_val (dyn_to_val V)) Vs = trms_vals vs ->
@@ -522,7 +562,9 @@ Ltac cf_seq :=
 
 Ltac cf_new :=
   cf_inlined_if_needed;
-  eapply Lifted_new; [ try reflexivity | try reflexivity ].
+  eapply Lifted_new; [ try reflexivity | try reflexivity | try reflexivity | try reflexivity ].
+  (* eapply Lifted_new2; [ try reflexivity | try reflexivity | try reflexivity | try reflexivity | try reflexivity ]. *)
+
 
 
 

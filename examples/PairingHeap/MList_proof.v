@@ -4,7 +4,6 @@ From CFML Require Import Stdlib.
 From EXAMPLES Require Import MList_ml.
 From TLC Require Import LibListZ.
 
-
 (* ---------------------------------------------------------------------- *)
 (** ** Representation predicates *)
 
@@ -54,6 +53,13 @@ Lemma MList_not_nil : forall (p:loc) A `{EA:Enc A} (L:list A),
                       p ~~> (Cons x p') \* (p' ~> MList L').
 Proof using. introv N. destruct L as [|x L']; tryfalse. xchanges* MList_cons. Qed.
 
+Lemma haffine_MList : forall A `{EA:Enc A}  (L:list A) (p:loc),
+  haffine (p ~> MList L).
+Proof using. 
+  intros. gen p. induction L; intros; xunfold MList; xaffine.
+Qed.
+
+Hint Resolve haffine_MList : haffine.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -124,7 +130,6 @@ End SpecMList.
 (* ---------------------------------------------------------------------- *)
 (** ** Derived specifications for stack operations w.r.t. [MListOf] *)
 
-
 (** [p ~> MListOf R L] asserts that at location [p] one finds a mutable list
     whose values are described by the list [L], where an item [x] from the list
     is related to an logical value [X] from the list [L], via the representation
@@ -134,12 +139,15 @@ Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop
   \exists (l:list A), \[length l = length L] \* p ~> MList l
                       \* hfold_list2 (fun X x => x ~> R X) L l.
 
-(* TLC *)
-Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
-  length l1 = length l2 ->
-  l1 = nil <-> l2 = nil.
-Proof using. intros. destruct l1; destruct l2; auto_false*. Qed.
+Lemma haffine_MListOf : forall A (EA:Enc A) TA (R:TA->A->hprop) (L:list TA) (p:loc),
+  (forall x X, mem X L -> haffine (x ~> R X)) ->
+  haffine (p ~> MListOf R L).
+Proof using.
+  intros. xunfold MListOf. xaffine. do 2 rewrite length_eq in *.
+  applys* haffine_hfold_list2. math.
+Qed.
 
+Hint Resolve haffine_MListOf : haffine.
 
 Section OfOps.
 
@@ -163,7 +171,7 @@ Lemma Triple_is_empty' : forall L p,
     POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
 Proof using.
   xtriple. xunfold MListOf. xpull ;=> l E. xapp. xsimpl*.
-  { applys* list_same_length_inv_nil. }
+  { applys* LibSepTLCbuffer.list_same_length_inv_nil. }
 Qed.
 
 Lemma Triple_push' : forall L p x X,
@@ -182,7 +190,7 @@ Lemma Triple_pop' : forall L p,
     POST (fun x => \exists X L', \[L = X::L'] \* x ~> R X \* p ~> MListOf R L').
 Proof using.
   xtriple. xunfold MListOf. xpull ;=> l E. xapp.
-  { rewrites~ (>> list_same_length_inv_nil L). }
+  { rewrites~ (>> LibSepTLCbuffer.list_same_length_inv_nil L). }
   intros x l' ->. destruct L as [|X L']; rew_listx in *; tryfalse.
   rew_heapx. xsimpl*. math.
 Qed.

@@ -972,7 +972,8 @@ Proof using.
   destruct Hh as [M N]. applys* M.
 Qed.
 
-Transparent haffine.
+Transparent haffine. (* TODO: remove? *)
+
 Lemma haffine_hstar_hpure_l : forall (P:Prop) H,
   (P -> haffine H) ->
   haffine (\[P] \* H).
@@ -1308,6 +1309,12 @@ Proof using. introv M. applys* qwand_himpl. Qed.
 Definition haffine_repr a A (G:A -> a -> hprop) :=
   forall x X, haffine (x ~> G X).
 
+Lemma haffine_repr_repr : forall a A (R:A->a->hprop),
+  haffine_repr R ->
+  haffine_repr (fun X x => x ~> R X).
+Proof using. introv M. intros V v. rewrite* repr_eq. Qed.
+
+
 (* ********************************************************************** *)
 (* * Tactics for heap entailments *)
 
@@ -1367,11 +1374,13 @@ Ltac xaffine_custom tt :=
 Ltac xaffine_step tt :=
   match goal with
   | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
+  | |- haffine_repr (fun X x => x ~> ?R X) => apply haffine_repr_repr
   | |- haffine_repr _ => intros ? ?
   | |- haffine ?H =>
     match H with
     | (hempty) => apply haffine_hempty
     | (hpure _) => apply haffine_hpure
+    | (hstar (hpure _) _) => apply haffine_hstar_hpure_l; intros ?
     | (hstar _ _) => apply haffine_hstar
     | (hgc) => apply haffine_hgc
     | (hexists _) => apply haffine_hexists
@@ -1380,6 +1389,8 @@ Ltac xaffine_step tt :=
     | _ => try assumption
     end
   end.
+
+  (* LATER: automatically use haffine_hstar_hpure_l *)
 
 Ltac xaffine_core tt ::= (* updates definition from [SepSimpl] *)
   repeat (xaffine_step tt).
@@ -2337,7 +2348,8 @@ Definition hfold_list2 A B (f:A->B->hprop) :=
   match l1,l2 with
   | nil, nil => \[]
   | x1::l1', x2::l2' => f x1 x2 \* F l1' l2'
-  | _, _ => arbitrary
+  | _, _ =>  arbitrary
+    (* using empty instead of arbitrary: fewer proof obligations for haffine *)
   end.
 
 (*
@@ -2376,6 +2388,25 @@ Tactic Notation "rew_heapx" "~" :=
   rew_heapx; auto_tilde.
 Tactic Notation "rew_heapx" "*" :=
   rew_heapx; auto_star.
+
+(* ---------------------------------------------------------------------- *)
+(** Affinity results for [hfold] *)
+
+(* TODO: more haffine results needed *)
+
+Lemma haffine_hfold_list2 : forall A B (l1:list A) (l2:list B) (R:A->B->hprop),
+  length l1 = length l2 ->
+  (forall x X, mem X l1 -> (* mem x l2 -> *) haffine (x ~> R X)) ->
+  haffine (hfold_list2 R l1 l2).
+Proof using.
+  introv M E. gen l2. induction l1 as [|x1 l1']; destruct l2 as [|x2 l2'];
+   rew_list; try (intros; false; math); intros Eq; simpl.
+  { xaffine. }
+  { xaffine. }
+  (* { rewrite* <- (repr_eq (R x1)). } { applys* IHl1'. math. } } *)
+Qed. (* LATER: list2_ind_mem *)
+
+Hint Resolve haffine_hfold_list2 : haffine.
 
 
 (* TODO: hfold_fmap *)
