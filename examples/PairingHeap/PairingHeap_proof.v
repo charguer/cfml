@@ -6,9 +6,48 @@ From TLC Require Import LibListZ LibMultiset.
 Import SpecMListOf.
 Open Scope comp_scope.
 
-(* TODO: move *)
-Axiom haffine_any : forall H, haffine H.
+
+
+
+
+Lemma haffine_any : forall H,
+  haffine H.
 Hint Resolve haffine_any.
+
+(* TODO: move
+Proof using.
+Transparent heap heap_affine.
+ intros. rewrite haffine_eq. unfolds* heap_affine. Qed.
+
+
+ *)
+
+
+(* Copy-paste of earlier definitions to work around a notation bug in Coq *)
+
+Notation "<[ e ]>" :=
+ e
+ (at level 0, e custom wp at level 99) : wp_scope.
+
+Notation "'Let' x ':=' F1 'in' F2" :=
+ ((*Wptag*) (Wpgen_let_trm F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ; F2" :=
+ ((*Wptag*) (Wpgen_seq F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
+
+
+
 
 (**
 
