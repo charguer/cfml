@@ -81,7 +81,7 @@ Hint Rewrite int_seq_zero : rew_listx.
     a value satisfying the (pure) predicate [P]. *)
 
 Definition Lazyval A `{EA:Enc A} (P:A->Prop) (f:val) : Prop :=
-  SPEC_PURE (f tt) POST_PURE P. 
+  SPEC_PURE (f tt) POST_PURE P.
 (* same as: SPEC (f tt) PRE \[] POST (fun r => \[P r]). *)
 
 
@@ -121,7 +121,7 @@ Definition LCascade_node A `{EA:Enc A} (LCascade:list A->lcascade_ A->Prop) (L:l
  match L with
  | nil => s = LCascadeNil
  | x::L' => exists f', s = LCascadeCons x f' /\ LCascade L' f'
- end. 
+ end.
 
 Lemma LCascade_node_Nil : forall A (EA:Enc A) (LCascade:list A->lcascade_ A->Prop),
   LCascade_node LCascade (@nil A) LCascadeNil.
@@ -305,7 +305,7 @@ Proof using.
   xcf. xlet. xvals. xapp. xapp. xsimpl*.
 Qed.
 
-Lemma let_poly_h3_spec : forall A, 
+Lemma let_poly_h3_spec : forall A,
   SPEC (let_poly_h3 tt)
     PRE \[]
     POST (fun (r:loc) => r ~~> (@nil A)).

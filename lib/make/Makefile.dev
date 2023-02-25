@@ -212,6 +212,7 @@ endif
 GENERATOR := $(CFML)/generator
 LIBCOQ := $(CFML)/lib/coq
 STDLIB := $(CFML)/lib/stdlib
+LIBOCAML := $(CFML)/lib/ocaml
 EXAMPLES := $(CFML)/examples
 
 # COQLIBINCLUDE contains include that are not expected to be in _CoqProject
@@ -524,6 +525,10 @@ $(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CF
 $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
 	@echo "Generating stdlib $<"
 	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
+
+$(LIBOCAML)/%.cmj: $(STDLIB)/%.ml $(CFMLC)
+	@echo "Generating ocaml lib $<"
+	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -only_cmj -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 
 ##############################################################################

@@ -84,6 +84,10 @@ let rec lift_btyp loc t =
    (* DEPRECATED
    | Btyp_constr (id,[t]) when Path.name id = "array" ->
       loc_type *)
+   (* HACK FOR MUTUAL RECURSION *)
+   | Btyp_constr (id,[t]) when Path.name id = "ref" || Path.name id = "Pervasives.ref" ->
+      loc_type
+
    | Btyp_constr (id,ts) ->
       coq_apps (Coq_var (type_constr_name (lift_path_name id))) (List.map aux ts)
    | Btyp_tuple ts ->
@@ -104,8 +108,6 @@ let rec lift_btyp loc t =
 
 (* TEMPORARILY DEPRECATED
 
-   | Btyp_constr (id,[t]) when Path.name id = "ref" || Path.name id = "Pervasives.ref" ->
-      loc_type
 
    | Btyp_constr (id,[t]) when Path.name id = "heap" || Path.name id = "Heap.heap" ->
       loc_type
@@ -979,6 +981,13 @@ let rec cfg_structure_item s : cftops =
           (* DEPRECATED if (hack_recognize_okasaki_lazy x) then [] else *)
           begin
 
+           let fvs_typ, typ = lift_typ_sch loc pat.pat_type in
+           let fvs = List.map name_of_type_var (List.filter typvar_is_used fvs) in
+           if not (list_is_included fvs_typ fvs)
+             then failwith "fvs_typ not included in fvs for let binding";
+           let fvs_strict = fvs_typ in
+           let fvs_others = list_minus fvs fvs_strict in
+
           (* value let-binding *)
           if is_value_let_binding bod then begin
 
@@ -988,13 +997,6 @@ let rec cfg_structure_item s : cftops =
                   (* TODO: here and elsewhere, use a wrapper for extending the errors *)
                   raise (Not_in_normal_form (loc2, s ^ " (only value can satisfy the value restriction)"))
               in
-
-             let fvs_typ, typ = lift_typ_sch loc pat.pat_type in
-             let fvs = List.map name_of_type_var (List.filter typvar_is_used fvs) in
-             if not (list_is_included fvs_typ fvs)
-               then failwith "fvs_typ not included in fvs for let binding";
-             let fvs_strict = fvs_typ in
-             let fvs_others = list_minus fvs fvs_strict in
 
              let v_typed = coq_annot v typ in
              let implicits =
@@ -1009,8 +1011,11 @@ let rec cfg_structure_item s : cftops =
 
           (* term let-binding -- later *)
           end else begin
-
-             unsupported loc "top-level binding of terms that are not values";
+            (* hack for null *)
+            if x = "null" then begin
+              [ Cftop_val (x, coq_forall_types fvs_strict typ); ]
+            end else
+             unsupported loc ("top-level binding of terms that are not values:" ^ x);
              (* let (fvs_strict, fvs_others, typ) = get_fvs_typ loc fvs pat.pat_type in*)
 
              (* if fvs_strict <> [] || fvs_others <> []
