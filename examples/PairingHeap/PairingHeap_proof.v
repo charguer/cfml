@@ -3,6 +3,7 @@ From CFML Require Import WPLib.
 From CFML Require Import Stdlib.
 From EXAMPLES Require Import PairingHeap_ml MList_proof.
 From TLC Require Import LibListZ LibMultiset.
+Import SpecMListOf.
 Open Scope comp_scope.
 
 (* TODO: move *)
