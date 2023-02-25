@@ -91,6 +91,11 @@ Qed.
 Definition Lifted (F1:Formula) (f1:formula) : Prop :=
   forall A (EA:Enc A) (Q:A->hprop), ^F1 Q ==> f1 (Post Q).
 
+Lemma Lifted_intro : forall (F1:Formula) (f1:formula) A (EA:Enc A) (Q:A->hprop),
+  Lifted F1 f1 ->
+  ^F1 Q ==> f1 (Post Q).
+Proof using. auto. Qed.
+
 Lemma Lifted_intro_gc : forall (F1:Formula) (f1:formula) A (EA:Enc A) (Q:A->hprop),
   Lifted F1 f1 ->
   ^F1 (Q \*+ \GC) ==> f1 (Post Q \*+ \GC).
@@ -252,7 +257,7 @@ Proof using.
   introv M1 M2 S1.
   hnf. intros. applys Lifted_mkstruct. clears A.
   hnf. intros. applys himpl_hforall_l V. applys* himpl_hwand_hpure_l.
-  xchange M1. Search structural. applys* structural_frame.
+  xchange M1. applys* structural_frame.
   applys* structural_conseq. xsimpl. intros ? ->. applys M2.
 Qed.
 
@@ -395,6 +400,9 @@ Proof using.
   introv M1. applys cf_struct_lemma. rewrite* <- triple_eq_himpl_wp.
 Qed.
 
+Lemma himpl_wpgen_val_constr : forall (v:val),
+  \[] ==> wpgen_val v (fun x => \[x = v]).
+Proof using. intros. apply cf_struct_lemma. xsimpl*. Qed.
 
 Ltac cf_inlined_compute :=
   match goal with |- \[] ==> ?H =>
@@ -405,6 +413,8 @@ Ltac cf_inlined_compute :=
                                   | try cf_inlined_compute ]
   | wpgen_app ?f ?vs ?Q =>
       eapply himpl_wpgen_app; try cf_triple_builtin
+  | wpgen_val ?v ?Q =>
+      apply himpl_wpgen_val_constr
   end end.
 
 Ltac cf_inlined :=
@@ -436,12 +446,17 @@ Ltac cf_letval :=
   eapply Lifted_let_val;
     [ try cf_inlined_compute | | applys structural_mkstruct ].
 
-
-
-Ltac cf_app :=
-  cf_inlined_if_needed;
+Ltac cf_app_core :=
   eapply Lifted_app; [ reflexivity ].
 
+Ltac cf_let_app :=
+  cf_let; [ cf_app_core | intros ? ].
+
+Ltac cf_app :=
+  match goal with
+  | |- Lifted (Wpgen_let_trm _ _) _ => cf_let_app
+  | |- _ => cf_inlined_if_needed; cf_app_core
+  end.
 
 (*
 Ltac cf_letinlined :=
@@ -462,7 +477,7 @@ Ltac cf_case_destruct :=
 Ltac cf_case_eq_end :=
   xsimpl_himpl_hforall_l;
   applys himpl_hwand_hpure_l;
-  [ reflexivity | ].
+  [ reflexivity | try apply Lifted_intro ].
 
 Ltac cf_case_eq :=
   let A := fresh "A" in
@@ -504,9 +519,6 @@ Ltac cf_inlined' :=
 Ltac cf_seq :=
   cf_inlined_if_needed;
   eapply Lifted_seq; [ | | applys structural_mkstruct ].
-
-Ltac cf_app' :=
-  cf_let; [ cf_app | intros ? ].
 
 Ltac cf_new :=
   cf_inlined_if_needed;
