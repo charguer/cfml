@@ -26,35 +26,6 @@ let register_spec x v =
    Coqtop_register ("CFML.WPHeader.database_spec", x, v)
  *)
 
-(* TODO: rewrite this function by using a normalization function that returns p *)
-let rec prefix_for_label typ =
-  match typ.desc with
-  | Tconstr (p, _, _) -> lift_path_name p
-  | Tlink t -> prefix_for_label t
-  | _ -> failwith "string_of_label: type of a record should be a Tconstr or Tlink"
-  (*
-  | Tvar -> failwith "x1"
-  | Tarrow _ -> failwith "x2"
-  | Ttuple  _ -> failwith "x3"
-  | Tconstr _ -> failwith "x4"
-  | Tobject  _ -> failwith "x5"
-  | Tfield _ -> failwith "x6"
-  | Tnil _ -> failwith "x7"
-  | Tsubst  _ -> failwith "x9"
-  | Tvariant  _ -> failwith "x10"
-  | Tunivar -> failwith "x11"
-  | Tpoly  _ -> failwith "x12"
-  *)
-
-(* DEPRECATED
-let string_of_label_with prefix lbl =
-  prefix ^ "_" ^ lbl.lbl_name
-
-let string_of_label typ lbl =
-  string_of_label_with (prefix_for_label typ) lbl
-*)
-
-
 
 (*#########################################################################*)
 (* ** Lifting of types *)
@@ -173,6 +144,33 @@ let get_record_decomposed_name_for_exp e =
 
 
 (*#########################################################################*)
+(* ** Lifting of record definitions *)
+
+(** Build a Coq record definition, where assigns is a list of (p,li,ci),
+    where p is a path, li a label information, ci a coq value.
+    optbase in an option on a Coq value, corresponding to the base of a
+    record-with if provided. *)
+
+let coq_record loc typ fields assigns optbase =
+   let args = List.map (fun f ->
+      match List.find_opt (fun (p,li,ci) -> li.lbl_name = f) assigns with
+      | None ->
+          begin match optbase with
+          | None -> failwith "record field not initialized"
+          | Some base -> Coq_proj (record_field_name f, base)
+          end
+      | Some (p,li,ci) -> ci) fields
+      in
+   let constr = record_constructor_name_from_type (prefix_for_label typ) in
+   (* TODO: I suspect that [id] below corresponds to [prefix_for_label typ] *)
+   let typ_args =
+      match btyp_of_typ_exp typ with
+      | Btyp_constr (id,ts) -> List.map (lift_btyp loc) ts
+      | _ -> failwith "record should have a type-constructor as type"
+      in
+   coq_apps (coq_var_at constr) (typ_args @ args)
+
+(*#########################################################################*)
 (* ** Type arity functions *)
 
 type var_info = {
@@ -243,66 +241,6 @@ let coq_of_constructor loc p c args ty =
   let constr = coq_var coq_name in
   let typ = lift_typ_exp loc ty in
   coq_annot (coq_apps constr args) typ
-
-
-(*#########################################################################*)
-(* ** Helper functions for records *)
-
-(** A variant of the function [Typecore.extract_label_names], for obtaining
-    the names of the fields associated with a record type. Returns a list of
-    field names, and a boolean indication on whether all fields are immutable *)
-
-let record_field_names_and_immutability_of_type env ty =
-  let ty = Ctype.repr ty in
-  match ty.desc with
-  | Tconstr (path, _, _) ->
-      let td = Env.find_type path env in
-      begin match td.type_kind with
-      | Type_record (fmts, _) ->
-            (List.map (fun (f,m,t) -> f) fmts,
-             List.for_all (fun (f,m,t) -> m = Immutable) fmts)
-      | Type_abstract when td.type_manifest <> None ->
-          unsupported_noloc "building of a record with abstract type"
-      | _ -> assert false
-      end
-  | _ -> assert false
-
-(** Find all label associated with a record operation (get, set, new-record, record-with) *)
-
-let record_field_names_and_immutability_of_label lbl =
-  let all_labels = lbl.lbl_all in
-  (List.map (fun lbli -> lbli.lbl_name) (Array.to_list all_labels),
-   Array.for_all (fun lbli -> lbli.lbl_mut = Immutable) all_labels)
-
-let record_field_names_and_immutability_of_labels lbls =
-  match lbls with
-  | [] -> failwith "record creation must include at least one label"
-  | lbl::_ -> record_field_names_and_immutability_of_label lbl
-
-(** Build a Coq record definition, where assigns is a list of (p,li,ci),
-    where p is a path, li a label information, ci a coq value.
-    optbase in an option on a Coq value, corresponding to the base of a
-    record-with if provided. *)
-
-let coq_record loc typ fields assigns optbase =
-   let args = List.map (fun f ->
-      match List.find_opt (fun (p,li,ci) -> li.lbl_name = f) assigns with
-      | None ->
-          begin match optbase with
-          | None -> failwith "record field not initialized"
-          | Some base -> Coq_proj (record_field_name f, base)
-          end
-      | Some (p,li,ci) -> ci) fields
-      in
-   let constr = record_constructor_name_from_type (prefix_for_label typ) in
-   (* TODO: I suspect that [id] below corresponds to [prefix_for_label typ] *)
-   let typ_args =
-      match btyp_of_typ_exp typ with
-      | Btyp_constr (id,ts) -> List.map (lift_btyp loc) ts
-      | _ -> failwith "record should have a type-constructor as type"
-      in
-   coq_apps (coq_var_at constr) (typ_args @ args)
-
 
 
 

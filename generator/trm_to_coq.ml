@@ -4,7 +4,7 @@ open Mytools
 open Print_tast
 open Coq
 open Renaming
-
+open Types
 
 
 (*#########################################################################*)
@@ -242,13 +242,29 @@ let rec tr_exp env e =
       coq_sem "trm_fail" []
 
    | Texp_field (arg, p, lbl) ->
-         coq_sem "trm_fail" []
+      let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+      if immutable then unsupported loc "unsupported expression for deep embedding: pure records";
+      let f = record_field_name lbl.lbl_name in
+      let func = coq_app (coq_var "WPRecord.val_get_field") (coq_var f) in
+      coq_sem "trm_apps" [func; coq_trms [aux arg]]
 
    | Texp_setfield(arg, p, lbl, newval) ->
-      coq_sem "trm_fail" []
+      (* TODO: factorize better with Texp_field *)
+      let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+      if immutable then unsupported loc "unsupported expression for deep embedding: pure records";
+      let f = record_field_name lbl.lbl_name in
+      let func = coq_app (coq_var "WPRecord.val_set_field") (coq_var f) in
+      coq_sem "trm_apps" [func; coq_trms [aux arg; aux newval]]
 
-   | Texp_record (_, _) ->
-      coq_sem "trm_fail" []
+   | Texp_record (l, opt_init_expr) ->
+      let lbls = List.map (fun (p,li,ei) -> li) l in
+      let args = List.map (fun (p,li,ei) -> ei) l in
+      let fields, immutable = record_field_names_and_immutability_of_labels lbls in
+      if immutable then unsupported loc "unsupported expression for deep embedding: pure records";
+      if opt_init_expr <> None then unsupported loc "unsupported expression for deep embedding: record with";
+      let fs = List.map record_field_name fields in
+      let func = coq_app (coq_var "WPRecord.val_record_init") (coq_list ~typ:Formula.field_type (coq_vars fs)) in
+      coq_sem "trm_apps" [func; coq_trms (auxs args)]
 
 (* LATER
 
