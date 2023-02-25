@@ -159,7 +159,7 @@ Qed.
 
 Lemma var_funs_exec_eq : forall (b:bool) (P:Prop),
   b = isTrue P -> b = true -> P.
-Proof using. intros. subst. Search isTrue. rewrite isTrue_eq_true_eq in H0. auto. Qed.
+Proof using. intros. subst. rewrite isTrue_eq_true_eq in H0. auto. Qed.
 
 Lemma Lifted_app : forall (A:Type) {EA:Enc A} (f:val) (Vs:dyns) (vs:vals),
   LibList.map (fun V => trm_val (dyn_to_val V)) Vs = trms_vals vs ->
