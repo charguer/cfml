@@ -78,8 +78,9 @@ Proof using. introv H. xchanges (>> heapdata x x X1 X2). Qed.
     all. Reflecting OCaml type variables by unconstrained Coq variables was
     carefully justified in Section 6.4 from Arthur Charguéraud's PhD thesis. *)
 
+Module Use_Enc_any.
 Parameter Enc_any : forall A, Enc A.
-
+End Use_Enc_any.
 
 (* ********************************************************************** *)
 (** ** Tooling for registering a CF with each toplevel definition *)

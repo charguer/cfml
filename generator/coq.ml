@@ -717,17 +717,17 @@ let coq_option ?(typ : coq option) copt =
 (*#########################################################################*)
 (* ** Smart constructors for logical operators *)
 
+let coq_not = (* propositional negation *)
+  coq_var "Coq.Init.Logic.not"
+
 let coq_eq =
   coq_var "Coq.Init.Logic.eq"
 
 let coq_app_eq c1 c2 =
   coq_app_2 coq_eq c1 c2
 
-let coq_neq = (* propositional negation *)
-  coq_var "Coq.Init.Logic.not"
-
 let coq_app_neq c1 c2 =
-  coq_app_2 coq_neq c1 c2
+  coq_app coq_not (coq_app_eq c1 c2)
 
 let coq_disj =
   coq_var "Coq.Init.Logic.or"

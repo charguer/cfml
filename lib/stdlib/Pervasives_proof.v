@@ -51,7 +51,7 @@ Lemma infix_emark_eq_loc_spec : forall (a b:loc),
     POST \[= isTrue (a <> b) ].
 Proof using. xcf_go. rew_isTrue*. Qed.
 
-Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
+Lemma infix_emark_eq_gen_spec : forall (a b:loc),
   SPEC (infix_emark_eq__ a b)
     PRE \[]
     POST (fun r => \[r = false -> isTrue (a = b)]).
@@ -510,7 +510,7 @@ Lemma fst_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
     POST \[= x].
 Proof using. xcf_go~. Qed.
 
-Lemma snd_spec : forall A B (x:A) (y:B),
+Lemma snd_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
   SPEC (snd (x,y))
     PRE \[]
     POST \[= y].

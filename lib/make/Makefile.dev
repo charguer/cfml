@@ -518,16 +518,18 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 ##############################################################################
 # Building the Stdlib files 
 
+CFMLC_STDLIB_FLAGS := -def_encoders
+
 $(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CFMLC)
-	@echo "Generating stdlib $<"
+	@echo "Generating stdlib $< with flags $(CFMLC_STDLIB_FLAGS)"
 	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
-	@echo "Generating stdlib $<"
+	@echo "Generating stdlib $< with flags $(CFMLC_STDLIB_FLAGS)"
 	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 $(LIBOCAML)/%.cmj: $(STDLIB)/%.ml $(CFMLC)
-	@echo "Generating ocaml lib $<"
+	@echo "Generating ocaml lib $< with flags $(CFMLC_STDLIB_FLAGS)"
 	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -only_cmj -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 

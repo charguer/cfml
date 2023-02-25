@@ -3,6 +3,7 @@
 # ./go.sh mlv
 
 
+make V= -f Makefile.dev -C ../../lib/coq depend
 make V= -f Makefile.dev -C ../../lib/coq
 make V= -f Makefile.dev -C ../../lib/stdlib depend
 make V= -f Makefile.dev -C ../../lib/stdlib

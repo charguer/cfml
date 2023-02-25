@@ -1013,7 +1013,7 @@ let rec cfg_structure_item s : cftops =
           end else begin
             (* hack for null *)
             if x = "null" then begin
-              [ Cftop_val (x, coq_forall_types fvs_strict typ); ]
+              [ Cftop_val ((x, coq_forall_types fvs_strict typ), None); ]
             end else
              unsupported loc ("top-level binding of terms that are not values:" ^ x);
              (* let (fvs_strict, fvs_others, typ) = get_fvs_typ loc fvs pat.pat_type in*)
