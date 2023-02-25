@@ -180,9 +180,9 @@ let rec tr_exp env e =
    | Texp_construct(p, cstr, args) ->
       let x = string_of_path p in
       begin match x with
-      | "()" -> coq_sem "val_unit" []
-      | "true" -> coq_sem "val_bool" [coq_bool_true]
-      | "false" -> coq_sem "val_bool" [coq_bool_false]
+      | "()" -> trm_val (coq_sem "val_unit" [])
+      | "true" -> trm_val (coq_sem "val_bool" [coq_bool_true])
+      | "false" -> trm_val (coq_sem "val_bool" [coq_bool_false])
       | _ -> let x = constr_rename_builtin x in
           coq_sem "trm_constr" [Coq_string x; coq_trms (auxs args)]
       end
@@ -239,6 +239,15 @@ let rec tr_exp env e =
                 pattern_aliases pat *)
 
    | Texp_assertfalse ->
+      coq_sem "trm_fail" []
+
+   | Texp_field (arg, p, lbl) ->
+         coq_sem "trm_fail" []
+
+   | Texp_setfield(arg, p, lbl, newval) ->
+      coq_sem "trm_fail" []
+
+   | Texp_record (_, _) ->
       coq_sem "trm_fail" []
 
 (* LATER

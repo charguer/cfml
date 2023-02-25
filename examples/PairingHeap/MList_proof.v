@@ -72,7 +72,7 @@ Lemma Triple_is_empty : forall L p,
     PRE (p ~> MList (L:list A))
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
-  xcf; [apply EA|]. xchange MList_eq ;=> v. xchange MList_contents_iff ;=> HL.
+  xcf. xchange MList_eq ;=> v. xchange MList_contents_iff ;=> HL.
   xmatch.
   { xvals*. xchanges <- MList_eq. }
   { xvals. { auto_false*. } xchanges <- MList_eq. }
@@ -83,7 +83,7 @@ Lemma Triple_create :
     PRE \[]
     POST (fun p => p ~> MList (@nil A)).
 Proof using.
-  xcf; [apply EA|]. xapp ;=> p. xchanges <- MList_nil.
+  xcf. xapp ;=> p. xchanges <- MList_nil.
 Qed.
 
 Lemma Triple_push : forall L p x,
