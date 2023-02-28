@@ -1420,10 +1420,11 @@ Section Omnibig.
   | omnieval_binop : forall op s v1 v2 Q,
       omnievalbinop s op v1 v2 Q ->
       omnieval s (op v1 v2) Q
-  | omneval_ref : forall s v l Q,
-      ~Fmap.indom s l ->
-      l <> null ->
-      Q (val_loc l) (Fmap.update s l v) ->
+  | omneval_ref : forall s v Q,
+      (forall l, ~Fmap.indom s l ->
+            l <> null ->
+            Q (val_loc l) (Fmap.update s l v)) ->
+      (exists l, ~Fmap.indom s l /\ l <> null) ->
       omnieval s (val_ref v) Q
   | omnieval_get : forall s l Q,
       Fmap.indom s l ->
@@ -1604,6 +1605,22 @@ Section Omnibig.
 
 
 
+  Ltac single_val_in_trm_list t :=
+    match reverse goal with
+    | H : ~ trm_is_val t, H1 : trms_vals ?vs ++ t :: _ = trm_val _ :: nil
+      |- _ => destruct vs; cbn in H1; rew_list in H1;
+            try solve [inverts H1; not_val]
+            (* try solve [] *)
+    end.
+  
+  Ltac app_not_nil H :=
+    match type of H with
+    | _ ++ _ :: _ = nil =>
+        symmetry in H; forwards *(_&Hfalse): nil_eq_app_inv H; discriminate
+    end.
+                   
+        
+    
 
 
   Lemma omnieval_and_eval_inv : forall s t s' v Q,
@@ -1637,20 +1654,31 @@ Section Omnibig.
       + forwards * : H G.
     - inverts Heval as [H _]; try discriminate; try solve [inversion H].
       + inverts_ctx; inverts H0. not_val.
-        destruct vs. rew_list in H6. inverts H6. not_val.
-        cbn in H6. rew_list in H6. inverts H6. symmetry in H4. forwards *(_&Hfalse):nil_eq_app_inv H4.
-        discriminate.
+        single_val_in_trm_list t1.
+        inverts H6. app_not_nil H4. 
       + applys* omni_and_eval_unop_inv.
     - inverts Heval as [H _]; try discriminate; try solve [inversion H].
       + inverts_ctx; inverts H0. not_val.
         destruct vs. rew_list in H6. inverts H6. not_val.
         simpl in H6. rew_list in H6. inverts H6.
-        destruct vs. rew_list in H4. inverts H4. not_val.
-        simpl in H4. rew_list in H4. inverts H4. symmetry in H6. forwards *(_&Hfalse):nil_eq_app_inv H6.
-        discriminate.
+        single_val_in_trm_list t1.
+        inverts H4. app_not_nil H6.
       + applys* omni_and_eval_binop_inv.
     - inverts Heval as [H _]; try discriminate.
-                    
+      + inverts_ctx; inverts H1. not_val.
+        single_val_in_trm_list t1.
+        inverts H7. app_not_nil H5.
+      + inversion H6.
+      + eapply H; eauto.
+    - inverts Heval; eauto.
+      + inverts_ctx; inverts H1. not_val.
+        single_val_in_trm_list t1.
+        inverts H7. app_not_nil H5.
+      + inverts H3.
+      + inversion H6.
+    - inverts Heval.
+      + inverts_ctx.
+
         
 End Omnibig.
 
