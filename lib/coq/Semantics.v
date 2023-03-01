@@ -409,7 +409,7 @@ Section Pat_induct.
     (fb : forall (b : bool), P b)
     (fi : forall (n : int), P n)
     (fc : forall (i : idconstr) (l : list pat), Q l -> P (pat_constr i l)).
-  
+
 
   Definition pat_induct_gen := fix F (p : pat) : P p :=
     let pat_induct_list := fix f (l : list pat) : Q l :=
@@ -424,7 +424,7 @@ Section Pat_induct.
     | pat_int n => @fi n
     | pat_constr id ps => @fc id ps (pat_induct_list ps)
     end.
-  
+
 End Pat_induct.
 
 (** An induction principle for [pat]. *)
@@ -444,9 +444,9 @@ Proof using.
   - inversion H6; eauto.
 Qed.
 
-    
-    
-      
+
+
+
 
 (* ********************************************************************** *)
 (* * Definition of substitution *)
@@ -1444,6 +1444,10 @@ Section Omnibig.
                  l <> null ->
                  Fmap.disjoint sa sb ->
                  Q (val_loc l) (sb \+ sa)) ->
+      (exists l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l /\
+                 n = nat_to_Z k /\
+                 l <> null /\
+                 Fmap.disjoint sa sb) ->
       omnieval sa (val_alloc (val_int n)) Q
   | omnieval_dealloc : forall (n:int) l s Q,
       (forall vs sa sb, s = sb \+ sa ->
@@ -1451,6 +1455,10 @@ Section Omnibig.
                    n = LibList.length vs ->
                    Fmap.disjoint sa sb ->
                    Q val_unit sa) ->
+      (exists vs sa sb, s = sb \+ sa /\
+                   sb = Fmap.conseq vs l /\
+                   n = LibList.length vs /\
+                   Fmap.disjoint sa sb) ->
       omnieval s (val_dealloc (val_int n) (val_loc l)) Q.
 
   (** ** Properties of the judgement *)
@@ -1675,10 +1683,40 @@ Section Omnibig.
       + inverts H6.
     - inverts Heval; try discriminate; eauto.
       + forwards * : val_apps_not_context_one.
-      + inverts H5.
+      + inverts H6.
     - inverts Heval; try discriminate; eauto.
       + forwards * : val_apps_not_context_two.
-      + inverts H6.
+      + inverts H7.
+  Qed.
+
+  (** If [omnieval s t Q] holds, then there exists an output [(s',v)]
+      such that [eval s t s' v] holds and that satisfies [Q]. *)
+
+  Lemma omni_to_one_eval : forall s t Q,
+      omnieval s t Q ->
+      exists s' v, eval s t s' v /\ Q v s'.
+  Proof using.
+    introv Homni. cuts (s'&v&Heval): (exists s' v, eval s t s' v).
+    { exists. split. eauto. applys* omnieval_and_eval_inv. }
+    induction Homni; try (destruct IHHomni as (s'&r&IHHomni); forwards*:omnieval_and_eval_inv);
+      try solve [exists s' r; econstructor; eauto].
+    - forwards *(s''&v'&IHeval): H2 r s' H3. exists s'' v'. applys* eval_evalctx_not_val.
+    - exists s v. constructor.
+    - exists s (val_fixs f xs t1). constructor. auto.
+    - exists s (val_constr id vs). constructor.
+    - destruct H1 as (G & HvarsG & Hsubst).
+      forwards *(s'&v0&IH) : H0. exists s' v0. applys* eval_match_yes.
+    - inverts H; exists; applys * eval_unop; constructor.
+    - inverts H; exists; applys * eval_binop; constructor; eauto.
+    - destruct H0 as (l & Hdom & Hnull).
+      exists (Fmap.update s l v) l. now constructor.
+    - exists s (Fmap.read s l). now apply eval_get.
+    - exists (Fmap.update s l v) val_unit. now apply eval_set.
+    - exists (Fmap.remove s l) val_unit. now apply eval_free.
+    - destruct H0 as (l & k & sb & Hconseq & Hn & Hnull & Hdisjoint).
+      exists (sb \+ sa) l. applys* eval_alloc.
+    - destruct H0 as (vs & sa & sb & Hs & Hsb & Hn & Hdisjoint).
+      exists sa val_unit. rewrite Hs. applys* eval_dealloc.
   Qed.
 
 
