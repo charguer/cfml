@@ -1465,13 +1465,13 @@ Section Omnibig.
   Proof using.
     introv [] Heval; inversion Heval; subst; assumption.
   Qed.
-  
+
   Lemma omni_and_eval_binop_inv : forall s op v1 v2 v' Q,
       omnievalbinop s op v1 v2 Q -> evalbinop op v1 v2 v' -> Q v' s.
   Proof using.
     introv [] Heval; inversion Heval; subst; try congruence.
     replace l'0 with l'. assumption.
-    {rewrite <-H3 in H. apply TLC.LibInt.eq_nat_of_eq_int. apply H.}
+    rewrite <-H3 in H. apply TLC.LibInt.eq_nat_of_eq_int. apply H.
   Qed.
 
 
@@ -1496,7 +1496,7 @@ Section Omnibig.
       congruence.
       firstorder. congruence.
   Qed.
-  
+
   (* TODO trouver un meilleur nom + déplacer ailleurs *)
   Lemma vals_are_vals : forall vs ts t ts',
       trms_vals vs = ts ++ t::ts' ->
@@ -1505,7 +1505,7 @@ Section Omnibig.
     induction vs; intros.
     - cbn in H. forwards * : app_not_empty_r ts (t::ts'). congruence. congruence.
     - destruct ts.
-      + cbn in H. assert (trm_val a = t). {rewrite app_nil_l in H. congruence.}
+      + cbn in H. assert (trm_val a = t). { rewrite app_nil_l in H. congruence. }
         unfold trm_is_val. exists a. auto.
       + apply (IHvs ts t ts'). rewrite <-trms_vals_fold_next, app_cons_l in H.
         congruence.
@@ -1526,13 +1526,13 @@ Section Omnibig.
     | H : trms_vals ?V = trms_vals ?V' ++ ?T :: ?TS |- _ =>
         forwards* : vals_are_vals H
     end.
-  
-  
+
+
   Ltac inverts_ctx :=
     match goal with
     | H : evalctx ?C |- _ => inverts H; try discriminate
     end.
-  
+
 
   Lemma trms_vals_eq : forall vs vs',
       trms_vals vs = trms_vals vs' -> vs = vs'.
@@ -1612,7 +1612,7 @@ Section Omnibig.
     destruct vs; cbn in H3; rew_list in H3; inverts H3. not_val.
     symmetry in H2. forwards *(_&Hf): nil_eq_app_inv H2. discriminate.
   Qed.
-  
+
   Lemma val_apps_not_context_two : forall C t v1 v2 v3,
       ~ trm_is_val t ->
       evalctx C ->
@@ -1623,11 +1623,6 @@ Section Omnibig.
     destruct vs; cbn in H2; rew_list in H2; inverts H2. not_val.
     symmetry in H3. forwards * (_&Hf): nil_eq_app_inv H3. discriminate.
   Qed.
-  
-
-    
-  (* H1 : C t1 = trm_apps (trm_val (val_prim val_set)) (trm_val (val_loc l) :: trm_val v :: nil) *)
-    
 
 
   Lemma omnieval_and_eval_inv : forall s t s' v Q,
