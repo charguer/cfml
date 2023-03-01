@@ -1438,20 +1438,20 @@ Section Omnibig.
       Fmap.indom s l ->
       Q val_unit (Fmap.remove s l) ->
       omnieval s (val_free (val_loc l)) Q
-  | omnieval_alloc : forall l k n sa sb Q,
-      sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
-      n = nat_to_Z k ->
-      l <> null ->
-      Fmap.disjoint sa sb ->
-      Q (val_loc l) (sa \+ sb) ->
+  | omnieval_alloc : forall n sa Q,
+      (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
+                 n = nat_to_Z k ->
+                 l <> null ->
+                 Fmap.disjoint sa sb ->
+                 Q (val_loc l) (sb \+ sa)) ->
       omnieval sa (val_alloc (val_int n)) Q
-  | omnieval_dealloc : forall (n:int) vs l sa sb Q,
-      sb = Fmap.conseq vs l ->
-      n = LibList.length vs ->
-      Fmap.disjoint sa sb ->
-      Q val_unit sa ->
-      omnieval (sa \+ sb) (val_dealloc (val_int n) (val_loc l)) Q.
-
+  | omnieval_dealloc : forall (n:int) l s Q,
+      (forall vs sa sb, s = sb \+ sa ->
+                   sb = Fmap.conseq vs l ->
+                   n = LibList.length vs ->
+                   Fmap.disjoint sa sb ->
+                   Q val_unit sa) ->
+      omnieval s (val_dealloc (val_int n) (val_loc l)) Q.
 
   (** ** Properties of the judgement *)
 
@@ -1469,7 +1469,6 @@ Section Omnibig.
   Lemma omni_and_eval_binop_inv : forall s op v1 v2 v' Q,
       omnievalbinop s op v1 v2 Q -> evalbinop op v1 v2 v' -> Q v' s.
   Proof using.
-    Set Printing Coercions.
     introv [] Heval; inversion Heval; subst; try congruence.
     replace l'0 with l'. assumption.
     {rewrite <-H3 in H. apply TLC.LibInt.eq_nat_of_eq_int. apply H.}
@@ -1604,22 +1603,30 @@ Section Omnibig.
 
 
 
-
-  Ltac single_val_in_trm_list t :=
-    match reverse goal with
-    | H : ~ trm_is_val t, H1 : trms_vals ?vs ++ t :: _ = trm_val _ :: nil
-      |- _ => destruct vs; cbn in H1; rew_list in H1;
-            try solve [inverts H1; not_val]
-            (* try solve [] *)
-    end.
+  Lemma val_apps_not_context_one : forall C t v1 v2,
+      ~ trm_is_val t ->
+      evalctx C ->
+      C t = trm_apps (trm_val v1) (trm_val v2 :: nil) -> False.
+  Proof using.
+    intros. inverts_ctx; inverts H1. not_val.
+    destruct vs; cbn in H3; rew_list in H3; inverts H3. not_val.
+    symmetry in H2. forwards *(_&Hf): nil_eq_app_inv H2. discriminate.
+  Qed.
   
-  Ltac app_not_nil H :=
-    match type of H with
-    | _ ++ _ :: _ = nil =>
-        symmetry in H; forwards *(_&Hfalse): nil_eq_app_inv H; discriminate
-    end.
-                   
-        
+  Lemma val_apps_not_context_two : forall C t v1 v2 v3,
+      ~ trm_is_val t ->
+      evalctx C ->
+      C t = trm_apps (trm_val v1) (trm_val v2 :: trm_val v3 :: nil) -> False.
+  Proof using.
+    intros. inverts_ctx; inverts H1. not_val.
+    destruct vs; cbn in H3; rew_list in H3; inverts H3. not_val.
+    destruct vs; cbn in H2; rew_list in H2; inverts H2. not_val.
+    symmetry in H3. forwards * (_&Hf): nil_eq_app_inv H3. discriminate.
+  Qed.
+  
+
+    
+  (* H1 : C t1 = trm_apps (trm_val (val_prim val_set)) (trm_val (val_loc l) :: trm_val v :: nil) *)
     
 
 
@@ -1653,33 +1660,35 @@ Section Omnibig.
       + inverts_ctx. inverts H1. not_val.
       + forwards * : H G.
     - inverts Heval as [H _]; try discriminate; try solve [inversion H].
-      + inverts_ctx; inverts H0. not_val.
-        single_val_in_trm_list t1.
-        inverts H6. app_not_nil H4. 
+      + forwards*:val_apps_not_context_one.
       + applys* omni_and_eval_unop_inv.
     - inverts Heval as [H _]; try discriminate; try solve [inversion H].
-      + inverts_ctx; inverts H0. not_val.
-        destruct vs. rew_list in H6. inverts H6. not_val.
-        simpl in H6. rew_list in H6. inverts H6.
-        single_val_in_trm_list t1.
-        inverts H4. app_not_nil H6.
+      + forwards * : val_apps_not_context_two.
       + applys* omni_and_eval_binop_inv.
     - inverts Heval as [H _]; try discriminate.
-      + inverts_ctx; inverts H1. not_val.
-        single_val_in_trm_list t1.
-        inverts H7. app_not_nil H5.
+      + forwards * : val_apps_not_context_one.
       + inversion H6.
       + eapply H; eauto.
-    - inverts Heval; eauto.
-      + inverts_ctx; inverts H1. not_val.
-        single_val_in_trm_list t1.
-        inverts H7. app_not_nil H5.
-      + inverts H3.
-      + inversion H6.
-    - inverts Heval.
-      + inverts_ctx.
+    - inverts Heval; try discriminate; eauto.
+      + forwards * : val_apps_not_context_one.
+      + inverts H6.
+    - inverts Heval; try discriminate; eauto.
+      + forwards * : val_apps_not_context_two.
+      + inverts H7.
+    - inverts Heval; try discriminate; eauto.
+      + forwards * : val_apps_not_context_one.
+      + inverts H6.
+    - inverts Heval; try discriminate; eauto.
+      + forwards * : val_apps_not_context_one.
+      + inverts H5.
+    - inverts Heval; try discriminate; eauto.
+      + forwards * : val_apps_not_context_two.
+      + inverts H6.
+  Qed.
 
-        
+
+
+
 End Omnibig.
 
 
