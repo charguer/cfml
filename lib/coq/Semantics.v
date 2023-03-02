@@ -1309,6 +1309,18 @@ Section Omnibig.
   Implicit Types H : hprop.
   Implicit Type Q : val -> hprop.
 
+  Definition pimpl Q1 Q2 : Prop :=
+    forall v s, Q1 v s -> Q2 v s.
+  Notation "Q1 ==> Q2" := (pimpl Q1 Q2) (at level 55).
+
+  Lemma pimpl_refl : forall Q, Q ==> Q.
+  Proof using. firstorder. Qed.
+
+  Lemma pimpl_trans : forall Q1 Q2 Q3, Q1 ==> Q2 -> Q2 ==> Q3 -> Q1 ==> Q3.
+  Proof using. firstorder. Qed.
+
+  Hint Resolve pimpl_refl.
+
 
   (** Unary expressions *)
 
@@ -1464,6 +1476,18 @@ Section Omnibig.
   (** ** Properties of the judgement *)
 
 
+  Lemma omnieval_conseq : forall s t Q1 Q2,
+      omnieval s t Q1 ->
+      Q1 ==> Q2 ->
+      omnieval s t Q2.
+  Proof using.
+    intros. unfold "==>" in H0. induction H; try solve [constructors*].
+    - apply omnieval_unop. inverts H; constructors*.
+    - apply omnieval_binop. inverts H; constructors*.
+  Qed.
+
+
+
 
   (** If [omnieval s t Q] holds, then any [(s',v)] that [(s,t)] may
       evaluate to according to [eval] is in [Q] *)
@@ -1498,7 +1522,7 @@ Section Omnibig.
     - rewrite app_nil_l in H1.
       cut (t' = trm_val a). firstorder.
       rewrite app_cons_l in H1. congruence.
-    - rewrite! app_cons_l in H1. 
+    - rewrite! app_cons_l in H1.
       forwards *:IHvs vs' ts ts' t t'.
       fold (trms_vals vs) in H1. fold (trms_vals vs') in H1.
       congruence.
@@ -1719,6 +1743,32 @@ Section Omnibig.
       exists sa val_unit. rewrite Hs. applys* eval_dealloc.
   Qed.
 
+
+  Definition eval_sp m t := fun v m' => eval m t m' v.
+
+  (** If [omnieval s t Q] holds for some [Q], then [omnieval s t
+      (eval_sp s t)] holds, where [eval_sp s t] is defined as the
+      strongest postcondition for [eval s t]. *)
+
+  Lemma omnieval_eval_sp : forall s t Q,
+      omnieval s t Q -> omnieval s t (eval_sp s t).
+  Proof using.
+    intros. unfold eval_sp. induction H; try solve [constructors*; constructors*];
+      try solve [constructors*; applys* omnieval_conseq; intros v m'; constructors*].
+    - applys* omnieval_ctx_not_val (fun v1 s' => eval s t1 s' v1 /\ Q1 v1 s'). intros.
+      applys* omnieval_conseq IHomnieval. intros v s0.
+      firstorder. applys* omnieval_and_eval_inv.
+      intros. applys omnieval_conseq. apply H3. apply H4.
+      intros v m'. applys* eval_evalctx_not_val.
+    - apply omnieval_match_yes. intros.
+      applys* omnieval_conseq (fun v m' => eval s (isubst G t1) m' v).
+      intros v0 m'. applys* eval_match_yes. auto.
+    - apply omnieval_match_no. auto.
+      applys* omnieval_conseq. intros v0 m'. applys* eval_match_no.
+    - inverts H; applys* omnieval_unop; repeat constructor.
+    - inverts H; applys* omnieval_binop; repeat constructors*.
+    - applys* omnieval_dealloc. intros. rewrite H1. applys* eval_dealloc.
+  Qed.
 
 
 
