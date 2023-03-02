@@ -1771,6 +1771,17 @@ Section Omnibig.
   Qed.
 
 
+  (** [eval_sp s t] subset of [Q] for any [Q] such that [omnieval s t
+      Q] holds. *)
+
+
+  Lemma omnieval_inv_sp_pimpl : forall s t Q,
+      omnieval s t Q -> eval_sp s t ==> Q.
+  Proof using.
+    intros s t Q H v s' Heval. unfold eval_sp in Heval.
+    applys* omnieval_and_eval_inv.
+  Qed.
+
 
 End Omnibig.
 
