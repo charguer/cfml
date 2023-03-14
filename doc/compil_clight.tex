@@ -1,0 +1,418 @@
+\documentclass[class=scrartcl,border={0cm 1.5cm 1cm -0.5cm},multi={tabular}]{standalone}
+
+\usepackage[english]{babel}
+\usepackage{fontspec}
+\setmainfont{EB Garamond}[Numbers={Proportional},
+ItalicFeatures={Ligatures={Rare}}, RawFeature={+ss06,}]
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[beginComment=(*~,endComment=~*)]{algpseudocodex}
+\usepackage{algorithm}
+\usepackage{bm}
+
+\usepackage{float}
+\usepackage{stmaryrd}
+
+\usepackage{geometry}
+
+\usepackage{url}
+
+\usepackage{graphicx}
+
+\usepackage{booktabs}
+
+\usepackage{xcolor}
+\usepackage{ntheorem}
+\usepackage{mdframed}
+
+\usepackage{pgfornament}
+\usepackage{pgfplots}
+
+\pgfplotsset{width=0.8\textwidth,compat=1.17}
+
+\usepackage{bussproofs}
+
+\usepackage{listings}
+
+\usepackage{nth}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usetikzlibrary{shapes,positioning,arrows.meta,bending}
+
+\newcounter{daggerfootnote}
+\newcommand*{\daggerfootnote}[1]{%
+  \setcounter{daggerfootnote}{\value{footnote}}%
+  \renewcommand*{\thefootnote}{\fnsymbol{footnote}}%
+  \footnote[2]{#1}%
+  \setcounter{footnote}{\value{daggerfootnote}}%
+  \renewcommand*{\thefootnote}{\arabic{footnote}}%
+}
+
+\newcommand{\dagfn}[1]{\protect\daggerfootnote{#1}}
+
+% prettier greek letters
+\renewcommand{\phi}{\varphi}
+\renewcommand{\epsilon}{\varepsilon}
+
+% sets
+\newcommand{\N}[0]{\mathbb{N}}
+\newcommand{\Z}[0]{\mathbb{Z}}
+\newcommand{\Q}[0]{\mathbb{Q}}
+\newcommand{\R}[0]{\mathbb{R}}
+\newcommand{\C}[0]{\mathbb{C}}
+\newcommand{\abs}[1]{\left|#1\right|}
+
+% better names
+\newcommand{\union}[0]{\cup}
+\newcommand{\inter}[0]{\cap}
+\newcommand{\et}[0]{\wedge}
+\newcommand{\ou}[0]{\vee}
+
+\newcommand{\ssi}[0]{\Leftrightarrow}
+
+\newcommand{\vers}[0]{\rightarrow}
+
+\newcommand{\sm}[0]{\setminus}
+
+% booleans
+\newcommand{\true}[0]{\mathtt{true}}
+\newcommand{\false}[0]{\mathtt{false}}
+
+% probabilities
+\renewcommand{\P}[0]{\mathbb{P}}
+
+% relation symbols
+\newcommand{\rel}[0]{\mathcal{R}}
+
+% great O notation
+\renewcommand{\O}[0]{\mathcal{O}}
+
+
+\newcommand{\qed}[0]{\begin{flushright} $\Box$ \end{flushright}}
+
+\newcommand{\ie}[0]{\textit{i.e.}}
+
+% logic
+\newcommand{\proof}[0]{\vdash}
+\newcommand{\lssi}[0]{\leftrightarrow}
+
+% calligraphic letters
+\newcommand{\Mc}[0]{\mathcal{M}}
+\newcommand{\Nc}[0]{\mathcal{N}}
+\newcommand{\Lc}[0]{\mathcal{L}}
+\newcommand{\Uc}[0]{\mathcal{U}}
+\newcommand{\Pc}[0]{\mathcal{P}}
+
+% symmetric group
+\newcommand{\Sg}[0]{\mathfrak{S}}
+
+% ugly stuff
+\newcommand{\restrict}[1]{\raisebox{-.5ex}{|}_{#1}}
+\newcommand{\quot}[1]{\raisebox{-.5ex}{\Big/}_{#1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% stage dépendant
+
+\newcommand{\compcert}[0]{\textsc{CompCert}}
+\newcommand{\listsch}[0]{\texttt{list\_scheduler}}
+\newcommand{\revlsc}[0]{\texttt{rev\_list\_scheduler}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\ket}[1]{|#1\rangle}
+\newcommand{\bra}[1]{\langle#1|}
+\newcommand{\vect}[2]{\begin{pmatrix} #1 \ #2 \end{pmatrix}}
+
+% theorems
+\theoremstyle{break}
+\theoremheaderfont{\bfseries}
+\theorembodyfont{\normalfont}
+\newmdtheoremenv[
+linewidth=0pt, leftmargin=0, rightmargin=0,
+backgroundcolor=gray!30,
+innertopmargin=10pt, ntheorem]{lemme}{Lemme}[section]
+
+\newmdtheoremenv[
+linewidth=0pt, leftmargin=0, rightmargin=0,
+backgroundcolor=gray!30,
+innertopmargin=10pt, ntheorem]{theorem}{Theorem}[section]
+
+\newmdtheoremenv[
+linewidth=0pt, leftmargin=0, rightmargin=0,
+backgroundcolor=gray!30,
+innertopmargin=10pt, ntheorem]{prop}{Proposition}[section]
+
+\newmdtheoremenv[
+linewidth=0pt, leftmargin=0, rightmargin=0,
+innertopmargin=10pt, ntheorem]{preuve}{Preuve}[section]
+
+\newmdtheoremenv[
+linewidth=0pt, leftmargin=0, rightmargin=0,
+innertopmargin=10pt, ntheorem]{question}{\textit{Q}\!\!\!\!\!}
+
+\selectlanguage{french}
+\setlocalecaption{french}{appendix}{Annexe}
+\selectlanguage{english}
+
+
+\NewDocumentCommand\setappendixprefix{}
+{%
+  \DeclareTOCStyleEntry[entrynumberformat=\appendixname~,dynnumwidth=true]{default}{section}
+}
+
+\newcommand*{\appendixmore}{%
+  \renewcommand*{\sectionformat}{%
+    \appendixname~\thesection\autodot\enskip}%
+  \renewcommand*{\sectionmarkformat}{%
+    \appendixname~\thesection\autodot\enskip}
+  \addtocontents{toc}{\setappendixprefix}
+}
+
+% lstlisting coq style (inspired from a file of Assia Mahboubi)
+\lstdefinelanguage{Coq}{ 
+    % Anything betweeen $ becomes LaTeX math mode
+    mathescape=true,
+    % Comments may or not include Latex commands
+    texcl=false, 
+    % Vernacular commands
+    morekeywords=[1]{Section, Module, End, Require, Import, Export,
+        Variable, Variables, Parameter, Parameters, Axiom, Hypothesis,
+        Hypotheses, Notation, Local, Tactic, Reserved, Scope, Open, Close,
+        Bind, Delimit, Definition, Let, Ltac, Fixpoint, CoFixpoint, Add,
+        Morphism, Relation, Implicit, Arguments, Unset, Contextual,
+        Strict, Prenex, Implicits, Inductive, CoInductive, Record,
+        Structure, Canonical, Coercion, Context, Class, Global, Instance,
+        Program, Infix, Theorem, Lemma, Corollary, Proposition, Fact,
+        Remark, Example, Proof, Goal, Save, Qed, Defined, Hint, Resolve,
+        Rewrite, View, Search, Show, Print, Printing, All, Eval, Check,
+        Projections, inside, outside, Def},
+    % Gallina
+    morekeywords=[2]{forall, exists, exists2, fun, fix, cofix, struct,
+        match, with, end, as, in, return, let, if, is, then, else, for, of,
+        nosimpl, when},
+    % Sorts
+    morekeywords=[3]{Type, Prop, Set, true, false, option},
+    % Various tactics, some are std Coq subsumed by ssr, for the manual purpose
+    morekeywords=[4]{pose, set, move, case, elim, apply, clear, hnf,
+        intro, intros, generalize, rename, pattern, after, destruct,
+        induction, using, refine, inversion, injection, rewrite, congr,
+        unlock, compute, ring, field, fourier, replace, fold, unfold,
+        change, cutrewrite, simpl, have, suff, wlog, suffices, without,
+        loss, nat_norm, assert, cut, trivial, revert, bool_congr, nat_congr,
+        symmetry, transitivity, auto, split, left, right, autorewrite},
+    % Terminators
+    morekeywords=[5]{by, done, exact, reflexivity, tauto, romega, omega,
+        assumption, solve, contradiction, discriminate},
+    % Control
+    morekeywords=[6]{do, last, first, try, idtac, repeat},
+    % Comments delimiters, we do turn this off for the manual
+    morecomment=[s]{(*}{*)},
+    % Spaces are not displayed as a special character
+    showstringspaces=false,
+    % String delimiters
+    morestring=[b]",
+    morestring=[d],
+    % Size of tabulations
+    tabsize=3,
+    % Enables ASCII chars 128 to 255
+    extendedchars=false,
+    % Case sensitivity
+    sensitive=true,
+    % Automatic breaking of long lines
+    breaklines=false,
+    % Default style fors listings
+    basicstyle=\small,
+    % Position of captions is bottom
+    captionpos=b,
+    % flexible columns
+    columns=[l]flexible,
+    % Style for (listings') identifiers
+    identifierstyle={\ttfamily\color{black}},
+    % Style for declaration keywords
+    keywordstyle=[1]{\ttfamily\color{dkviolet}},
+    % Style for gallina keywords
+    keywordstyle=[2]{\ttfamily\color{dkgreen}},
+    % Style for sorts keywords
+    keywordstyle=[3]{\ttfamily\color{ltblue}},
+    % Style for tactics keywords
+    keywordstyle=[4]{\ttfamily\color{dkblue}},
+    % Style for terminators keywords
+    keywordstyle=[5]{\ttfamily\color{dkred}},
+    %Style for iterators
+    %keywordstyle=[6]{\ttfamily\color{dkpink}},
+    % Style for strings
+    stringstyle=\ttfamily,
+    % Style for comments
+    commentstyle={\ttfamily\color{dkgreen}},
+    %moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+    literate=
+    {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
+    {\\exists}{{$\exists\;$}}1
+    {<-}{{$\leftarrow\;$}}1
+    {=>}{{$\Rightarrow\;$}}1
+    {==}{{\code{==}\;}}1
+    {==>}{{\code{==>}\;}}1
+    %    {:>}{{\code{:>}\;}}1
+    {->}{{$\rightarrow\;$}}1
+    {<->}{{$\leftrightarrow\;$}}1
+    {<==}{{$\leq\;$}}1
+    {\#}{{$^\star$}}1 
+    {\\o}{{$\circ\;$}}1 
+    {\@}{{$\cdot$}}1 
+    {\/\\}{{$\wedge\;$}}1
+    {\\\/}{{$\vee\;$}}1
+    {++}{{\code{++}}}1
+    {~}{{\ }}1
+    {\@\@}{{$@$}}1
+    {\\mapsto}{{$\mapsto\;$}}1
+    {\\hline}{{\rule{\linewidth}{0.5pt}}}1
+    %
+}[keywords,comments,strings]
+
+\lstset{basicstyle=\small\ttfamily,language=[Objective]Caml,breaklines=true}
+
+\newcommand{\clst}[1]{\lstinline[language=C]!#1!}
+
+\begin{document}
+\begin{tabular}{p{6cm}p{10cm}p{10cm}}
+  \toprule
+  C & Clight & CFML \\
+  \clst{int *p = malloc(1);} &
+\begin{lstlisting}
+(* declas:
+Etempvar tmp (void *\)
+Evar p (int *\)
+*)
+Sseq (Sbuiltin (Some p) malloc [1])
+     (Sassign (Evar p) (Etempvar tmp))
+\end{lstlisting} &
+\begin{lstlisting}
+trm_let p heap (val_alloc 1)
+\end{lstlisting} \\
+  \clst{*p = v;}  &
+\begin{lstlisting}
+Sassign (Ederef (Evar p)) v
+\end{lstlisting} &
+\begin{lstlisting}
+(val_set p v)
+\end{lstlisting} \\
+  \clst{*p;} &
+\begin{lstlisting}
+Ederef (Evar p)
+\end{lstlisting} &
+\begin{lstlisting}
+(val_get p)
+\end{lstlisting} \\
+\clst{p;} &
+\begin{lstlisting}
+Eaddrof (Evar p)
+\end{lstlisting} &
+\begin{lstlisting}
+p
+\end{lstlisting} \\
+  \clst{free p;} &
+\begin{lstlisting}
+Sbuiltin None free (Evar p)
+\end{lstlisting} &
+\begin{lstlisting}
+(val_free p)
+\end{lstlisting} \\
+  \midrule
+  \clst{int x;} &
+\begin{lstlisting}
+(* decla: Evar x (int) *)
+\end{lstlisting} &
+\begin{lstlisting}
+trm_let x stack (val_alloc 1)
+\end{lstlisting} \\
+  \clst{x = v;} &
+\begin{lstlisting}
+Sassign (Evar x) v
+\end{lstlisting} &
+\begin{lstlisting}
+(val_set x v)
+\end{lstlisting} \\
+  \clst{x;} &
+\begin{lstlisting}
+Evar x
+\end{lstlisting} &
+\begin{lstlisting}
+(val_get x)
+\end{lstlisting} \\
+  \midrule
+  \clst{register int x = 3;} &
+\begin{lstlisting}
+Sset x (Eint 3)
+\end{lstlisting} &
+\begin{lstlisting}
+trm_let x const (val_int 3)
+\end{lstlisting} \\
+\clst{x;} &
+\begin{lstlisting}
+Etempvar x
+\end{lstlisting} &
+\begin{lstlisting}
+(val_get x)
+\end{lstlisting} \\
+  \midrule
+\clst{f(x);} (si résultat utile) &
+\begin{lstlisting}
+(* decla: Etempvar tmp (void *\) *)
+Scall Some tmp f [x]
+\end{lstlisting} &
+\begin{lstlisting}
+trm_let y const f [x]
+\end{lstlisting} \\
+  \midrule
+\clst{f(x);} (sinon) &
+\begin{lstlisting}
+Scall None f [x]
+\end{lstlisting} &
+\begin{lstlisting}
+trm_let bind_anon const f [x]
+\end{lstlisting} \\
+  \midrule
+\clst{if (e) \ then s1 else s2} &
+\begin{lstlisting}
+Sifthenelse e s1 s2
+\end{lstlisting} &
+\begin{lstlisting}
+(trm_ite e s1 s2)
+\end{lstlisting} \\
+  \midrule
+\clst{while (e) \ s} (voir comment on compile si la cond a des
+  side-effects (same pour ite)) &
+\begin{lstlisting}
+Swhile e s
+\end{lstlisting} &
+\begin{lstlisting}
+trm_while e s
+\end{lstlisting} \\
+  \bottomrule
+\end{tabular}
+
+\begin{tabular}{p{10cm}p{10cm}}
+  \toprule
+  \textbf{Compilation phases:} & \\
+\begin{lstlisting}
+while t1 do t2
+\end{lstlisting} &
+\begin{lstlisting}[mathescape=true]
+while (1) {
+    $\llbracket$t1${\rrbracket}_b$;
+    if (!b) {
+      break;
+    }
+    t2;
+}
+\end{lstlisting} \\
+  Tout appel de fonction -> &
+\begin{lstlisting}
+let y = f x in
+\end{lstlisting}
+(entraîne la décla de \texttt{y} comme tempvar) \\
+  \bottomrule
+\end{tabular}
+\end{document}
