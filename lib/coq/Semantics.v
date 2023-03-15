@@ -451,6 +451,12 @@ Qed.
 (* ********************************************************************** *)
 (* * Definition of substitution *)
 
+
+(** [ctx] is the type of bindings from variables to values, using a
+    definition from [LibSepBind.v]. *)
+
+Definition ctx := Ctx.ctx val.
+
 (* ---------------------------------------------------------------------- *)
 (** Variables from a pattern *)
 
@@ -462,6 +468,9 @@ Fixpoint patvars (p:pat) : vars :=
   | pat_int n => nil
   | pat_constr id ps => List.fold_right (fun p acc => List.app (patvars p) acc) nil ps
   end.
+
+(** Well formedness of a pattern *)
+Definition pat_wf (p:pat) : Prop := noduplicates (patvars p).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -526,10 +535,6 @@ Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
 (** To efficiently compute characteristic formulae, we introduce an
     n-ary substitution function. *)
 
-(** [ctx] is the type of bindings from variables to values, using a
-    definition from [LibSepBind.v]. *)
-
-Definition ctx := Ctx.ctx val.
 
 (** [isubst E t] substitutes all the bindings from [E] inside [t]. *)
 
@@ -835,6 +840,8 @@ Fixpoint patsubst (G:ctx) (p:pat) : val :=
   | pat_constr id ps => val_constr id (List.map (patsubst G) ps)
   end.
 
+Definition matching (G:ctx) (p:pat) (v:val) : Prop :=
+  Ctx.dom G = patvars p /\ v = patsubst G p.
 
 (* ********************************************************************** *)
 (* * Source language semantics *)
@@ -1291,6 +1298,17 @@ Qed.
 End Derived.
 
 
+(* - add predicate for well-formedness of patterns
+   -> wf_pat p := nonduplicates (patvars v)
+   - (exists G, Ctx.dom G = patvars p /\ v = patsubst G p) := satisfiability predicate
+   - matching G p v
+   - exists_matching p v := exists G, matching G p v
+   (If exists_matching
+then (forall G, mathcing G p v -> omnibig s (subst G t1) Q)
+else omnibig s t2 Q) ->..
+
+(case_if)
+ *)
 
 (* ********************************************************************** *)
 (* Omnisemantics *)
@@ -1442,6 +1460,7 @@ Section Omnibig.
       Fmap.indom s l ->
       Q (Fmap.read s l) s ->
       omnieval s (val_get (val_loc l)) Q
+  (* set: ajouter flag + prédicat "valeurs tiennent sur un mot" *)
   | omnieval_set : forall s v l Q,
       Fmap.indom s l ->
       Q val_unit (Fmap.update s l v) ->

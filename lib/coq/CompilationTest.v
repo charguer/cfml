@@ -11,7 +11,7 @@ From CFML Require Import Semantics LibSepFmap.
    
    Definition tr_program (p : program) : mon Clight.program
 
-   Definition gather_vars (t : trm_r) : list (ident*type)
+  Definition gather_vars (t : trm_r) : list (ident*type)
    Definition gather_temps (t : trm_r) : list (ident*type)
 
    Definition tr_trm_stmt (E : env_var) (t: trm_r) : mon Clight.statement
@@ -36,37 +36,51 @@ From CFML Require Import Semantics LibSepFmap.
 
  *)
 
+Inductive type : Type :=
+| type_long : type
+| type_double : type
+| type_ref : type -> type.
 
 
-
-Variant prim_r : Type :=
-| val_r_ptr_add : prim_r
-| val_r_ref : prim_r
-| val_r_get : prim_r
-| val_r_set : prim_r
-| val_r_free : prim_r
-| val_r_alloc : prim_r
-| val_r_dealloc : prim_r.
+Variant var_descr : Type :=
+  | stack : var_descr
+  | heap : var_descr
+  | const : var_descr.
 
 
-Inductive val_r : Type :=
-| val_r_uninitialized : val_r
-| val_r_unit : val_r
-| val_r_bool : bool -> val_r
-| val_r_int : int -> val_r
-| val_r_double : double -> val_r
-| val_r_loc : loc -> val_r
-| val_r_prim : prim_r -> val_r
-| val_r_header : nat -> val_r
+(* Redefiniton of LibSepBind.bind to be typed *)
+Inductive bind : Type :=
+| bind_anon : bind
+| bind_var : var -> type -> bind.
+
+Variant prim : Type :=
+  | val_ptr_add : prim
+  | val_add : prim
+  | val_ref : prim
+  | val_get : prim
+  | val_set : prim
+  | val_free : prim
+  | val_alloc : prim
+  | val_dealloc : prim.
+
+
+Inductive val : Type :=
+| val_uninitialized : val
+| val_unit : val
+| val_bool : bool -> val
+| val_int : int -> val
+| val_loc : loc -> val
+| val_prim : prim -> val
+| val_header : nat -> val
                      
-with trm_r : Type :=
-| trm_r_val : val_r -> trm_r
-| trm_r_var : var -> trm_r
-| trm_r_apps : trm_r -> list trm_r -> trm_r
-| trm_r_seq : trm_r -> trm_r -> trm_r
-| trm_r_let : bind -> trm_r -> trm_r -> trm_r
-| trm_r_while : trm_r -> trm_r -> trm_r
-| trm_r_ite : trm_r -> trm_r -> trm_r -> trm_r.
+with trm : Type :=
+| trm_val : val -> trm
+| trm_var : var -> trm
+| trm_apps : trm -> list trm -> trm
+| trm_seq : trm -> trm -> trm
+| trm_let : bind -> var_descr -> trm -> trm -> trm
+| trm_while : trm -> trm -> trm
+| trm_ite : trm -> trm -> trm -> trm.
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
     cfml   => let p = val_alloc(1) in 
            w=> (set p v)
@@ -97,105 +111,136 @@ with trm_r : Type :=
                       -> pour tout appel de fonction du coup
    *)
 
-Coercion val_r_prim : prim_r >-> val_r.
-Coercion val_r_loc : loc >-> val_r.
-Coercion trm_r_var : var >-> trm_r.
-Coercion trm_r_val : val_r >-> trm_r.
+Coercion val_prim : prim >-> val.
+Coercion val_loc : loc >-> val.
+Coercion trm_var : var >-> trm.
+Coercion trm_val : val >-> trm.
 
-Definition state_r : Type := fmap loc val_r.
+Definition state : Type := fmap loc val.
 
-Implicit Types v : val_r.
+Implicit Types v : val.
 Implicit Type l : loc.
-Implicit Types t : trm_r.
-Implicit Types s : state_r.
-Implicit Types op : prim_r.
-Implicit Types P : state_r -> trm_r -> Prop.
+Implicit Types t : trm.
+Implicit Types s : state.
+Implicit Types op : prim.
+Implicit Types P : state -> trm -> Prop.
 
 Inductive combiner :=
-  | combiner_nil : trm_r -> trm_r -> combiner
-  | combiner_cons : combiner -> trm_r -> combiner.
+  | combiner_nil : trm -> trm -> combiner
+  | combiner_cons : combiner -> trm -> combiner.
 
-Coercion combiner_nil : trm_r >-> Funclass.
+Coercion combiner_nil : trm >-> Funclass.
 Coercion combiner_cons : combiner >-> Funclass.
 
-Fixpoint combiner_to_trm (c:combiner) : trm_r :=
+Fixpoint combiner_to_trm (c:combiner) : trm :=
   match c with
-  | combiner_nil t1 t2 => trm_r_apps t1 (t2::nil)
+  | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
   | combiner_cons c1 t2 =>
       match combiner_to_trm c1 with
-      | trm_r_apps t1 ts => trm_r_apps t1 (List.app ts (t2::nil))
-      | t1 => trm_r_apps t1 (t2::nil)
+      | trm_apps t1 ts => trm_apps t1 (List.app ts (t2::nil))
+      | t1 => trm_apps t1 (t2::nil)
       end
   end.
 
-Coercion combiner_to_trm : combiner >-> trm_r.
+Coercion combiner_to_trm : combiner >-> trm.
 
 Reserved Notation "t '/' s '-->' P"
   (at level 40, s at level 30).
 
-Global Instance Inhab_val_r : Inhab val_r.
-Proof using. apply (Inhab_of_val val_r_unit). Qed.
+Global Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
 
 
-Inductive cfml_step : state_r -> trm_r -> (state_r->trm_r->Prop) -> Prop :=
+Inductive cfml_step : state -> trm -> (state->trm->Prop) -> Prop :=
 | cfml_step_val : forall v s P,
-    P s (trm_r_val v) ->
-    (trm_r_val v) / s --> P
-| cfml_step_seq_r : forall v1 t2 s P,
+    P s (trm_val v) ->
+    (trm_val v) / s --> P
+| cfml_step_seq : forall v1 t2 s P,
     P s t2 ->
-    (trm_r_seq (trm_r_val v1) t2) / s --> P
+    (trm_seq (trm_val v1) t2) / s --> P
 | cfml_step_seq_l : forall t1 t2 s P P1,
     t1 / s --> P1 ->
-    (forall t1' s', P1 s' t1' -> (trm_r_seq t1' t2) / s' --> P) ->
-    (trm_r_seq t1 t2) / s --> P
+    (forall t1' s', P1 s' t1' -> (trm_seq t1' t2) / s' --> P) ->
+    (trm_seq t1 t2) / s --> P
 | cfml_step_ref : forall v s P,
       (forall l, ~Fmap.indom s l ->
             l <> null ->
-            P (Fmap.update s l v) (val_r_loc l)) ->
+            P (Fmap.update s l v) (val_loc l)) ->
       (exists l, ~Fmap.indom s l /\ l <> null) ->
-       (val_r_ref v)/ s --> P
+       (val_ref v)/ s --> P
 | cfml_step_get : forall s l P,
     Fmap.indom s l ->
     P s (Fmap.read s l) ->
-    (val_r_get l) / s --> P
+    (val_get l) / s --> P
 | cfml_step_set : forall s l v P,
     Fmap.indom s l ->
-    P (Fmap.update s l v) val_r_unit ->
-    (val_r_set l v) / s --> P
+    P (Fmap.update s l v) val_unit ->
+    (val_set l v) / s --> P
 | cfml_step_free : forall s l P,
     Fmap.indom s l ->
-    P (Fmap.remove s l) val_r_unit ->
-    (val_r_free l) / s --> P
+    P (Fmap.remove s l) val_unit ->
+    (val_free l) / s --> P
 | cfml_step_ptr_add : forall l l' n s P,
     (l':nat) = (l:nat) + n :> int ->
-    P s (val_r_loc l') ->
-    (val_r_ptr_add l (val_r_int n)) / s --> P
+    P s (val_loc l') ->
+    (val_ptr_add l (val_int n)) / s --> P
 | cfml_step_alloc : forall n sa P,
-    (forall l k sb, sb = Fmap.conseq (LibList.make k val_r_uninitialized) l ->
+    (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
                n = nat_to_Z k ->
                l <> null ->
                Fmap.disjoint sa sb ->
-               P (sb \+ sa) (val_r_loc l)) ->
-    (exists l k sb, sb = Fmap.conseq (LibList.make k val_r_uninitialized) l
+               P (sb \+ sa) (val_loc l)) ->
+    (exists l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l
                /\ n = nat_to_Z k
                /\ l <> null
                /\ Fmap.disjoint sa sb) ->
-     (val_r_alloc (val_r_int n)) / sa --> P
+     (val_alloc (val_int n)) / sa --> P
 | cfml_step_dealloc : forall (n:int) s l P,
     (forall vs sa sb, s = sb \+ sa ->
                  sb = Fmap.conseq vs l ->
                  n = LibList.length vs ->
                  Fmap.disjoint sa sb ->
-                 P sa val_r_unit) ->
+                 P sa val_unit) ->
     (exists vs sa sb, s = sb \+ sa
                  /\ sb = Fmap.conseq vs l
                  /\ n = LibList.length vs
                  /\ Fmap.disjoint sa sb) ->
-    (val_r_dealloc (val_r_int n) l) / s --> P
+    (val_dealloc (val_int n) l) / s --> P
 
 where "t / s --> P" := (cfml_step s t P).
+(* TODO à compléter *)
 
 (** Preprocessing *)
+
+(* assumptions: no vars bound in args of funcall, as bound term in a
+   let binding, or in control flow check expressions  : ie,
+   NO:
+   - let x = (let y = 3 in y) in ..
+   - if (let x = True in x) then ..
+   - while (let x = True in x) do ..
+   - f (let x = 3 in x)
+ *)
+
+Fixpoint gather_vars (t : trm) : list (var*var_descr*type) :=
+  match t with
+  | trm_let (bind_var v ty) (stack as d | heap as d) t1 tk =>
+      (v, d, ty) :: (gather_vars tk)
+  | trm_let _ const _ t | trm_while _ t => gather_vars t
+  | trm_seq t1 t2 | trm_ite _ t1 t2 =>
+      (gather_vars t1) ++ (gather_vars t2)
+  | _ => nil
+  end.
+
+Fixpoint gather_temps (t : trm) : list (var*var_descr*type) :=
+  match t with
+  | trm_let (bind_var v ty) const t1 tk =>
+      (v, const, ty) :: (gather_vars tk)
+  | trm_let _ _ _ t | trm_while _ t => gather_vars t
+  | trm_seq t1 t2 | trm_ite _ t1 t2 =>
+      (gather_vars t1) ++ (gather_vars t2)
+  | _ => nil
+  end.
+
 
 
 (** CompCert types *)
@@ -219,31 +264,80 @@ where "t / s --> P" := (cfml_step s t P).
 
 Add Rec LoadPath "../../../CompCert" as compcert.
 Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
-From compcert Require Import Coqlib Maps Integers Floats Values AST Ctypes.
+From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight.
+From compcert Require Import Maps Errors SimplExpr.
+
+(** Compilation *)
+
+(* Definition program := list toplevel_fundef
+   fundef := {name, rettype, list (var*type), trm}
+
+   Clight.program -> main : "main" 
+   
+   Definition tr_program (p : program) : mon Clight.program
+
+   Definition gather_vars (t : trm_r) : list (ident*type)
+   Definition gather_temps (t : trm_r) : list (ident*type)
+
+   Definition tr_trm_stmt (E : env_var) (t: trm_r) : mon Clight.statement
+   Definition tr_trm_expr (E : env_var) (t: trm_r) : mon Clight.expr
+
+   Definiton env_var := Ptree.t var_descr
+
+   Inductive var_descr :=
+    | var_stack
+    | var_heap
+    | var_const  
+
+
+   Definition trm_get_var_heap_inv (E : env_var) (t : trm) :
+                                       option (ident*type) :=
+      match t with
+      | trm_app trm_get (trm_var x :: nil) =>
+                       match Ptree.get E x with
+                       | Some (var_heap) => Some x
+                       | _ => None
+      | _ => None
+
+ *)
+
+Local Open Scope gensym_monad_scope.
+
+Definition env_var := PTree.t var_descr.
+
+Notation c_long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
+
+
+Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
+  let aux := tr_trm_expr E in
+  match t with
+  (* longs *)
+  | trm_val (val_int n) =>
+      ret (Clight.Econst_long (Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n))
+             c_long)
+  (* add *)
+  | trm_apps (trm_val (val_prim val_add)) (t1 :: t2 :: nil) =>
+      do en1 <- aux t1;
+      do en2 <- aux t2;
+      ret (Clight.Ebinop Cop.Oadd en1 en2 c_long)
+  | _ => error (msg "Compilation tr_trm_expr failed: not a translatable expr")
+  end.
 
 
 
-Inductive expr : Type :=
-  | Econst_int: int -> type -> expr       (**r integer literal *)
-  | Econst_float: float -> type -> expr   (**r double float literal *)
-  | Econst_single: float32 -> type -> expr (**r single float literal *)
-  | Econst_long: int64 -> type -> expr    (**r long integer literal *)
-  | Ederef: expr -> type -> expr          (**r pointer dereference (unary [*]) *)
-  | Eaddrof: expr -> type -> expr         (**r address-of operator ([&]) *)
-.
-
-
-
-Definition label := ident.
-
-
-
-Inductive statement : Type :=
-  | Sskip : statement                   (**r do nothing *)
-  | Sassign : expr -> expr -> statement (**r assignment [lvalue = rvalue] *)
-  | Sset : ident -> expr -> statement   (**r assignment [tempvar = rvalue] *)
-  | Ssequence : statement -> statement -> statement  (**r sequence *)
-.
-
-
+Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
+  let aux := tr_trm_stmt E in
+  match t with
+  (* sequence *)
+  | trm_let bind_anon _ t1 t2 | trm_seq t1 t2 =>
+      do st1 <- aux t1;
+      do st2 <- aux t2;
+      ret (Clight.Ssequence st1 st2)
+  (* while *)
+  | trm_while te tb =>
+      do e <- tr_trm_expr E te;
+      do stb <- aux tb;
+      ret (Clight.Swhile e stb)
+  | _ => error (msg "Compilation tr_trm_stmt failed: not a translatable statement")
+  end.
 
