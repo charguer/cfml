@@ -47,6 +47,8 @@ Variant var_descr : Type :=
   | heap : var_descr
   | const : var_descr.
 
+Global Instance Inhab_var_descr_type : Inhab (var_descr * type).
+Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 
 (* Redefiniton of LibSepBind.bind to be typed *)
 Inductive bind : Type :=
@@ -303,20 +305,53 @@ From compcert Require Import Maps Errors SimplExpr.
 
 Local Open Scope gensym_monad_scope.
 
-Definition env_var := PTree.t var_descr.
+Definition env_var := fmap var (var_descr*type).
 
+(** Clight types notations *)
 Notation c_long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
+Notation c_double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
+Notation c_pointer t := (Ctypes.Tpointer t Ctypes.noattr).
+
+
+
+(** CFML to CompCert conversions *)
+
+Definition cfml_to_cc_int64 (n : int) : Integers.Int64.int :=
+  Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
+
+Coercion cfml_to_cc_int64 : Z >-> Integers.Int64.int.
+
+Fixpoint cfml_to_cc_types (t : type) : Ctypes.type :=
+  match t with
+  | type_long => c_long
+  | type_double => c_double
+  | type_ref t => c_pointer (cfml_to_cc_types t)
+  end.
+
+
+Coercion cfml_to_cc_types : type >-> Ctypes.type.
+
+Parameter var_to_ident : var -> AST.ident.
+Parameter ident_to_var : AST.ident -> var.
+
+Axiom var_ident_bij : forall (v : var) (i : AST.ident),
+    ident_to_var (var_to_ident v) = v
+    /\ var_to_ident (ident_to_var i) = i.
+
+Coercion var_to_ident : var >-> AST.ident.
+Coercion ident_to_var : AST.ident >-> var.
 
 
 Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
   let aux := tr_trm_expr E in
   match t with
   (* longs *)
-  | trm_val (val_int n) =>
-      ret (Clight.Econst_long (Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n))
-             c_long)
+  | trm_val (val_int n) => ret (Clight.Econst_long n c_long)
   (* add *)
-  | trm_apps (trm_val (val_prim val_add)) (t1 :: t2 :: nil) =>
+  | trm_apps val_add
+      ((trm_val (val_int _) as t1)
+         :: (trm_val (val_int _) as t2)
+         :: nil) =>
       do en1 <- aux t1;
       do en2 <- aux t2;
       ret (Clight.Ebinop Cop.Oadd en1 en2 c_long)
@@ -329,7 +364,8 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
   let aux := tr_trm_stmt E in
   match t with
   (* sequence *)
-  | trm_let bind_anon _ t1 t2 | trm_seq t1 t2 =>
+  | trm_let bind_anon _ t1 t2
+  | trm_seq t1 t2 =>
       do st1 <- aux t1;
       do st2 <- aux t2;
       ret (Clight.Ssequence st1 st2)
@@ -338,6 +374,26 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
       do e <- tr_trm_expr E te;
       do stb <- aux tb;
       ret (Clight.Swhile e stb)
+  (* if *)
+  | trm_ite te t1 t2 =>
+      do e <- tr_trm_expr E te;
+      do st1 <- aux t1;
+      do st2 <- aux t2;
+      ret (Clight.Sifthenelse e st1 st2)
+  (* diff forms of [x = v;] *)
+  | trm_apps val_set ((trm_var x) :: tv :: nil) =>
+      match (Fmap.read E x) with
+      (* alloc on stack *)
+      | (stack, t) =>
+          do vv <- tr_trm_expr E tv;
+          ret (Clight.Sassign (Clight.Evar x t) vv)
+      (* alloc on heap *)
+      | (heap, (type_ref t) as tstar) =>
+          do vv <- tr_trm_expr E tv;
+          ret (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) vv)
+      | _ => error (msg "Compilation tr_trm_stmt failed: error while setting a variable")
+      end
+
   | _ => error (msg "Compilation tr_trm_stmt failed: not a translatable statement")
   end.
 
