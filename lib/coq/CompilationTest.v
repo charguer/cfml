@@ -55,9 +55,13 @@ Inductive bind : Type :=
 | bind_anon : bind
 | bind_var : var -> type -> bind.
 
+Definition numtype := type.
+
 Variant prim : Type :=
   | val_ptr_add : prim
-  | val_add : prim
+  | val_add : numtype -> prim
+  (* | val_cast : numtype -> numtype -> prim
+      (en pratique, juste besoin de (val_cast type_long type_double))*)
   | val_ref : prim
   | val_get : prim
   | val_set : prim
@@ -223,7 +227,7 @@ where "t / s --> P" := (cfml_step s t P).
    - f (let x = 3 in x)
  *)
 
-Fixpoint gather_vars (t : trm) : list (var*var_descr*type) :=
+Fixpoint gather_vars (t : trm) : list (var * var_descr * type) :=
   match t with
   | trm_let (bind_var v ty) (stack as d | heap as d) t1 tk =>
       (v, d, ty) :: (gather_vars tk)
@@ -233,7 +237,7 @@ Fixpoint gather_vars (t : trm) : list (var*var_descr*type) :=
   | _ => nil
   end.
 
-Fixpoint gather_temps (t : trm) : list (var*var_descr*type) :=
+Fixpoint gather_temps (t : trm) : list (var * var_descr * type) :=
   match t with
   | trm_let (bind_var v ty) const t1 tk =>
       (v, const, ty) :: (gather_vars tk)
@@ -308,9 +312,9 @@ Local Open Scope gensym_monad_scope.
 Definition env_var := fmap var (var_descr*type).
 
 (** Clight types notations *)
-Notation c_long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
-Notation c_double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
-Notation c_pointer t := (Ctypes.Tpointer t Ctypes.noattr).
+Definition c_long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
+Definition c_double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
+Definition c_pointer (ty : Ctypes.type):= (Ctypes.Tpointer ty Ctypes.noattr).
 
 
 
@@ -330,9 +334,18 @@ Fixpoint cfml_to_cc_types (t : type) : Ctypes.type :=
 
 
 Coercion cfml_to_cc_types : type >-> Ctypes.type.
-
+(* tr_type *)
 Parameter var_to_ident : var -> AST.ident.
 Parameter ident_to_var : AST.ident -> var.
+(* rajouter (option ident) dans le constructeur
+   calcul de l'ident
+(St : monade d'état, avec op `fresh` qui incrémente le compteur de num de var)
+   Fixpoint set_ident (E: map (var-> ident)) (t : trm) : St (trm)
+
+
++ Fixpoint set_type (E : map var type) (t : trm) : trm
+rajouter type_unknown dans la grammaire
+   *)
 
 Axiom var_ident_bij : forall (v : var) (i : AST.ident),
     ident_to_var (var_to_ident v) = v
@@ -347,15 +360,25 @@ Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
   match t with
   (* longs *)
   | trm_val (val_int n) => ret (Clight.Econst_long n c_long)
+  (* get *)
+  | trm_apps val_get ((trm_var x) :: nil) =>
+      match Fmap.read E x with
+      (* stack *)
+      | (stack, ty) =>
+          ret (Clight.Evar x ty)
+      | (heap, (type_ref ty) as tystar) =>
+          ret (Clight.Ederef (Clight.Evar x ty) tystar)
+      | (const, ty) =>
+          ret  (Clight.Etempvar x ty)
+      | _ => error (msg "Compilation tr_trm_expr failed: error while reading variable")
+      end
   (* add *)
-  | trm_apps val_add
-      ((trm_val (val_int _) as t1)
-         :: (trm_val (val_int _) as t2)
-         :: nil) =>
+  | trm_apps (val_add type_long) (t1 :: t2 :: nil) =>
       do en1 <- aux t1;
       do en2 <- aux t2;
       ret (Clight.Ebinop Cop.Oadd en1 en2 c_long)
-  | _ => error (msg "Compilation tr_trm_expr failed: not a translatable expr")
+  | _ => error (msg "tr_trm_expr: not a translatable expr")
+        (* fail t := error (msg t) *)
   end.
 
 
@@ -365,10 +388,14 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
   match t with
   (* sequence *)
   | trm_let bind_anon _ t1 t2
-  | trm_seq t1 t2 =>
+  | trm_seq t1 t2 =>             (* choisir *)
       do st1 <- aux t1;
       do st2 <- aux t2;
       ret (Clight.Ssequence st1 st2)
+  (* | trm_let (bind_var x t) const (trm_apps (trm_var f) ts) tk => *)
+  (*     do es <- ret (List.map (tr_trm_expr E) ts); *)
+  (*     do  stk <- aux tk; *)
+  (*     ret (Clight.Scall (Some (var_to_ident x)) (Clight.Evar f [type_function...]) es) *)
   (* while *)
   | trm_while te tb =>
       do e <- tr_trm_expr E te;
@@ -380,20 +407,20 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
       do st1 <- aux t1;
       do st2 <- aux t2;
       ret (Clight.Sifthenelse e st1 st2)
-  (* diff forms of [x = v;] *)
+  (* various forms of [x = v;] *)
   | trm_apps val_set ((trm_var x) :: tv :: nil) =>
+      do ev <- tr_trm_expr E tv;
       match (Fmap.read E x) with
       (* alloc on stack *)
       | (stack, t) =>
-          do vv <- tr_trm_expr E tv;
-          ret (Clight.Sassign (Clight.Evar x t) vv)
+          ret (Clight.Sassign (Clight.Evar x t) ev)
       (* alloc on heap *)
       | (heap, (type_ref t) as tstar) =>
-          do vv <- tr_trm_expr E tv;
-          ret (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) vv)
+          ret (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) ev)
+      | (const, t) =>
+          error (msg "Compilation tr_trm_stmt failed: trying to set a const var")
       | _ => error (msg "Compilation tr_trm_stmt failed: error while setting a variable")
       end
 
   | _ => error (msg "Compilation tr_trm_stmt failed: not a translatable statement")
   end.
-
