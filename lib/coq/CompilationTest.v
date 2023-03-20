@@ -50,10 +50,10 @@ Variant var_descr : Type :=
 Global Instance Inhab_var_descr_type : Inhab (var_descr * type).
 Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 
-(* Redefiniton of LibSepBind.bind to be typed *)
+(* Redefiniton of LibSepBind.bind to be typed, and with var descr *)
 Inductive bind : Type :=
 | bind_anon : bind
-| bind_var : var -> type -> bind.
+| bind_var : var -> type -> var_descr -> bind.
 
 Definition numtype := type.
 
@@ -83,10 +83,13 @@ with trm : Type :=
 | trm_val : val -> trm
 | trm_var : var -> trm
 | trm_apps : trm -> list trm -> trm
-| trm_seq : trm -> trm -> trm
-| trm_let : bind -> var_descr -> trm -> trm -> trm
+| trm_let : bind -> trm -> trm -> trm
 | trm_while : trm -> trm -> trm
 | trm_ite : trm -> trm -> trm -> trm.
+
+
+Definition trm_seq (t1 t2 : trm) : trm :=
+  trm_let bind_anon t1 t2.
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
     cfml   => let p = val_alloc(1) in 
            w=> (set p v)
@@ -227,24 +230,32 @@ where "t / s --> P" := (cfml_step s t P).
    - f (let x = 3 in x)
  *)
 
-Fixpoint gather_vars (t : trm) : list (var * var_descr * type) :=
+Fixpoint get_var_defs (t : trm) : list (var * var_descr * type) :=
   match t with
-  | trm_let (bind_var v ty) (stack as d | heap as d) t1 tk =>
-      (v, d, ty) :: (gather_vars tk)
-  | trm_let _ const _ t | trm_while _ t => gather_vars t
-  | trm_seq t1 t2 | trm_ite _ t1 t2 =>
-      (gather_vars t1) ++ (gather_vars t2)
-  | _ => nil
+  | trm_val v => nil
+  | trm_var x => nil
+  | trm_let (bind_var v ty stack)  t1 tk =>
+      (v, stack, ty) :: (get_var_defs tk)
+  | trm_let (bind_var v ty heap)  t1 tk =>
+      (v, heap, ty) :: (get_var_defs tk)
+  | trm_let (bind_var _ _ const)  _ tk => (get_var_defs tk)
+  | trm_let bind_anon t1 t2 => (get_var_defs t1) ++ (get_var_defs t2)
+  | trm_apps t ts => nil
+  | trm_while _ t => get_var_defs t
+  | trm_ite _ t1 t2 => (get_var_defs t1) ++ (get_var_defs t2)
   end.
 
-Fixpoint gather_temps (t : trm) : list (var * var_descr * type) :=
+Fixpoint get_temp_defs (t : trm) : list (var * var_descr * type) :=
   match t with
-  | trm_let (bind_var v ty) const t1 tk =>
-      (v, const, ty) :: (gather_vars tk)
-  | trm_let _ _ _ t | trm_while _ t => gather_vars t
-  | trm_seq t1 t2 | trm_ite _ t1 t2 =>
-      (gather_vars t1) ++ (gather_vars t2)
-  | _ => nil
+  | trm_val v => nil
+  | trm_var x => nil
+  | trm_let (bind_var v ty const)  t1 tk =>
+      (v, const, ty) :: (get_temp_defs tk)
+  | trm_let (bind_var _ _ _)  _ tk => (get_temp_defs tk)
+  | trm_let bind_anon t1 t2 => (get_temp_defs t1) ++ (get_temp_defs t2)
+  | trm_apps t ts => nil
+  | trm_while _ t => get_temp_defs t
+  | trm_ite _ t1 t2 => (get_temp_defs t1) ++ (get_temp_defs t2)
   end.
 
 
@@ -307,33 +318,33 @@ From compcert Require Import Maps Errors SimplExpr.
 
  *)
 
-Local Open Scope gensym_monad_scope.
 
 Definition env_var := fmap var (var_descr*type).
 
+Module cc_types.
 (** Clight types notations *)
-Definition c_long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
-Definition c_double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
-Definition c_pointer (ty : Ctypes.type):= (Ctypes.Tpointer ty Ctypes.noattr).
+Definition long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
+Definition double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
+Definition pointer (ty : Ctypes.type):= (Ctypes.Tpointer ty Ctypes.noattr).
 
+End cc_types.
 
 
 (** CFML to CompCert conversions *)
 
-Definition cfml_to_cc_int64 (n : int) : Integers.Int64.int :=
+Coercion tr_int64 (n : int) : Integers.Int64.int :=
   Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
 
-Coercion cfml_to_cc_int64 : Z >-> Integers.Int64.int.
 
-Fixpoint cfml_to_cc_types (t : type) : Ctypes.type :=
-  match t with
-  | type_long => c_long
-  | type_double => c_double
-  | type_ref t => c_pointer (cfml_to_cc_types t)
+Fixpoint tr_types (ty : type) : Ctypes.type :=
+  match ty with
+  | type_long => cc_types.long
+  | type_double => cc_types.double
+  | type_ref ty => cc_types.pointer (tr_types ty)
   end.
 
 
-Coercion cfml_to_cc_types : type >-> Ctypes.type.
+Coercion tr_types : type >-> Ctypes.type.
 (* tr_type *)
 Parameter var_to_ident : var -> AST.ident.
 Parameter ident_to_var : AST.ident -> var.
@@ -352,14 +363,17 @@ Axiom var_ident_bij : forall (v : var) (i : AST.ident),
     /\ var_to_ident (ident_to_var i) = i.
 
 Coercion var_to_ident : var >-> AST.ident.
-Coercion ident_to_var : AST.ident >-> var.
+(* Coercion ident_to_var : AST.ident >-> var. *)
+
+
+Local Open Scope gensym_monad_scope.
 
 
 Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
   let aux := tr_trm_expr E in
   match t with
   (* longs *)
-  | trm_val (val_int n) => ret (Clight.Econst_long n c_long)
+  | trm_val (val_int n) => ret (Clight.Econst_long n cc_types.long)
   (* get *)
   | trm_apps val_get ((trm_var x) :: nil) =>
       match Fmap.read E x with
@@ -376,7 +390,7 @@ Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
   | trm_apps (val_add type_long) (t1 :: t2 :: nil) =>
       do en1 <- aux t1;
       do en2 <- aux t2;
-      ret (Clight.Ebinop Cop.Oadd en1 en2 c_long)
+      ret (Clight.Ebinop Cop.Oadd en1 en2 cc_types.long)
   | _ => error (msg "tr_trm_expr: not a translatable expr")
         (* fail t := error (msg t) *)
   end.
@@ -385,13 +399,21 @@ Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
 
 Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
   let aux := tr_trm_stmt E in
+  let auxe := tr_trm_expr E in
   match t with
   (* sequence *)
-  | trm_let bind_anon _ t1 t2
-  | trm_seq t1 t2 =>             (* choisir *)
+  | trm_let bind_anon t1 t2 =>
       do st1 <- aux t1;
       do st2 <- aux t2;
       ret (Clight.Ssequence st1 st2)
+  (* alloc *)
+  | trm_let (bind_var p ty heap)
+      (trm_apps val_alloc (tn :: nil)) tk =>
+      do en <- auxe tn;
+      ret (Clight.Sbuiltin (Some (var_to_ident p)) AST.EF_malloc
+             (Ctypes.Tcons cc_types.long Ctypes.Tnil)
+             (en :: nil))
+          
   (* | trm_let (bind_var x t) const (trm_apps (trm_var f) ts) tk => *)
   (*     do es <- ret (List.map (tr_trm_expr E) ts); *)
   (*     do  stk <- aux tk; *)
