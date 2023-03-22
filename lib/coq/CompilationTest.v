@@ -2,6 +2,11 @@ Set Implicit Arguments.
 
 From CFML Require Import Semantics LibSepFmap.
 
+Add Rec LoadPath "../../../CompCert" as compcert.
+Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
+From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight.
+From compcert Require Import Maps Errors SimplExpr.
+
 (** CFML types *)
 
 (* Definition program := list toplevel_fundef
@@ -35,6 +40,9 @@ From CFML Require Import Semantics LibSepFmap.
       | _ => None
 
  *)
+  
+
+(* Section CFML_TYPES. *)
 
 Inductive type : Type :=
 | type_long : type
@@ -91,6 +99,35 @@ with trm : Type :=
 
 Definition trm_seq (t1 t2 : trm) : trm :=
   trm_let bind_anon t1 t2.
+
+
+Module VARS <: EQUALITY_TYPE.
+  Definition t := var.
+  Definition eq := eq_var_dec.
+End VARS.
+  
+Module var_maps := EMap VARS.
+
+Definition empty := var_maps.init (@None (var_descr*type)).
+
+Definition env_var := fmap var (var_descr*type).
+
+Record fundef : Type :=
+  mkfundef {
+      name: var;
+      rettype: type;
+      params: list (var*type);
+      vars: env_var;
+      temps: env_var;
+      body: trm
+  }.
+
+
+Definition program := list fundef.
+
+(* End CFML_TYPES. *)
+
+
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
     cfml   => let p = val_alloc(1) in 
            w=> (set p v)
@@ -231,32 +268,32 @@ where "t / s --> P" := (cfml_step s t P).
    - f (let x = 3 in x)
  *)
 
-Fixpoint get_var_defs (t : trm) : list (var * var_descr * type) :=
+Fixpoint get_var_defs (t : trm) : env_var :=
   match t with
-  | trm_val v => nil
-  | trm_var x => nil
+  | trm_val v => empty
+  | trm_var x => empty
   | trm_let (bind_var v ty stack)  t1 tk =>
-      (v, stack, ty) :: (get_var_defs tk)
+      update (get_var_defs tk) v (stack, ty)
   | trm_let (bind_var v ty heap) t1 tk =>
-      (v, heap, ty) :: (get_var_defs tk)
+      update (get_var_defs tk) v (heap, ty)
   | trm_let (bind_var _ _ const)  _ tk => (get_var_defs tk)
-  | trm_let bind_anon t1 t2 => (get_var_defs t1) ++ (get_var_defs t2)
-  | trm_apps t ts => nil
+  | trm_let bind_anon t1 t2 => (get_var_defs t1) \+ (get_var_defs t2)
+  | trm_apps t ts => empty
   | trm_while _ t => get_var_defs t
-  | trm_ite _ t1 t2 => (get_var_defs t1) ++ (get_var_defs t2)
+  | trm_ite _ t1 t2 => (get_var_defs t1) \+ (get_var_defs t2)
   end.
 
-Fixpoint get_temp_defs (t : trm) : list (var * var_descr * type) :=
+Fixpoint get_temp_defs (t : trm) : env_var :=
   match t with
-  | trm_val v => nil
-  | trm_var x => nil
+  | trm_val v => empty
+  | trm_var x => empty
   | trm_let (bind_var v ty const)  t1 tk =>
-      (v, const, ty) :: (get_temp_defs tk)
+      update (get_var_defs tk) v (const, ty)
   | trm_let (bind_var _ _ _)  _ tk => (get_temp_defs tk)
-  | trm_let bind_anon t1 t2 => (get_temp_defs t1) ++ (get_temp_defs t2)
-  | trm_apps t ts => nil
+  | trm_let bind_anon t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2)
+  | trm_apps t ts => empty
   | trm_while _ t => get_temp_defs t
-  | trm_ite _ t1 t2 => (get_temp_defs t1) ++ (get_temp_defs t2)
+  | trm_ite _ t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2)
   end.
 
 
@@ -280,10 +317,6 @@ Fixpoint get_temp_defs (t : trm) : list (var * var_descr * type) :=
   -> meaning each loc can be mapped to a block, at least for refs
  *)
 
-Add Rec LoadPath "../../../CompCert" as compcert.
-Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
-From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight.
-From compcert Require Import Maps Errors SimplExpr.
 
 (** Compilation *)
 
@@ -321,11 +354,11 @@ From compcert Require Import Maps Errors SimplExpr.
 
 
 
+
 Notation "<<<( ta1 , .. , tan )>>>" := (Ctypes.Tcons ta1 .. (Ctypes.Tcons tan Ctypes.Tnil) ..).
 
 Notation "[| st1 ;; .. ;; stn1 ;; stn |]" := (Clight.Ssequence st1 .. (Clight.Ssequence stn1 stn) ..).
 
-Definition env_var := fmap var (var_descr*type).
 
 Module cc_types.
 (** Clight types notations *)
@@ -334,6 +367,8 @@ Definition double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
 Definition pointer (ty : Ctypes.type):= (Ctypes.Tpointer ty Ctypes.noattr).
 
 End cc_types.
+
+Section Compil.
 
 
 (** CFML to CompCert conversions *)
@@ -373,63 +408,91 @@ Coercion var_to_ident : var >-> AST.ident.
 (* Coercion ident_to_var : AST.ident >-> var. *)
 
 
-Local Open Scope gensym_monad_scope.
+(* Definition this_first_unused_ident (x : unit) : AST.ident := *)
+(*   3%positive. *)
+
+(* Definition this_initial_generator (x: unit) : generator := *)
+(*   mkgenerator (this_first_unused_ident x) nil. *)
+
+(* (* Definition mon2 := mon this_first_unused_ident. *) *)
+(* Compute match (gensym cc_types.long) (this_initial_generator tt) with *)
+(*         | Res tbody g i => OK (tbody, g, i) *)
+(*         | Err msg => Error msg *)
+(*         end. *)
+  
+(* mmap for the gensym monad *)
+(* Fixpoint mmap (A B: Type) (f: A -> mon B) (l: list A) {struct l} : mon (list B) := *)
+(*   match l with *)
+(*   | nil => ret nil *)
+(*   | hd :: tl => *)
+(*       do hd' <- f hd; *)
+(*       do tl' <- mmap f tl; *)
+(*       ret (hd' :: tl') *)
+(*   end. *)
 
 
-Fixpoint tr_trm_expr (E : env_var) (t : trm) : mon Clight.expr :=
+Local Open Scope error_monad_scope.
+
+Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
   let aux := tr_trm_expr E in
   match t with
   (* longs *)
-  | trm_val (val_int n) => ret (Clight.Econst_long n cc_types.long)
+  | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
   (* get *)
   | trm_apps val_get ((trm_var x) :: nil) =>
       match Fmap.read E x with
       (* stack *)
       | (stack, ty) =>
-          ret (Clight.Evar x ty)
+          OK (Clight.Evar x ty)
       | (heap, (type_ref ty) as tystar) =>
-          ret (Clight.Ederef (Clight.Evar x ty) tystar)
+          OK (Clight.Ederef (Clight.Evar x ty) tystar)
+      (* | (const, ty) => *)
+      (*     OK  (Clight.Etempvar x ty) *)
+      | _ => Error (msg "tr_trm_expr: error while reading variable")
+      end
+  (* temp *)
+  | trm_var x =>
+      match Fmap.read E x with
       | (const, ty) =>
-          ret  (Clight.Etempvar x ty)
-      | _ => error (msg "tr_trm_expr: error while reading variable")
+          OK (Clight.Etempvar x ty)
+      | _ => Error (msg "tr_trm_expr: trying to use an alloc'ed variable as is")
       end
   (* add :> longs *)
   | trm_apps (val_add type_long) (t1 :: t2 :: nil) =>
       do en1 <- aux t1;
       do en2 <- aux t2;
-      ret (Clight.Ebinop Cop.Oadd en1 en2 cc_types.long)
+      OK (Clight.Ebinop Cop.Oadd en1 en2 cc_types.long)
   (* lt :> longs *)
   | trm_apps (val_lt type_long) (t1 :: t2 :: nil) =>
       do en1 <- aux t1;
       do en2 <- aux t2;
-      ret (Clight.Ebinop Cop.Olt en1 en2 cc_types.long)
-  | _ => error (msg "tr_trm_expr: not a translatable expr")
-        (* fail t := error (msg t) *)
+      OK (Clight.Ebinop Cop.Olt en1 en2 cc_types.long)
+  | _ => Error (msg "tr_trm_expr: not a translatable expr")
   end.
 
 
 
-Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
+Fixpoint tr_trm_stmt (E : env_var) (t : trm) : res (Clight.statement) :=
   let aux := tr_trm_stmt E in
   let auxe := tr_trm_expr E in
   match t with
-  (* sequence *)
+  (* sequence: [let _ = t1 in t2] *)
   | trm_let bind_anon t1 t2 =>
       do st1 <- aux t1;
       do st2 <- aux t2;
-      ret ([| st1 ;; st2 |])
+      OK ([| st1 ;; st2 |])
   (* pattern for funcall, kinda *)
-  (* | trm_let (bind_var x t) const (trm_apps (trm_var f) ts) tk => *)
-  (*     do es <- ret (List.map (tr_trm_expr E) ts); *)
-  (*     do  stk <- aux tk; *)
-  (*     ret (Clight.Scall (Some (var_to_ident x)) (Clight.Evar f [type_function...]) es) *)
+  (* | trm_let (bind_var x t const) (trm_apps (trm_var f) ts) tk => *)
+  (*     do es <- mmap auxe ts; *)
+  (*     do stk <- aux tk; *)
+  (*     OK (Clight.Scall (Some (var_to_ident x)) (Clight.Evar f [funtype..]) es) *)
   (* [alloc]. Assumes fun call has already been transformed to assign
      to a temp *)
   | trm_let (bind_var x ty const)
       (trm_apps val_alloc (tn :: nil)) tk =>
       do en <- auxe tn;
       do stk <- aux tk;
-      ret ([| Clight.Sbuiltin (Some (var_to_ident x)) AST.EF_malloc
+      OK ([| Clight.Sbuiltin (Some (var_to_ident x)) AST.EF_malloc
                 (<<<(cc_types.long)>>>)
                 (en :: nil) ;;
               stk |])
@@ -441,14 +504,14 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
       do stk <- aux tk;
       match d with
       | const =>
-          ret ([| Clight.Sset x e ;; stk |])
+          OK ([| Clight.Sset x e ;; stk |])
       | heap =>
-          ret ( [| Clight.Sassign
+          OK ([| Clight.Sassign
                      (Clight.Ederef (Clight.Evar x (cc_types.pointer ty))
                         ty) e ;;
                    stk |])
       | stack =>
-          ret ( [| Clight.Sassign (Clight.Evar x ty) e ;; stk |])
+          OK ([| Clight.Sassign (Clight.Evar x ty) e ;; stk |])
       end
 
   (* various forms of [x = v;] *)
@@ -457,26 +520,75 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : mon (Clight.statement) :=
       match (Fmap.read E x) with
       (* alloc on stack *)
       | (stack, t) =>
-          ret (Clight.Sassign (Clight.Evar x t) ev)
+          OK (Clight.Sassign (Clight.Evar x t) ev)
       (* alloc on heap *)
       | (heap, (type_ref t) as tstar) =>
-          ret (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) ev)
+          OK (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) ev)
       | (const, t) =>
-          error (msg "tr_trm_stmt: trying to set a const var")
-      | _ => error (msg "tr_trm_stmt: error while setting a variable")
+          Error (msg "tr_trm_stmt: trying to set a const var")
+      | _ => Error (msg "tr_trm_stmt: error while setting a variable")
       end
           
   (* [while]. Assumes condition is pure *)
   | trm_while te tb =>
       do e <- tr_trm_expr E te;
       do stb <- aux tb;
-      ret (Clight.Swhile e stb)
+      OK (Clight.Swhile e stb)
   (* [if]. Assumes condition is pure *)
   | trm_ite te t1 t2 =>
       do e <- tr_trm_expr E te;
       do st1 <- aux t1;
       do st2 <- aux t2;
-      ret (Clight.Sifthenelse e st1 st2)
+      OK (Clight.Sifthenelse e st1 st2)
 
-  | _ => error (msg "tr_trm_stmt: not a translatable statement")
+  | _ => match auxe t with
+        | OK e => OK (Clight.Sreturn (Some e))
+        | Error _ =>
+            Error (msg "tr_trm_stmt: not a translatable statement")
+        end
   end.
+
+
+Definition tr_function (f : fundef) : res Clight.function.
+Admitted.
+
+
+
+Definition tr_program (p : program) : res Clight.program.
+Admitted.
+
+
+End Compil.
+
+
+Section Tests.
+  Import NotationForVariables.
+  Example test_trm_expr : trm :=
+    trm_val (val_int 3).
+
+  Example test_trm_expr2 : trm :=
+    trm_var 'x.
+
+  Example test_trm_stmt : trm :=
+    trm_let (bind_var 'x type_long const) (val_int 3)
+      (trm_var 'x).
+    
+  Local Open Scope error_monad_scope.
+
+  Set Debug "Cbv".
+
+  
+  Compute (tr_trm_expr empty test_trm_expr).
+  
+  Eval vm_compute in (If (3 = 5) then False else True).
+
+  Eval vm_compute in (tr_trm_expr (single 'x (const, type_long)) test_trm_expr2).
+
+  Compute (get_temp_defs test_trm_stmt).
+
+  Compute tr_trm_stmt (get_temp_defs test_trm_stmt) test_trm_stmt.
+  
+  
+  
+
+End Tests.
