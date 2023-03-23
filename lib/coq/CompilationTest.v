@@ -42,7 +42,7 @@ From compcert Require Import Maps Errors SimplExpr.
  *)
   
 
-(* Section CFML_TYPES. *)
+Section CFML_TYPES.
 
 Inductive type : Type :=
 | type_long : type
@@ -59,9 +59,9 @@ Global Instance Inhab_var_descr_type : Inhab (var_descr * type).
 Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 
 (* Redefiniton of LibSepBind.bind to be typed, and with var descr *)
-Inductive bind : Type :=
-| bind_anon : bind
-| bind_var : var -> type -> var_descr -> bind.
+Inductive binding : Type :=
+| binding_anon : binding
+| binding_var : var -> type -> var_descr -> binding.
 
 Definition numtype := type.
 
@@ -92,25 +92,21 @@ with trm : Type :=
 | trm_val : val -> trm
 | trm_var : var -> trm
 | trm_apps : trm -> list trm -> trm
-| trm_let : bind -> trm -> trm -> trm
+| trm_let : binding -> trm -> trm -> trm
 | trm_while : trm -> trm -> trm
 | trm_ite : trm -> trm -> trm -> trm.
 
 
 Definition trm_seq (t1 t2 : trm) : trm :=
-  trm_let bind_anon t1 t2.
+  trm_let binding_anon t1 t2.
 
-
-Module VARS <: EQUALITY_TYPE.
-  Definition t := var.
-  Definition eq := eq_var_dec.
-End VARS.
   
-Module var_maps := EMap VARS.
+Definition env_var := PTree.t (var_descr*type).
 
-Definition empty := var_maps.init (@None (var_descr*type)).
+Definition env_var_join (E1 E2 : env_var) : env_var :=
+  PTree.fold (fun t k elt => PTree.set k elt t) E1 E2.
 
-Definition env_var := fmap var (var_descr*type).
+(* Definition env_var := fmap var (var_descr*type). *)
 
 Record fundef : Type :=
   mkfundef {
@@ -125,7 +121,93 @@ Record fundef : Type :=
 
 Definition program := list fundef.
 
-(* End CFML_TYPES. *)
+End CFML_TYPES.
+
+
+(* utility for var-ident translation *)
+Local Open Scope error_monad_scope.
+
+Fixpoint find_var (x : var) (l : list (var*AST.ident)) : res AST.ident :=
+match l with
+| nil => Error (msg "find_var: Variable not declared")
+| (v,i)::l' =>
+    if (var_eq x v) then OK i
+    else do rl' <- find_var x l'; OK rl'
+end.
+
+Close Scope error_monad_scope.
+(* Freshness monad *)
+
+
+Declare Scope genident_monad_scope.
+Section State_Monad.
+  Import AST Coqlib.
+  Local Open Scope string_scope.
+  Local Open Scope list_scope.
+  
+
+
+  Record generator : Type :=
+    mkgenerator {
+        gen_next: ident;
+        gen_trail: list (var*ident);
+      }.
+
+
+  Definition initial_generator (x : unit) : generator :=
+    mkgenerator 1%positive nil.
+
+  Inductive result (A: Type) (g: generator) : Type :=
+  | Err: Errors.errmsg -> result A g
+  | Res: A -> forall (g': generator), Ple (gen_next g) (gen_next g') -> result A g.
+
+
+  #[global] Arguments Err [A g].
+  #[global] Arguments Res [A g].
+
+  
+  Definition mon (A: Type) := forall (g: generator), result A g.
+  
+  Definition ret {A: Type} (x: A) : mon A :=
+    fun g => Res x g (Ple_refl (gen_next g)).
+  
+  Definition error {A: Type} (msg: Errors.errmsg) : mon A :=
+    fun g => Err msg.
+  
+  Definition bind {A B: Type} (x: mon A) (f: A -> mon B) : mon B :=
+    fun g =>
+      match x g with
+      | Err msg => Err msg
+      | Res a g' i =>
+          match f a g' with
+          | Err msg => Err msg
+          | Res b g'' i' => Res b g'' (Ple_trans _ _ _ i i')
+          end
+      end.
+  
+  Definition bind2 {A B C: Type} (x: mon (A * B))
+    (f: A -> B -> mon C) : mon C :=
+    bind x (fun p => f (fst p) (snd p)).
+  
+  Definition gensym (x: var): mon ident :=
+    fun (g: generator) =>
+      Res (gen_next g)
+        (mkgenerator
+           (Pos.succ (gen_next g))
+           ((x, gen_next g) :: (gen_trail g)))
+        (Ple_succ (gen_next g)).
+
+End State_Monad.
+
+
+  Notation "'do' X <- A ; B" :=
+    (bind A (fun X => B))
+      (at level 200, X ident, A at level 100, B at level 200)
+      : genident_monad_scope.
+  Notation "'do' ( X , Y ) <- A ; B" :=
+    (bind2 A (fun X Y => B))
+      (at level 200, X ident, Y ident, A at level 100, B at level 200)
+      : genident_monad_scope.
 
 
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
@@ -268,33 +350,99 @@ where "t / s --> P" := (cfml_step s t P).
    - f (let x = 3 in x)
  *)
 
-Fixpoint get_var_defs (t : trm) : env_var :=
-  match t with
-  | trm_val v => empty
-  | trm_var x => empty
-  | trm_let (bind_var v ty stack)  t1 tk =>
-      update (get_var_defs tk) v (stack, ty)
-  | trm_let (bind_var v ty heap) t1 tk =>
-      update (get_var_defs tk) v (heap, ty)
-  | trm_let (bind_var _ _ const)  _ tk => (get_var_defs tk)
-  | trm_let bind_anon t1 t2 => (get_var_defs t1) \+ (get_var_defs t2)
-  | trm_apps t ts => empty
-  | trm_while _ t => get_var_defs t
-  | trm_ite _ t1 t2 => (get_var_defs t1) \+ (get_var_defs t2)
-  end.
+Section Preprocessing.
 
-Fixpoint get_temp_defs (t : trm) : env_var :=
-  match t with
-  | trm_val v => empty
-  | trm_var x => empty
-  | trm_let (bind_var v ty const)  t1 tk =>
-      update (get_var_defs tk) v (const, ty)
-  | trm_let (bind_var _ _ _)  _ tk => (get_temp_defs tk)
-  | trm_let bind_anon t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2)
-  | trm_apps t ts => empty
-  | trm_while _ t => get_temp_defs t
-  | trm_ite _ t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2)
-  end.
+  Local Open Scope genident_monad_scope.
+
+  Fixpoint get_var_defs (t : trm) : mon env_var :=
+    match t with
+    | trm_val v => ret (PTree.empty (var_descr*type))
+    | trm_var x => ret (PTree.empty (var_descr*type))
+
+    | trm_let (binding_var v ty stack) t1 tk =>
+        do i <- gensym v;
+        do dtk <- get_var_defs tk;
+        ret (PTree.set i (stack, ty) dtk)
+    | trm_let (binding_var v ty heap) t1 tk =>
+        do i <- gensym v;
+        do dtk <- get_var_defs tk;
+        ret (PTree.set i (heap, ty) dtk)
+    | trm_let (binding_var _ _ const) _ tk =>
+        get_var_defs tk
+
+    | trm_let binding_anon t1 t2 =>
+        do dt1 <- get_var_defs t1;
+        do dt2 <- get_var_defs t2;
+        ret (env_var_join dt1 dt2)
+
+    | trm_apps _ _ => ret (PTree.empty (var_descr*type))
+
+    | trm_while _ t => get_var_defs t
+            
+    | trm_ite _ t1 t2 =>
+        do dt1 <- get_var_defs t1;
+        do dt2 <- get_var_defs t2;
+        ret (env_var_join dt1 dt2)
+    end.
+
+
+(* Fixpoint get_var_defs (t : trm) : mon env_var := *)
+(*   match t with *)
+(*   | trm_val v => ret (PTree.empty (var_descr*type)) *)
+(*   | trm_var x => ret (PTree.empty (var_descr*type)) *)
+(*   | trm_let (binding_var v ty stack)  t1 tk => *)
+(*       update (get_var_defs tk) v (stack, ty) *)
+(*   | trm_let (binding_var v ty heap) t1 tk => *)
+(*       update (get_var_defs tk) v (heap, ty) *)
+(*   | trm_let (binding_var _ _ const)  _ tk => (get_var_defs tk) *)
+(*   | trm_let binding_anon t1 t2 => (get_var_defs t1) \+ (get_var_defs t2) *)
+(*   | trm_apps t ts => empty *)
+(*   | trm_while _ t => get_var_defs t *)
+(*   | trm_ite _ t1 t2 => (get_var_defs t1) \+ (get_var_defs t2) *)
+(*   end. *)
+
+  Fixpoint get_temp_defs (t : trm) : mon env_var :=
+    match t with
+    | trm_val v => ret (PTree.empty (var_descr*type))
+    | trm_var x => ret (PTree.empty (var_descr*type))
+
+    | trm_let (binding_var v ty const) t1 tk =>
+        do i <- gensym v;
+        do dtk <- get_temp_defs tk;
+        ret (PTree.set i (const, ty) dtk)
+    | trm_let (binding_var _ _ _) _ tk =>
+        get_temp_defs tk
+
+    | trm_let binding_anon t1 t2 =>
+        do dt1 <- get_temp_defs t1;
+        do dt2 <- get_temp_defs t2;
+        ret (env_var_join dt1 dt2)
+
+    | trm_apps _ _ => ret (PTree.empty (var_descr*type))
+
+    | trm_while _ t => get_temp_defs t
+            
+    | trm_ite _ t1 t2 =>
+        do dt1 <- get_temp_defs t1;
+        do dt2 <- get_temp_defs t2;
+        ret (env_var_join dt1 dt2)
+    end.
+
+End Preprocessing.
+
+  
+(* Fixpoint get_temp_defs (t : trm) : env_var := *)
+(*   match t with *)
+(*   | trm_val v => empty *)
+(*   | trm_var x => empty *)
+(*   | trm_let (binding_var v ty const)  t1 tk => *)
+(*       update (get_var_defs tk) v (const, ty) *)
+(*   | trm_let (binding_var _ _ _)  _ tk => (get_temp_defs tk) *)
+(*   | trm_let binding_anon t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2) *)
+(*   | trm_apps t ts => empty *)
+(*   | trm_while _ t => get_temp_defs t *)
+(*   | trm_ite _ t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2) *)
+(*   end. *)
 
 
 
@@ -433,18 +581,20 @@ Coercion var_to_ident : var >-> AST.ident.
 
 Local Open Scope error_monad_scope.
 
-Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
-  let aux := tr_trm_expr E in
+Fixpoint tr_trm_expr (E : env_var)
+  (var_ids : list (var*AST.ident)) (t : trm) : res Clight.expr :=
+  let aux := tr_trm_expr E var_ids in
   match t with
   (* longs *)
   | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
   (* get *)
   | trm_apps val_get ((trm_var x) :: nil) =>
-      match Fmap.read E x with
+      do i <- find_var x var_ids;
+      match PTree.get i E with
       (* stack *)
-      | (stack, ty) =>
+      | Some (stack, ty) =>
           OK (Clight.Evar x ty)
-      | (heap, (type_ref ty) as tystar) =>
+      | Some (heap, (type_ref ty) as tystar) =>
           OK (Clight.Ederef (Clight.Evar x ty) tystar)
       (* | (const, ty) => *)
       (*     OK  (Clight.Etempvar x ty) *)
@@ -452,8 +602,9 @@ Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
       end
   (* temp *)
   | trm_var x =>
-      match Fmap.read E x with
-      | (const, ty) =>
+      do i <- find_var x var_ids;
+      match PTree.get i E with
+      | Some (const, ty) =>
           OK (Clight.Etempvar x ty)
       | _ => Error (msg "tr_trm_expr: trying to use an alloc'ed variable as is")
       end
@@ -472,23 +623,26 @@ Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
 
 
 
-Fixpoint tr_trm_stmt (E : env_var) (t : trm) : res (Clight.statement) :=
-  let aux := tr_trm_stmt E in
-  let auxe := tr_trm_expr E in
+Fixpoint tr_trm_stmt (E : env_var)
+  (var_ids : list (var*AST.ident))
+  (t : trm) : res (Clight.statement) :=
+
+  let aux := tr_trm_stmt E var_ids in
+  let auxe := tr_trm_expr E var_ids in
   match t with
   (* sequence: [let _ = t1 in t2] *)
-  | trm_let bind_anon t1 t2 =>
+  | trm_let binding_anon t1 t2 =>
       do st1 <- aux t1;
       do st2 <- aux t2;
       OK ([| st1 ;; st2 |])
   (* pattern for funcall, kinda *)
-  (* | trm_let (bind_var x t const) (trm_apps (trm_var f) ts) tk => *)
+  (* | trm_let (binding_var x t const) (trm_apps (trm_var f) ts) tk => *)
   (*     do es <- mmap auxe ts; *)
   (*     do stk <- aux tk; *)
   (*     OK (Clight.Scall (Some (var_to_ident x)) (Clight.Evar f [funtype..]) es) *)
-  (* [alloc]. Assumes fun call has already been transformed to assign
-     to a temp *)
-  | trm_let (bind_var x ty const)
+  (* [alloc]. Assumes fun call has already been transformed to assign *)
+(*      to a temp *)
+  | trm_let (binding_var x ty const)
       (trm_apps val_alloc (tn :: nil)) tk =>
       do en <- auxe tn;
       do stk <- aux tk;
@@ -499,7 +653,7 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : res (Clight.statement) :=
 
   (* [let x = e in tk] *)
 
-  | trm_let (bind_var x ty d) t tk =>
+  | trm_let (binding_var x ty d) t tk =>
       do e <- auxe t;
       do stk <- aux tk;
       match d with
@@ -516,27 +670,28 @@ Fixpoint tr_trm_stmt (E : env_var) (t : trm) : res (Clight.statement) :=
 
   (* various forms of [x = v;] *)
   | trm_apps val_set ((trm_var x) :: tv :: nil) =>
-      do ev <- tr_trm_expr E tv;
-      match (Fmap.read E x) with
+      do ev <- auxe tv;
+      do i <- find_var x var_ids;
+      match PTree.get i E with
       (* alloc on stack *)
-      | (stack, t) =>
+      | Some (stack, t) =>
           OK (Clight.Sassign (Clight.Evar x t) ev)
       (* alloc on heap *)
-      | (heap, (type_ref t) as tstar) =>
+      | Some (heap, (type_ref t) as tstar) =>
           OK (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) ev)
-      | (const, t) =>
+      | Some (const, t) =>
           Error (msg "tr_trm_stmt: trying to set a const var")
       | _ => Error (msg "tr_trm_stmt: error while setting a variable")
       end
           
   (* [while]. Assumes condition is pure *)
   | trm_while te tb =>
-      do e <- tr_trm_expr E te;
+      do e <- auxe te;
       do stb <- aux tb;
       OK (Clight.Swhile e stb)
   (* [if]. Assumes condition is pure *)
   | trm_ite te t1 t2 =>
-      do e <- tr_trm_expr E te;
+      do e <- auxe te;
       do st1 <- aux t1;
       do st2 <- aux t2;
       OK (Clight.Sifthenelse e st1 st2)
@@ -570,23 +725,21 @@ Section Tests.
     trm_var 'x.
 
   Example test_trm_stmt : trm :=
-    trm_let (bind_var 'x type_long const) (val_int 3)
-      (trm_var 'x).
+    trm_let (binding_var 'x type_long const) (val_int 3)
+      (trm_let (binding_var 'y (type_ref type_long) const) (val_int 42)
+         (trm_var 'x)).
     
+  Local Open Scope genident_monad_scope.
   Local Open Scope error_monad_scope.
 
-  Set Debug "Cbv".
 
+  Compute match get_temp_defs test_trm_stmt (initial_generator tt) with
+          | Err msg => Error msg
+          | Res env g i => OK (PTree.elements env, g.(gen_trail))
+          end.
   
-  Compute (tr_trm_expr empty test_trm_expr).
+  Compute (tr_trm_expr (PTree.empty (var_descr*type)) nil test_trm_expr).
   
-  Eval vm_compute in (If (3 = 5) then False else True).
-
-  Eval vm_compute in (tr_trm_expr (single 'x (const, type_long)) test_trm_expr2).
-
-  Compute (get_temp_defs test_trm_stmt).
-
-  Compute tr_trm_stmt (get_temp_defs test_trm_stmt) test_trm_stmt.
   
   
   
