@@ -79,6 +79,15 @@ Variant prim : Type :=
   | val_dealloc : prim.
 
 
+Definition is_binop (op : prim) : bool :=
+  match op with
+  | val_add _
+  | val_lt _
+    => true
+  | _ => false
+  end.
+    
+
 Inductive val : Type :=
 | val_uninitialized : val
 | val_unit : val
@@ -112,12 +121,16 @@ Record fundef : Type :=
   mkfundef {
       name: var;
       rettype: type;
-      params: list (var*type);
+      params: list (var * AST.ident * type);
       vars: env_var;
       temps: env_var;
       body: trm
   }.
 
+
+(* The choice is made here that function paramenters are temporaries (const in cfml),
+   do not reside in memory, and thus their address cannot be referenced. This choice
+   corresponds to the semantic [function_entry2] of Clight. (read Clight.v:547,713)*)
 
 Definition program := list fundef.
 
@@ -197,18 +210,43 @@ Section State_Monad.
            ((x, gen_next g) :: (gen_trail g)))
         (Ple_succ (gen_next g)).
 
+
 End State_Monad.
 
 
-  Notation "'do' X <- A ; B" :=
-    (bind A (fun X => B))
-      (at level 200, X ident, A at level 100, B at level 200)
-      : genident_monad_scope.
-  Notation "'do' ( X , Y ) <- A ; B" :=
-    (bind2 A (fun X Y => B))
-      (at level 200, X ident, Y ident, A at level 100, B at level 200)
-      : genident_monad_scope.
+Notation "'do' X <- A ; B" :=
+  (bind A (fun X => B))
+    (at level 200, X ident, A at level 100, B at level 200)
+    : genident_monad_scope.
+Notation "'do' ( X , Y ) <- A ; B" :=
+  (bind2 A (fun X Y => B))
+    (at level 200, X ident, Y ident, A at level 100, B at level 200)
+    : genident_monad_scope.
 
+
+Local Open Scope genident_monad_scope.
+
+Fixpoint st_mmap (A B: Type) (f: A -> mon B) (l: list A) {struct l} : mon (list B) :=
+  match l with
+  | nil => ret nil
+  | hd :: tl =>
+      do hd' <- f hd;
+      do tl' <- st_mmap f tl;
+      ret (hd' :: tl')
+  end.
+
+Fixpoint st_mfold (A B : Type) (f : B -> A -> mon B) (init : B) (l : list A) {struct l}
+  : mon B :=
+  match l with
+  | nil => ret init
+  | hd :: tl =>
+      do carry <- f init hd;
+      do cont <- st_mfold f carry tl;
+      ret cont
+  end.
+
+
+  
 
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
     cfml   => let p = val_alloc(1) in 
@@ -354,6 +392,7 @@ Section Preprocessing.
 
   Local Open Scope genident_monad_scope.
 
+  (* Assumption: no shadowing *)
   Fixpoint get_var_defs (t : trm) : mon env_var :=
     match t with
     | trm_val v => ret (PTree.empty (var_descr*type))
@@ -386,21 +425,6 @@ Section Preprocessing.
     end.
 
 
-(* Fixpoint get_var_defs (t : trm) : mon env_var := *)
-(*   match t with *)
-(*   | trm_val v => ret (PTree.empty (var_descr*type)) *)
-(*   | trm_var x => ret (PTree.empty (var_descr*type)) *)
-(*   | trm_let (binding_var v ty stack)  t1 tk => *)
-(*       update (get_var_defs tk) v (stack, ty) *)
-(*   | trm_let (binding_var v ty heap) t1 tk => *)
-(*       update (get_var_defs tk) v (heap, ty) *)
-(*   | trm_let (binding_var _ _ const)  _ tk => (get_var_defs tk) *)
-(*   | trm_let binding_anon t1 t2 => (get_var_defs t1) \+ (get_var_defs t2) *)
-(*   | trm_apps t ts => empty *)
-(*   | trm_while _ t => get_var_defs t *)
-(*   | trm_ite _ t1 t2 => (get_var_defs t1) \+ (get_var_defs t2) *)
-(*   end. *)
-
   Fixpoint get_temp_defs (t : trm) : mon env_var :=
     match t with
     | trm_val v => ret (PTree.empty (var_descr*type))
@@ -430,19 +454,27 @@ Section Preprocessing.
 
 End Preprocessing.
 
-  
-(* Fixpoint get_temp_defs (t : trm) : env_var := *)
-(*   match t with *)
-(*   | trm_val v => empty *)
-(*   | trm_var x => empty *)
-(*   | trm_let (binding_var v ty const)  t1 tk => *)
-(*       update (get_var_defs tk) v (const, ty) *)
-(*   | trm_let (binding_var _ _ _)  _ tk => (get_temp_defs tk) *)
-(*   | trm_let binding_anon t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2) *)
-(*   | trm_apps t ts => empty *)
-(*   | trm_while _ t => get_temp_defs t *)
-(*   | trm_ite _ t1 t2 => (get_temp_defs t1) \+ (get_temp_defs t2) *)
-(*   end. *)
+
+Local Open Scope genident_monad_scope.
+
+Definition make_function (f_name : var) (ret_type : type)
+  (params : list (var * type)) (body : trm) : res (fundef * list (var * AST.ident)) :=
+
+  let aux f_name ret_type params body : mon fundef :=
+    do vars <- get_var_defs body;
+    do temps <- get_temp_defs body;
+    do f_params <- st_mmap (fun '(x, ty) => do i <- gensym x;
+                                        ret (x, i, ty)) params;
+    (* do all_temps <- mfold (fun env '(x, ty) => *)
+    (*                         do i <- gensym x; *)
+    (*                         ret (PTree.set i (const, ty) env)) temps params; *)
+    ret (mkfundef f_name ret_type f_params vars (* all_temps *)
+           temps body)
+  in
+  match aux f_name ret_type params body (initial_generator tt) with
+  | Err msg => Error msg
+  | Res f g i => OK (f, g.(gen_trail))
+  end.
 
 
 
@@ -534,26 +566,33 @@ Fixpoint tr_types (ty : type) : Ctypes.type :=
 
 
 Coercion tr_types : type >-> Ctypes.type.
+
+
+
+Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
+  match op with
+  | val_add ty => OK (Cop.Oadd, tr_types ty)
+  | val_lt ty => OK (Cop.Olt, tr_types ty)
+  | _ => Error (msg "tr_binop: not a binop")
+  end.
+
+
+  
 (* tr_type *)
 
-Parameter var_to_ident : var -> AST.ident.
-Parameter ident_to_var : AST.ident -> var.
+(* Parameter var_to_ident : var -> AST.ident. *)
 (* rajouter (option ident) dans le constructeur
    calcul de l'ident
-(St : monade d'état, avec op `fresh` qui incrémente le compteur de num de var)
-   Fixpoint set_ident (E: map (var-> ident)) (t : trm) : St (trm)
-
 
 + Fixpoint set_type (E : map var type) (t : trm) : trm
 rajouter type_unknown dans la grammaire
    *)
 
-Axiom var_ident_bij : forall (v : var) (i : AST.ident),
-    ident_to_var (var_to_ident v) = v
-    /\ var_to_ident (ident_to_var i) = i.
+(* Axiom var_ident_bij : forall (v : var) (i : AST.ident), *)
+(*     ident_to_var (var_to_ident v) = v *)
+(*     /\ var_to_ident (ident_to_var i) = i. *)
 
-Coercion var_to_ident : var >-> AST.ident.
-(* Coercion ident_to_var : AST.ident >-> var. *)
+(* Coercion var_to_ident : var >-> AST.ident. *)
 
 
 (* Definition this_first_unused_ident (x : unit) : AST.ident := *)
@@ -569,17 +608,22 @@ Coercion var_to_ident : var >-> AST.ident.
 (*         end. *)
   
 (* mmap for the gensym monad *)
-(* Fixpoint mmap (A B: Type) (f: A -> mon B) (l: list A) {struct l} : mon (list B) := *)
-(*   match l with *)
-(*   | nil => ret nil *)
-(*   | hd :: tl => *)
-(*       do hd' <- f hd; *)
-(*       do tl' <- mmap f tl; *)
-(*       ret (hd' :: tl') *)
-(*   end. *)
 
 
 Local Open Scope error_monad_scope.
+
+Fixpoint is_expr (t : trm) : bool :=
+  match t with
+  | trm_val _ => true
+  | trm_var _ => true
+  | trm_apps val_get _ => true
+  | trm_apps (val_prim op) _ => is_binop op
+  | _ => false
+  end.
+
+            
+
+
 
 Fixpoint tr_trm_expr (E : env_var)
   (var_ids : list (var*AST.ident)) (t : trm) : res Clight.expr :=
@@ -593,31 +637,34 @@ Fixpoint tr_trm_expr (E : env_var)
       match PTree.get i E with
       (* stack *)
       | Some (stack, ty) =>
-          OK (Clight.Evar x ty)
+          OK (Clight.Evar i ty)
       | Some (heap, (type_ref ty) as tystar) =>
-          OK (Clight.Ederef (Clight.Evar x ty) tystar)
-      (* | (const, ty) => *)
-      (*     OK  (Clight.Etempvar x ty) *)
-      | _ => Error (msg "tr_trm_expr: error while reading variable")
+          OK (Clight.Ederef (Clight.Evar i ty) tystar)
+      | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
+      | Some (const, _) => Error (msg "tr_trm_expr: trying to 'get' a const")
+      | None => Error (msg "tr_trm_expr: variable not found in environment")
       end
   (* temp *)
   | trm_var x =>
       do i <- find_var x var_ids;
       match PTree.get i E with
       | Some (const, ty) =>
-          OK (Clight.Etempvar x ty)
-      | _ => Error (msg "tr_trm_expr: trying to use an alloc'ed variable as is")
+          OK (Clight.Etempvar i ty)
+      | Some (heap, (type_ref ty) as tystar) =>
+          OK (Clight.Evar i ty)
+      | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
+      | Some (stack, ty) =>
+          OK (Clight.Eaddrof (Clight.Evar i ty) (type_ref ty))
+      | None => Error (msg "tr_trm_expr: variable not found in environment")
       end
-  (* add :> longs *)
-  | trm_apps (val_add type_long) (t1 :: t2 :: nil) =>
-      do en1 <- aux t1;
-      do en2 <- aux t2;
-      OK (Clight.Ebinop Cop.Oadd en1 en2 cc_types.long)
-  (* lt :> longs *)
-  | trm_apps (val_lt type_long) (t1 :: t2 :: nil) =>
-      do en1 <- aux t1;
-      do en2 <- aux t2;
-      OK (Clight.Ebinop Cop.Olt en1 en2 cc_types.long)
+  (* binop *)
+  | trm_apps (val_prim op) (t1 :: t2 :: nil) =>
+      if is_binop op then
+        do (cop, ty) <- tr_binop op;
+        do en1 <- aux t1;
+        do en2 <- aux t2;
+        OK (Clight.Ebinop cop en1 en2 ty)
+      else Error (msg "tr_trm_expr: not a binop application")
   | _ => Error (msg "tr_trm_expr: not a translatable expr")
   end.
 
@@ -644,9 +691,10 @@ Fixpoint tr_trm_stmt (E : env_var)
 (*      to a temp *)
   | trm_let (binding_var x ty const)
       (trm_apps val_alloc (tn :: nil)) tk =>
+      do i <- find_var x var_ids;
       do en <- auxe tn;
       do stk <- aux tk;
-      OK ([| Clight.Sbuiltin (Some (var_to_ident x)) AST.EF_malloc
+      OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
                 (<<<(cc_types.long)>>>)
                 (en :: nil) ;;
               stk |])
@@ -654,18 +702,19 @@ Fixpoint tr_trm_stmt (E : env_var)
   (* [let x = e in tk] *)
 
   | trm_let (binding_var x ty d) t tk =>
+      do i <- find_var x var_ids;
       do e <- auxe t;
       do stk <- aux tk;
       match d with
       | const =>
-          OK ([| Clight.Sset x e ;; stk |])
+          OK ([| Clight.Sset i e ;; stk |])
       | heap =>
           OK ([| Clight.Sassign
-                     (Clight.Ederef (Clight.Evar x (cc_types.pointer ty))
+                     (Clight.Ederef (Clight.Evar i (cc_types.pointer ty))
                         ty) e ;;
                    stk |])
       | stack =>
-          OK ([| Clight.Sassign (Clight.Evar x ty) e ;; stk |])
+          OK ([| Clight.Sassign (Clight.Evar i ty) e ;; stk |])
       end
 
   (* various forms of [x = v;] *)
@@ -675,10 +724,10 @@ Fixpoint tr_trm_stmt (E : env_var)
       match PTree.get i E with
       (* alloc on stack *)
       | Some (stack, t) =>
-          OK (Clight.Sassign (Clight.Evar x t) ev)
+          OK (Clight.Sassign (Clight.Evar i t) ev)
       (* alloc on heap *)
       | Some (heap, (type_ref t) as tstar) =>
-          OK (Clight.Sassign (Clight.Ederef (Clight.Evar x tstar) t) ev)
+          OK (Clight.Sassign (Clight.Ederef (Clight.Evar i tstar) t) ev)
       | Some (const, t) =>
           Error (msg "tr_trm_stmt: trying to set a const var")
       | _ => Error (msg "tr_trm_stmt: error while setting a variable")
@@ -696,17 +745,33 @@ Fixpoint tr_trm_stmt (E : env_var)
       do st2 <- aux t2;
       OK (Clight.Sifthenelse e st1 st2)
 
-  | _ => match auxe t with
+  | t =>
+      if is_expr t then
+      match auxe t with
         | OK e => OK (Clight.Sreturn (Some e))
         | Error _ =>
             Error (msg "tr_trm_stmt: not a translatable statement")
         end
+      else Error (msg "tr_trm_stmt: expr expected")
   end.
 
 
-Definition tr_function (f : fundef) : res Clight.function.
-Admitted.
-
+Definition tr_function (f : fundef) (var_ids : list (var * AST.ident))
+  : res Clight.function :=
+  let env := fold_left (fun '(x,i,ty) env => PTree.set i (const, ty) env) (env_var_join f.(vars) f.(temps)) f.(params) in
+  do sbody <- tr_trm_stmt env var_ids f.(body);
+  do cparams <- mmap (fun '(x, i, ty) => OK (i, tr_types ty)) f.(params);
+  do cvars <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(vars));
+  do ctemps <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(temps));
+  OK (Clight.mkfunction
+        f.(rettype)
+        AST.cc_default
+        cparams
+        cvars
+        ctemps
+        sbody).
+     
+               
 
 
 Definition tr_program (p : program) : res Clight.program.
@@ -717,7 +782,13 @@ End Compil.
 
 
 Section Tests.
-  Import NotationForVariables.
+  Import NotationForVariables Clight AST Ctypes.
+
+  Local Open Scope genident_monad_scope.
+  Local Open Scope error_monad_scope.
+  Open Scope positive.
+  Open Scope string.
+  
   Example test_trm_expr : trm :=
     trm_val (val_int 3).
 
@@ -727,10 +798,8 @@ Section Tests.
   Example test_trm_stmt : trm :=
     trm_let (binding_var 'x type_long const) (val_int 3)
       (trm_let (binding_var 'y (type_ref type_long) const) (val_int 42)
-         (trm_var 'x)).
+         (trm_var "arg")).
     
-  Local Open Scope genident_monad_scope.
-  Local Open Scope error_monad_scope.
 
 
   Compute match get_temp_defs test_trm_stmt (initial_generator tt) with
@@ -738,10 +807,66 @@ Section Tests.
           | Res env g i => OK (PTree.elements env, g.(gen_trail))
           end.
   
-  Compute (tr_trm_expr (PTree.empty (var_descr*type)) nil test_trm_expr).
+  Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) nil test_trm_expr).
   
+  (* Compute match get_temp_defs test_trm_stmt (initial_generator tt) with *)
+  (*         | Err msg => Error msg *)
+  (*         | Res env g i => *)
+  (*             do c <- tr_trm_stmt env g.(gen_trail) test_trm_stmt; *)
+  (*             OK (c, PTree.elements env, g.(gen_trail)) *)
+  (*         end. *)
+
+  Compute do (f, l) <- make_function "funct" type_long
+                        (("arg", type_long) :: nil) test_trm_stmt;
+          do cf <- tr_function f l;
+          OK (f, PTree.elements f.(temps), cf, l).
+          
+            
   
   
   
 
 End Tests.
+
+(* rel_state : cfml.state -> clight.state -> Prop
+
+   tr_correct : forall t s g P,
+               t / s --> P ->
+               rel_state s g ->
+               (tr_trm E t) / g -->+
+                       (fun c' g' => exists t' s',
+                                     P t' s' /\
+                                     rel_state s' g')
+
+
+
+      G / t / s --> P
+       -> si t := let x = t1 in t2
+                 (x,v1)::G / t2 / s' --> P
+
+G := env * temp_env
+
+rel_state G env s g :=
+        g = g1 \+ g2,
+        forall l, v ∈ s, (l, tr v) ∈ G 
+        forall x,v ∈ G,
+               ∃ l, env!x = Some l, g2 l = Some tr v
+
+Props:
+rel_state -> dom s c dom g
+rel_state -> fresh l g -> fresh l s
+
+(define eventually omni small for clight : soit par dessus la small, soit directeement -> puis prouver equiv avec small sous hyp que les fonctions externes sont deter)
+
+
+   OU : arriver dans un small traditionel : soit en partant d'un omni-small, soit d'un smallstep traditionel.
+
+   tr_subst_com
+
+
+   tr_expr : forall t,
+             is_expr t ->
+             eval_expr (tr_trm E t) G g (tr_val (subst G t))
+
+ *)
+

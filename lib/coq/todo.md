@@ -13,3 +13,8 @@
 - Reusing essentially the [mon] monad from CompCert that is more or less [FreshT fail]
 - Question of initial seed: should be fine to just use 0 for us
 - Question of tracking ident to source name: duplicate locally [mon] with an extended [trail] field?
+
+# Semantics
+
+- omnismall for clight statements
+- remove subst for cfml omnismall, and add envs
