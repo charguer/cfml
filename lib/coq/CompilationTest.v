@@ -1,6 +1,7 @@
 Set Implicit Arguments.
 
 From CFML Require Import Semantics LibSepFmap.
+Import LibListNotation.
 
 Add Rec LoadPath "../../../CompCert" as compcert.
 Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
@@ -535,7 +536,7 @@ Definition make_function (f_name : var) (ret_type : type)
 
 
 
-Notation "<<<( ta1 , .. , tan )>>>" := (Ctypes.Tcons ta1 .. (Ctypes.Tcons tan Ctypes.Tnil) ..).
+Notation "[[ ta1 , .. , tan ]]" := (Ctypes.Tcons ta1 .. (Ctypes.Tcons tan Ctypes.Tnil) ..).
 
 Notation "[| st1 ;; .. ;; stn1 ;; stn |]" := (Clight.Ssequence st1 .. (Clight.Ssequence stn1 stn) ..).
 
@@ -690,12 +691,12 @@ Fixpoint tr_trm_stmt (E : env_var)
   (* [alloc]. Assumes fun call has already been transformed to assign *)
 (*      to a temp *)
   | trm_let (binding_var x ty const)
-      (trm_apps val_alloc (tn :: nil)) tk =>
+      (trm_apps val_alloc [tn] ) tk =>
       do i <- find_var x var_ids;
       do en <- auxe tn;
       do stk <- aux tk;
       OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
-                (<<<(cc_types.long)>>>)
+                ([[cc_types.long]])
                 (en :: nil) ;;
               stk |])
 
@@ -709,16 +710,18 @@ Fixpoint tr_trm_stmt (E : env_var)
       | const =>
           OK ([| Clight.Sset i e ;; stk |])
       | heap =>
-          OK ([| Clight.Sassign
-                     (Clight.Ederef (Clight.Evar i (cc_types.pointer ty))
-                        ty) e ;;
-                   stk |])
+          match ty with
+          | type_ref ty' =>
+              OK ([| Clight.Sassign (Clight.Evar i ty) e ;;
+                     stk |])
+          | _ => Error (msg "tr_trm_stmt: heap variable not declared as a pointer")
+          end
       | stack =>
           OK ([| Clight.Sassign (Clight.Evar i ty) e ;; stk |])
       end
 
   (* various forms of [x = v;] *)
-  | trm_apps val_set ((trm_var x) :: tv :: nil) =>
+  | trm_apps val_set [(trm_var x) ; tv] =>
       do ev <- auxe tv;
       do i <- find_var x var_ids;
       match PTree.get i E with
@@ -749,8 +752,8 @@ Fixpoint tr_trm_stmt (E : env_var)
       if is_expr t then
       match auxe t with
         | OK e => OK (Clight.Sreturn (Some e))
-        | Error _ =>
-            Error (msg "tr_trm_stmt: not a translatable statement")
+        | Error m =>
+            Error (m ++ (msg "tr_trm_stmt: not a translatable statement"))
         end
       else Error (msg "tr_trm_stmt: expr expected")
   end.
@@ -777,16 +780,147 @@ Definition tr_function (f : fundef) (var_ids : list (var * AST.ident))
 Definition tr_program (p : program) : res Clight.program.
 Admitted.
 
-
 End Compil.
+
+(* Custom Syntax (from SLF) *)
+  
+
+  
+Declare Custom Entry trm.
+Import LibListNotation.
+
+Declare Scope type_scope.
+
+Notation "'long'" := type_long (at level 0, only parsing) : type_scope.
+Notation "'double'" := type_double (at level 0, only parsing) : type_scope.
+Notation "ty 'ref'" :=
+  (type_ref ty) (at level 0, only parsing) : type_scope.
+
+
+Declare Scope trm_scope.
+
+Notation "<{ e }>" :=
+  e
+  (at level 0, e custom trm at level 99) : trm_scope.
+
+Notation "( x )" :=
+  x
+  (in custom trm, x at level 99) : trm_scope.
+
+Notation "'begin' e 'end'" :=
+  e
+  (in custom trm, e custom trm at level 99, only parsing) : trm_scope.
+
+Notation "{ x }" :=
+  x
+  (in custom trm, x constr) : trm_scope.
+
+Notation "x" := x
+  (in custom trm at level 0,
+   x constr at level 0) : trm_scope.
+
+
+Notation "t1 '(' t2 , .. , tn ')'" :=
+  (trm_apps t1 (cons (t2 : trm) .. (cons (tn : trm) nil) .. ))
+    (in custom trm at level 30,
+        t2 custom trm at level 99,
+        tn custom trm at level 99,
+      format "t1 '[   ' '(' t2 ',' .. ',' tn ')' ']'") : trm_scope.
+
+Notation "'if' t0 'then' t1 'else' t2" :=
+  (trm_ite t0 t1 t2)
+  (in custom trm at level 69,
+   t0 custom trm at level 99,
+   t1 custom trm at level 99,
+   t2 custom trm at level 99,
+   left associativity,
+   format "'[v' '[' 'if'  t0  'then'  ']' '/' '['   t1 ']' '/' 'else' '/' '['   t2 ']' ']'") : trm_scope.
+
+Notation "'while' t1 'do' t2 'done'" :=
+  (trm_while t1 t2)
+  (in custom trm at level 0,
+   t1 custom trm at level 99,
+   t2 custom trm at level 99,
+   format "'[v' 'while'  t1  'do'  '/' '['   t2 ']' '/'  'done' ']'")
+   : trm_scope.
+
+Notation "t1 ';' t2" :=
+  (trm_let binding_anon t1 t2)
+  (in custom trm at level 68,
+   t2 custom trm at level 99,
+   right associativity,
+   format "'[v' '[' t1 ']' ';' '/' '[' t2 ']' ']'") : trm_scope.
+
+Notation "'let' '(' x ':' ty '|' desc ')' '=' t1 'in' t2" :=
+  (trm_let (binding_var x ty desc) t1 t2)
+  (in custom trm at level 69,
+      x at level 0,
+      ty at level 0,
+      desc at level 0,
+      t1 custom trm at level 100,
+      t2 custom trm at level 100,
+      right associativity,
+      format "'[v' '[' 'let'  '(' x ':' ty '|' desc ')' '='  t1  'in' ']' '/' '[' t2 ']' ']'") : trm_scope.
+
+Notation "()" :=
+  (trm_val val_unit)
+  (in custom trm at level 0) : trm_scope.
+
+Notation "()" :=
+  (val_unit)
+  (at level 0) : val_scope.
+
+
+Notation "'ref'" :=
+  (trm_val (val_prim val_ref))
+  (in custom trm at level 0) : trm_scope.
+
+
+Notation "! t" :=
+  (val_get t)
+  (in custom trm at level 67,
+   t custom trm at level 99) : trm_scope.
+
+(* Notation "'free'" := *)
+(*   (trm_val (val_prim val_free)) *)
+(*   (in custom trm at level 0) : trm_scope. *)
+
+Notation "'alloc'" :=
+  (trm_val (val_prim val_alloc))
+  (in custom trm at level 0) : trm_scope.
+
+Notation "t1 := t2" :=
+  (val_set t1 t2)
+  (in custom trm at level 67) : trm_scope.
+
+Notation "t1 + t2" :=
+  ((val_add type_long) t1 t2)
+  (in custom trm at level 58) : trm_scope.
+
+Notation "t1 < t2" :=
+  ((val_lt type_long) t1 t2)
+    (in custom trm at level 60) : trm_scope.
+
+
+Module CFMLSyntax.
+
+  Open Scope type_scope.
+  Open Scope trm_scope.
+  Open Scope val_scope.
+  Open Scope string_scope.
+
+  Coercion string_to_var (x:string) : var := x.
+  Coercion int_to_trm (n:int) : trm := (trm_val (val_int n)).
+
+End CFMLSyntax.
 
 
 Section Tests.
   Import NotationForVariables Clight AST Ctypes.
+  Import LibListNotation.
 
   Local Open Scope genident_monad_scope.
   Local Open Scope error_monad_scope.
-  Open Scope positive.
   Open Scope string.
   
   Example test_trm_expr : trm :=
@@ -801,7 +935,33 @@ Section Tests.
          (trm_var "arg")).
     
 
+  Import CFMLSyntax.
 
+  Example test_trm_syntax : trm :=
+    <{ let ('x1 : long ref | const) = alloc(1) in
+       let ('y1 : long ref | const) = alloc(1) in
+       let ('z1 : long ref | const) = alloc(1) in
+       let ('x : long ref | heap) = 'x1 in
+       let ('y : long ref | heap) = 'y1 in
+       let ('z : long ref | heap) = 'z1 in
+       'x := 1;
+       'y := 1;
+       'z := 0;
+       while (! 'x) < 'n do
+         'z := (! 'y);
+         'y := (! 'x) + (! 'y);
+         'x := (! 'z)
+       done;
+       (!'y)    
+      }>.
+
+  Print test_trm_syntax.
+  
+  
+  Open Scope positive.
+
+
+  
   Compute match get_temp_defs test_trm_stmt (initial_generator tt) with
           | Err msg => Error msg
           | Res env g i => OK (PTree.elements env, g.(gen_trail))
@@ -809,21 +969,13 @@ Section Tests.
   
   Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) nil test_trm_expr).
   
-  (* Compute match get_temp_defs test_trm_stmt (initial_generator tt) with *)
-  (*         | Err msg => Error msg *)
-  (*         | Res env g i => *)
-  (*             do c <- tr_trm_stmt env g.(gen_trail) test_trm_stmt; *)
-  (*             OK (c, PTree.elements env, g.(gen_trail)) *)
-  (*         end. *)
 
   Compute do (f, l) <- make_function "funct" type_long
-                        (("arg", type_long) :: nil) test_trm_stmt;
+                        [('n, type_long)] test_trm_syntax;
           do cf <- tr_function f l;
-          OK (f, PTree.elements f.(temps), cf, l).
+          OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf, l).
           
             
-  
-  
   
 
 End Tests.

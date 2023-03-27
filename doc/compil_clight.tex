@@ -307,7 +307,7 @@ Ederef (Evar p)
 \end{lstlisting} \\
 \clst{p;} &
 \begin{lstlisting}
-Eaddrof (Evar p)
+Evar p
 \end{lstlisting} &
 \begin{lstlisting}
 p
@@ -321,6 +321,7 @@ Sbuiltin None free (Evar p)
 \end{lstlisting} \\
   \midrule
   \clst{int x;} &
+En vrai difficile à voir comme cas
 \begin{lstlisting}
 (* decla: Evar x (int) *)
 \end{lstlisting} &
@@ -340,6 +341,13 @@ Evar x
 \end{lstlisting} &
 \begin{lstlisting}
 (val_get x)
+\end{lstlisting} \\
+  \clst{\& x;} &
+\begin{lstlisting}
+Eaddrof (Evar x)
+\end{lstlisting} &
+\begin{lstlisting}
+x
 \end{lstlisting} \\
   \midrule
   \clst{register int x = 3;} &
