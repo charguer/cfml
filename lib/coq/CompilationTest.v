@@ -13,8 +13,8 @@ From compcert Require Import Maps Errors SimplExpr.
 (* Definition program := list toplevel_fundef
    fundef := {name, rettype, list (var*type), trm}
 
-   Clight.program -> main : "main" 
-   
+   Clight.program -> main : "main"
+
    Definition tr_program (p : program) : mon Clight.program
 
   Definition gather_vars (t : trm_r) : list (ident*type)
@@ -28,7 +28,7 @@ From compcert Require Import Maps Errors SimplExpr.
    Inductive var_descr :=
     | var_stack
     | var_heap
-    | var_const  
+    | var_const
 
 
    Definition trm_get_var_heap_inv (E : env_var) (t : trm) :
@@ -41,7 +41,8 @@ From compcert Require Import Maps Errors SimplExpr.
       | _ => None
 
  *)
-  
+
+Unset Elimination Schemes.
 
 Section CFML_TYPES.
 
@@ -59,10 +60,14 @@ Variant var_descr : Type :=
 Global Instance Inhab_var_descr_type : Inhab (var_descr * type).
 Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 
+
+Definition var' : Type := var * (option AST.ident).
+Coercion var_to_var' (x : var) : var' := (x, None).
+
 (* Redefiniton of LibSepBind.bind to be typed, and with var descr *)
 Inductive binding : Type :=
 | binding_anon : binding
-| binding_var : var -> type -> var_descr -> binding.
+| binding_var : var' -> type -> var_descr -> binding.
 
 Definition numtype := type.
 
@@ -87,7 +92,7 @@ Definition is_binop (op : prim) : bool :=
     => true
   | _ => false
   end.
-    
+
 
 Inductive val : Type :=
 | val_uninitialized : val
@@ -97,10 +102,10 @@ Inductive val : Type :=
 | val_loc : loc -> val
 | val_prim : prim -> val
 | val_header : nat -> val
-                     
+
 with trm : Type :=
 | trm_val : val -> trm
-| trm_var : var -> trm
+| trm_var : var' -> trm
 | trm_apps : trm -> list trm -> trm
 | trm_let : binding -> trm -> trm -> trm
 | trm_while : trm -> trm -> trm
@@ -110,7 +115,7 @@ with trm : Type :=
 Definition trm_seq (t1 t2 : trm) : trm :=
   trm_let binding_anon t1 t2.
 
-  
+
 Definition env_var := PTree.t (var_descr*type).
 
 Definition env_var_join (E1 E2 : env_var) : env_var :=
@@ -120,9 +125,9 @@ Definition env_var_join (E1 E2 : env_var) : env_var :=
 
 Record fundef : Type :=
   mkfundef {
-      name: var;
+      name: var';
       rettype: type;
-      params: list (var * AST.ident * type);
+      params: list (var' * type);
       vars: env_var;
       temps: env_var;
       body: trm
@@ -137,151 +142,9 @@ Definition program := list fundef.
 
 End CFML_TYPES.
 
-
-(* utility for var-ident translation *)
-Local Open Scope error_monad_scope.
-
-Fixpoint find_var (x : var) (l : list (var*AST.ident)) : res AST.ident :=
-match l with
-| nil => Error (msg "find_var: Variable not declared")
-| (v,i)::l' =>
-    if (var_eq x v) then OK i
-    else do rl' <- find_var x l'; OK rl'
-end.
-
-Close Scope error_monad_scope.
-(* Freshness monad *)
-
-
-Declare Scope genident_monad_scope.
-Section State_Monad.
-  Import AST Coqlib.
-  Local Open Scope string_scope.
-  Local Open Scope list_scope.
-  
-
-
-  Record generator : Type :=
-    mkgenerator {
-        gen_next: ident;
-        gen_trail: list (var*ident);
-      }.
-
-
-  Definition initial_generator (x : unit) : generator :=
-    mkgenerator 1%positive nil.
-
-  Inductive result (A: Type) (g: generator) : Type :=
-  | Err: Errors.errmsg -> result A g
-  | Res: A -> forall (g': generator), Ple (gen_next g) (gen_next g') -> result A g.
-
-
-  #[global] Arguments Err [A g].
-  #[global] Arguments Res [A g].
-
-  
-  Definition mon (A: Type) := forall (g: generator), result A g.
-  
-  Definition ret {A: Type} (x: A) : mon A :=
-    fun g => Res x g (Ple_refl (gen_next g)).
-  
-  Definition error {A: Type} (msg: Errors.errmsg) : mon A :=
-    fun g => Err msg.
-  
-  Definition bind {A B: Type} (x: mon A) (f: A -> mon B) : mon B :=
-    fun g =>
-      match x g with
-      | Err msg => Err msg
-      | Res a g' i =>
-          match f a g' with
-          | Err msg => Err msg
-          | Res b g'' i' => Res b g'' (Ple_trans _ _ _ i i')
-          end
-      end.
-  
-  Definition bind2 {A B C: Type} (x: mon (A * B))
-    (f: A -> B -> mon C) : mon C :=
-    bind x (fun p => f (fst p) (snd p)).
-  
-  Definition gensym (x: var): mon ident :=
-    fun (g: generator) =>
-      Res (gen_next g)
-        (mkgenerator
-           (Pos.succ (gen_next g))
-           ((x, gen_next g) :: (gen_trail g)))
-        (Ple_succ (gen_next g)).
-
-
-End State_Monad.
-
-
-Notation "'do' X <- A ; B" :=
-  (bind A (fun X => B))
-    (at level 200, X ident, A at level 100, B at level 200)
-    : genident_monad_scope.
-Notation "'do' ( X , Y ) <- A ; B" :=
-  (bind2 A (fun X Y => B))
-    (at level 200, X ident, Y ident, A at level 100, B at level 200)
-    : genident_monad_scope.
-
-
-Local Open Scope genident_monad_scope.
-
-Fixpoint st_mmap (A B: Type) (f: A -> mon B) (l: list A) {struct l} : mon (list B) :=
-  match l with
-  | nil => ret nil
-  | hd :: tl =>
-      do hd' <- f hd;
-      do tl' <- st_mmap f tl;
-      ret (hd' :: tl')
-  end.
-
-Fixpoint st_mfold (A B : Type) (f : B -> A -> mon B) (init : B) (l : list A) {struct l}
-  : mon B :=
-  match l with
-  | nil => ret init
-  | hd :: tl =>
-      do carry <- f init hd;
-      do cont <- st_mfold f carry tl;
-      ret cont
-  end.
-
-
-  
-
-  (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
-    cfml   => let p = val_alloc(1) in 
-           w=> (set p v)
-           r=> (get p)
-           free=> (free p)
-
-    clight =>
-           decla d'un `type * p` au début, puis
-              Sbuiltin (Some p) malloc [sizeof(int)];
-           w=> Sassign (Ederef (Evar p)) v
-           r=> Ederef (Evar p)
-           free=> Sbuiltin None free (Evar p)
-   *)
-
-  (** ** int x;         ->   w:   x = v;    r: x   
-    cfml   => let p (décoration : stack allocated) = valloc(1) in
-           ... pareil
-
-    clight => ramener au début de la déclaration de la fonction
-              compile_fun => analyse prog, sort liste des variabels
-           w=> Sassign (Evar x) v
-           r=> Evar x
-   *)
-
-  (** ** tempvar = v;
-        => Sset tempvar v / let tempvar = v
-        => clight : decla d'un `register void *$42;` au début
-                      -> pour tout appel de fonction du coup
-   *)
-
 Coercion val_prim : prim >-> val.
 Coercion val_loc : loc >-> val.
-Coercion trm_var : var >-> trm.
+Coercion trm_var : var' >-> trm.
 Coercion trm_val : val >-> trm.
 
 Definition state : Type := fmap loc val.
@@ -311,6 +174,208 @@ Fixpoint combiner_to_trm (c:combiner) : trm :=
   end.
 
 Coercion combiner_to_trm : combiner >-> trm.
+
+Section Trm_induct.
+
+  Variables (P : trm -> Prop)
+    (Q : list trm -> Prop)
+    (Q1 : Q nil)
+    (Q2 : forall t (l : list trm), P t -> Q l -> Q (t::l))
+    (f : forall (v : val), P v)
+    (f0 : forall (v : var'), P v)
+    (f3 : forall (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_ite t t0 t1))
+    (f4 : forall (b : binding) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0))
+    (f5 : forall (t : trm), P t -> forall (l : list trm), Q l -> P (trm_apps t l))
+    (f6 : forall (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_while t t0)).
+
+  Definition trm_induct_gen := fix F (t : trm) : P t :=
+      let trm_list_induct := fix f (l : list trm) : Q l :=
+          match l as x return Q x with
+          | nil   => Q1
+          | t::l' => Q2 (F t) (f l')
+          end in
+      match t as t0 return (P t0) with
+      | trm_val v => @f v
+      | trm_var v => @f0 v
+      | trm_ite t0 t1 t2 => @f3 t0 (F t0) t1 (F t1) t2 (F t2)
+      | trm_let b t0 t1 => @f4 b t0 (F t0) t1 (F t1)
+      | trm_apps t0 l => @f5 t0 (F t0) l (trm_list_induct l)
+      | trm_while t0 t1 => @f6 t0 (F t0) t1 (F t1)
+      end.
+
+End Trm_induct.
+
+Lemma trm_ind : forall P : trm -> Prop,
+  (forall v : val, P v) ->
+  (forall v : var', P v) ->
+  (forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_ite t t0 t1)) ->
+  (forall (b : binding) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0)) ->
+  (forall t : trm, P t -> forall (l : list trm), (forall t, mem t l -> P t) -> P (trm_apps t l)) ->
+  (forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0)) ->
+  forall t : trm, P t.
+Proof using.
+  hint mem_map'.
+  intros. gen t. eapply trm_induct_gen with
+    (Q := fun (l : list trm) => forall t, mem t l -> P t); eauto.
+  { introv M. inverts M. }
+  { introv M1 M2 M3. inverts~ M3. }
+Qed.
+
+
+(* utility for var-ident translation *)
+Local Open Scope error_monad_scope.
+
+Fixpoint find_var (x : var) (l : list (var*AST.ident)) : res AST.ident :=
+match l with
+| nil => Error (msg "find_var: Variable not declared")
+| (v,i)::l' =>
+    if (var_eq x v) then OK i
+    else do rl' <- find_var x l'; OK rl'
+end.
+
+Close Scope error_monad_scope.
+(* Freshness monad *)
+
+
+Declare Scope genident_monad_scope.
+Section State_Monad.
+  Import AST Coqlib.
+  Local Open Scope string_scope.
+  Local Open Scope list_scope.
+
+
+
+  Record generator : Type :=
+    mkgenerator {
+        gen_next: ident;
+        gen_trail: list (var*ident);
+      }.
+
+
+  Definition initial_generator (x : unit) : generator :=
+    mkgenerator 1%positive nil.
+
+  Inductive result (A: Type) (g: generator) : Type :=
+  | Err: Errors.errmsg -> result A g
+  | Res: A -> forall (g': generator), Ple (gen_next g) (gen_next g') -> result A g.
+
+
+  #[global] Arguments Err [A g].
+  #[global] Arguments Res [A g].
+
+
+  Definition mon (A: Type) := forall (g: generator), result A g.
+
+  Definition ret {A: Type} (x: A) : mon A :=
+    fun g => Res x g (Ple_refl (gen_next g)).
+
+  Definition error {A: Type} (msg: Errors.errmsg) : mon A :=
+    fun g => Err msg.
+
+  Definition bind {A B: Type} (x: mon A) (f: A -> mon B) : mon B :=
+    fun g =>
+      match x g with
+      | Err msg => Err msg
+      | Res a g' i =>
+          match f a g' with
+          | Err msg => Err msg
+          | Res b g'' i' => Res b g'' (Ple_trans _ _ _ i i')
+          end
+      end.
+
+  Definition bind2 {A B C: Type} (x: mon (A * B))
+    (f: A -> B -> mon C) : mon C :=
+    bind x (fun p => f (fst p) (snd p)).
+
+  Definition gensym (x: var') : mon var' :=
+    fun (g: generator) =>
+      match find_var (fst x) g.(gen_trail) with
+      | Error msg => Res (fst x, Some (gen_next g))
+                      (mkgenerator
+                         (Pos.succ (gen_next g))
+                         ((fst x, gen_next g) :: (gen_trail g)))
+                      (Ple_succ (gen_next g))
+      | OK i => Res (fst x, Some i) g (Ple_refl g.(gen_next))
+      end.
+
+
+
+  Definition save_trail {A B : Type} (f : A -> mon B) (a : A) : mon B :=
+    fun (g : generator) =>
+      match f a g with
+      | Err msg => Err msg
+      | Res b g' i => Res b g (Ple_refl (gen_next g))
+      end.
+
+
+
+End State_Monad.
+
+
+Notation "'do' X <- A ; B" :=
+  (bind A (fun X => B))
+    (at level 200, X ident, A at level 100, B at level 200)
+    : genident_monad_scope.
+Notation "'do' ( X , Y ) <- A ; B" :=
+  (bind2 A (fun X Y => B))
+    (at level 200, X ident, Y ident, A at level 100, B at level 200)
+    : genident_monad_scope.
+
+
+Local Open Scope genident_monad_scope.
+
+Fixpoint st_mmap {A B: Type} (f: A -> mon B) (l: list A) : mon (list B) :=
+  match l with
+  | nil => ret nil
+  | hd :: tl =>
+      do hd' <- f hd;
+      do tl' <- st_mmap f tl;
+      ret (hd' :: tl')
+  end.
+
+Fixpoint st_mfold (A B : Type) (f : B -> A -> mon B) (init : B) (l : list A) {struct l}
+  : mon B :=
+  match l with
+  | nil => ret init
+  | hd :: tl =>
+      do carry <- f init hd;
+      do cont <- st_mfold f carry tl;
+      ret cont
+  end.
+
+
+
+
+  (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
+    cfml   => let p = val_alloc(1) in
+           w=> (set p v)
+           r=> (get p)
+           free=> (free p)
+
+    clight =>
+           decla d'un `type * p` au début, puis
+              Sbuiltin (Some p) malloc [sizeof(int)];
+           w=> Sassign (Ederef (Evar p)) v
+           r=> Ederef (Evar p)
+           free=> Sbuiltin None free (Evar p)
+   *)
+
+  (** ** int x;         ->   w:   x = v;    r: x
+    cfml   => let p (décoration : stack allocated) = valloc(1) in
+           ... pareil
+
+    clight => ramener au début de la déclaration de la fonction
+              compile_fun => analyse prog, sort liste des variabels
+           w=> Sassign (Evar x) v
+           r=> Evar x
+   *)
+
+  (** ** tempvar = v;
+        => Sset tempvar v / let tempvar = v
+        => clight : decla d'un `register void *$42;` au début
+                      -> pour tout appel de fonction du coup
+   *)
+
 
 Reserved Notation "t '/' s '-->' P"
   (at level 40, s at level 30).
@@ -393,8 +458,45 @@ Section Preprocessing.
 
   Local Open Scope genident_monad_scope.
 
+
+  Fixpoint set_var_idents (t : trm) {struct t} : mon (trm) :=
+    match t with
+    | trm_val v => ret t
+    | trm_var x =>
+        do x' <- gensym x;
+        ret (trm_var x')
+    | trm_let (binding_var x ty d) t1 tk =>
+        do t1' <- save_trail set_var_idents t1;
+        do x' <- gensym x;
+        do tk' <- set_var_idents tk;
+        ret (trm_let (binding_var x' ty d) t1' tk')
+    | trm_let binding_anon t1 tk =>
+        do t1' <- save_trail set_var_idents t1;
+        do tk' <- set_var_idents tk;
+        ret (trm_let binding_anon t1' tk')
+    | trm_apps t ts =>
+        do t' <- save_trail set_var_idents t;
+        (* inlinig fmap so that coq accepts the fixpoint*)
+        do ts' <- (fix fp (l : list trm) :=
+          match l with
+          | [] => ret []
+          | hd::tl => do hd' <- save_trail set_var_idents hd;
+                    do tl' <- fp tl;
+                    ret (hd'::tl')
+          end) ts;
+        ret (trm_apps t' ts)
+    | trm_ite e t1 t2 =>
+        do t1' <- save_trail set_var_idents t1;
+        do t2' <- save_trail set_var_idents t2;
+        ret (trm_ite e t1' t2')
+    | trm_while e t =>
+        do t' <- save_trail set_var_idents t;
+        ret (trm_while e t')
+    end.
+
+
   (* Assumption: no shadowing *)
-  Fixpoint get_var_defs (t : trm) : mon env_var :=
+  Function get_var_defs (t : trm) : mon env_var :=
     match t with
     | trm_val v => ret (PTree.empty (var_descr*type))
     | trm_var x => ret (PTree.empty (var_descr*type))
@@ -418,7 +520,7 @@ Section Preprocessing.
     | trm_apps _ _ => ret (PTree.empty (var_descr*type))
 
     | trm_while _ t => get_var_defs t
-            
+
     | trm_ite _ t1 t2 =>
         do dt1 <- get_var_defs t1;
         do dt2 <- get_var_defs t2;
@@ -446,7 +548,7 @@ Section Preprocessing.
     | trm_apps _ _ => ret (PTree.empty (var_descr*type))
 
     | trm_while _ t => get_temp_defs t
-            
+
     | trm_ite _ t1 t2 =>
         do dt1 <- get_temp_defs t1;
         do dt2 <- get_temp_defs t2;
@@ -504,8 +606,8 @@ Definition make_function (f_name : var) (ret_type : type)
 (* Definition program := list toplevel_fundef
    fundef := {name, rettype, list (var*type), trm}
 
-   Clight.program -> main : "main" 
-   
+   Clight.program -> main : "main"
+
    Definition tr_program (p : program) : mon Clight.program
 
    Definition gather_vars (t : trm_r) : list (ident*type)
@@ -519,7 +621,7 @@ Definition make_function (f_name : var) (ret_type : type)
    Inductive var_descr :=
     | var_stack
     | var_heap
-    | var_const  
+    | var_const
 
 
    Definition trm_get_var_heap_inv (E : env_var) (t : trm) :
@@ -578,7 +680,7 @@ Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
   end.
 
 
-  
+
 (* tr_type *)
 
 (* Parameter var_to_ident : var -> AST.ident. *)
@@ -607,7 +709,7 @@ rajouter type_unknown dans la grammaire
 (*         | Res tbody g i => OK (tbody, g, i) *)
 (*         | Err msg => Error msg *)
 (*         end. *)
-  
+
 (* mmap for the gensym monad *)
 
 
@@ -622,7 +724,7 @@ Fixpoint is_expr (t : trm) : bool :=
   | _ => false
   end.
 
-            
+
 
 
 
@@ -735,7 +837,7 @@ Fixpoint tr_trm_stmt (E : env_var)
           Error (msg "tr_trm_stmt: trying to set a const var")
       | _ => Error (msg "tr_trm_stmt: error while setting a variable")
       end
-          
+
   (* [while]. Assumes condition is pure *)
   | trm_while te tb =>
       do e <- auxe te;
@@ -773,8 +875,8 @@ Definition tr_function (f : fundef) (var_ids : list (var * AST.ident))
         cvars
         ctemps
         sbody).
-     
-               
+
+
 
 
 Definition tr_program (p : program) : res Clight.program.
@@ -783,9 +885,9 @@ Admitted.
 End Compil.
 
 (* Custom Syntax (from SLF) *)
-  
 
-  
+
+
 Declare Custom Entry trm.
 Import LibListNotation.
 
@@ -922,7 +1024,7 @@ Section Tests.
   Local Open Scope genident_monad_scope.
   Local Open Scope error_monad_scope.
   Open Scope string.
-  
+
   Example test_trm_expr : trm :=
     trm_val (val_int 3).
 
@@ -933,7 +1035,7 @@ Section Tests.
     trm_let (binding_var 'x type_long const) (val_int 3)
       (trm_let (binding_var 'y (type_ref type_long) const) (val_int 42)
          (trm_var "arg")).
-    
+
 
   Import CFMLSyntax.
 
@@ -952,31 +1054,31 @@ Section Tests.
          'y := (! 'x) + (! 'y);
          'x := (! 'z)
        done;
-       (!'y)    
+       (!'y)
       }>.
 
   Print test_trm_syntax.
-  
-  
+
+
   Open Scope positive.
 
 
-  
+
   Compute match get_temp_defs test_trm_stmt (initial_generator tt) with
           | Err msg => Error msg
           | Res env g i => OK (PTree.elements env, g.(gen_trail))
           end.
-  
+
   Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) nil test_trm_expr).
-  
+
 
   Compute do (f, l) <- make_function "funct" type_long
                         [('n, type_long)] test_trm_syntax;
           do cf <- tr_function f l;
           OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf, l).
-          
-            
-  
+
+
+
 
 End Tests.
 
@@ -1000,7 +1102,7 @@ G := env * temp_env
 
 rel_state G env s g :=
         g = g1 \+ g2,
-        forall l, v ∈ s, (l, tr v) ∈ G 
+        forall l, v ∈ s, (l, tr v) ∈ G
         forall x,v ∈ G,
                ∃ l, env!x = Some l, g2 l = Some tr v
 
@@ -1021,4 +1123,3 @@ rel_state -> fresh l g -> fresh l s
              eval_expr (tr_trm E t) G g (tr_val (subst G t))
 
  *)
-
