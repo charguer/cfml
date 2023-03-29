@@ -64,6 +64,12 @@ Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 Definition var' : Type := var * (option AST.ident).
 Coercion var_to_var' (x : var) : var' := (x, None).
 
+Definition get_ident (x : var') : res AST.ident :=
+  match x with
+  | (v, Some i) => OK i
+  | (v, None) => Error (msg "get_ident: no set ident" ++ msg v)
+  end.
+
 (* Redefiniton of LibSepBind.bind to be typed, and with var descr *)
 Inductive binding : Type :=
 | binding_anon : binding
@@ -300,11 +306,17 @@ Section State_Monad.
 
 
 
+  (* execute [f] without affecting the trail of [g], and while still generating
+     unique idents. *)
   Definition save_trail {A B : Type} (f : A -> mon B) (a : A) : mon B :=
     fun (g : generator) =>
       match f a g with
       | Err msg => Err msg
-      | Res b g' i => Res b g (Ple_refl (gen_next g))
+      | Res b g' i =>
+          Res b (mkgenerator
+                   (gen_next g')
+                   (gen_trail g))
+            i
       end.
 
 
@@ -343,8 +355,21 @@ Fixpoint st_mfold (A B : Type) (f : B -> A -> mon B) (init : B) (l : list A) {st
       ret cont
   end.
 
+Close Scope genident_monad_scope.
 
+Local Open Scope error_monad_scope.
 
+Fixpoint mfold (A B : Type) (f : B -> A -> res B) (init : B) (l : list A) {struct l}
+  : res B :=
+  match l with
+  | nil => OK init
+  | hd :: tl =>
+      do carry <- f init hd;
+      do cont <- mfold f carry tl;
+      OK cont
+  end.
+
+Close Scope error_monad_scope.
 
   (** ** int * (const) p = malloc ?     ->  w: *p = v;    r: *p     + free(p);
     cfml   => let p = val_alloc(1) in
@@ -484,100 +509,120 @@ Section Preprocessing.
                     do tl' <- fp tl;
                     ret (hd'::tl')
           end) ts;
-        ret (trm_apps t' ts)
+        ret (trm_apps t' ts')
     | trm_ite e t1 t2 =>
+        do e' <- save_trail set_var_idents e;
         do t1' <- save_trail set_var_idents t1;
         do t2' <- save_trail set_var_idents t2;
-        ret (trm_ite e t1' t2')
+        ret (trm_ite e' t1' t2')
     | trm_while e t =>
+        do e' <- save_trail set_var_idents e;
         do t' <- save_trail set_var_idents t;
-        ret (trm_while e t')
+        ret (trm_while e' t')
     end.
 
+  Local Open Scope error_monad_scope.
 
-  (* Assumption: no shadowing *)
-  Function get_var_defs (t : trm) : mon env_var :=
+  Function get_var_defs (t : trm) : res env_var :=
     match t with
-    | trm_val v => ret (PTree.empty (var_descr*type))
-    | trm_var x => ret (PTree.empty (var_descr*type))
+    | trm_val v => OK (PTree.empty (var_descr*type))
+    | trm_var x => OK (PTree.empty (var_descr*type))
 
-    | trm_let (binding_var v ty stack) t1 tk =>
-        do i <- gensym v;
+    | trm_let (binding_var x ty stack) t1 tk =>
+        do i <- get_ident x;
         do dtk <- get_var_defs tk;
-        ret (PTree.set i (stack, ty) dtk)
-    | trm_let (binding_var v ty heap) t1 tk =>
-        do i <- gensym v;
+        OK (PTree.set i (stack, ty) dtk)
+    | trm_let (binding_var x ty heap) t1 tk =>
+        do i <- get_ident x;
         do dtk <- get_var_defs tk;
-        ret (PTree.set i (heap, ty) dtk)
+        OK (PTree.set i (heap, ty) dtk)
     | trm_let (binding_var _ _ const) _ tk =>
         get_var_defs tk
 
     | trm_let binding_anon t1 t2 =>
         do dt1 <- get_var_defs t1;
         do dt2 <- get_var_defs t2;
-        ret (env_var_join dt1 dt2)
+        OK (env_var_join dt1 dt2)
 
-    | trm_apps _ _ => ret (PTree.empty (var_descr*type))
+    | trm_apps _ _ => OK (PTree.empty (var_descr*type))
 
     | trm_while _ t => get_var_defs t
 
     | trm_ite _ t1 t2 =>
         do dt1 <- get_var_defs t1;
         do dt2 <- get_var_defs t2;
-        ret (env_var_join dt1 dt2)
+        OK (env_var_join dt1 dt2)
     end.
 
 
-  Fixpoint get_temp_defs (t : trm) : mon env_var :=
+  Fixpoint get_temp_defs (t : trm) : res env_var :=
     match t with
-    | trm_val v => ret (PTree.empty (var_descr*type))
-    | trm_var x => ret (PTree.empty (var_descr*type))
+    | trm_val v => OK (PTree.empty (var_descr*type))
+    | trm_var x => OK (PTree.empty (var_descr*type))
 
-    | trm_let (binding_var v ty const) t1 tk =>
-        do i <- gensym v;
+    | trm_let (binding_var x ty const) t1 tk =>
+        do i <- get_ident x;
         do dtk <- get_temp_defs tk;
-        ret (PTree.set i (const, ty) dtk)
+        OK (PTree.set i (const, ty) dtk)
     | trm_let (binding_var _ _ _) _ tk =>
         get_temp_defs tk
 
     | trm_let binding_anon t1 t2 =>
         do dt1 <- get_temp_defs t1;
         do dt2 <- get_temp_defs t2;
-        ret (env_var_join dt1 dt2)
+        OK (env_var_join dt1 dt2)
 
-    | trm_apps _ _ => ret (PTree.empty (var_descr*type))
+    | trm_apps _ _ => OK (PTree.empty (var_descr*type))
 
     | trm_while _ t => get_temp_defs t
 
     | trm_ite _ t1 t2 =>
         do dt1 <- get_temp_defs t1;
         do dt2 <- get_temp_defs t2;
-        ret (env_var_join dt1 dt2)
+        OK (env_var_join dt1 dt2)
     end.
 
 End Preprocessing.
 
 
 Local Open Scope genident_monad_scope.
+Delimit Scope error_monad_scope with error_scope.
 
 Definition make_function (f_name : var) (ret_type : type)
-  (params : list (var * type)) (body : trm) : res (fundef * list (var * AST.ident)) :=
+  (params : list (var' * type)) (body : trm) : res (fundef) :=
 
-  let aux f_name ret_type params body : mon fundef :=
-    do vars <- get_var_defs body;
-    do temps <- get_temp_defs body;
-    do f_params <- st_mmap (fun '(x, ty) => do i <- gensym x;
-                                        ret (x, i, ty)) params;
-    (* do all_temps <- mfold (fun env '(x, ty) => *)
-    (*                         do i <- gensym x; *)
-    (*                         ret (PTree.set i (const, ty) env)) temps params; *)
-    ret (mkfundef f_name ret_type f_params vars (* all_temps *)
-           temps body)
+  let aux (x:unit) :=
+    do params' <- st_mmap (fun '(x, ty) =>
+                          do x' <- gensym x;
+                          ret (x', ty))
+                 params;
+    do body' <- set_var_idents body;
+    ret (params', body')
   in
-  match aux f_name ret_type params body (initial_generator tt) with
+  match aux tt (initial_generator tt) with
   | Err msg => Error msg
-  | Res f g i => OK (f, g.(gen_trail))
+  | Res (p, b) g i =>
+      (do vars <- get_var_defs b;
+       do temps <- get_temp_defs b;
+       OK (mkfundef f_name ret_type p vars temps b))%error_scope
   end.
+
+
+  (* let aux f_name ret_type params body : mon fundef := *)
+  (*   do vars <- get_var_defs body; *)
+  (*   do temps <- get_temp_defs body; *)
+  (*   do f_params <- st_mmap (fun '(x, ty) => do i <- gensym x;   *)
+  (*                                       ret (x, i, ty)) params; *)
+  (*   (* do all_temps <- mfold (fun env '(x, ty) => *) *)
+  (*   (*                         do i <- gensym x; *) *)
+  (*   (*                         ret (PTree.set i (const, ty) env)) temps params; *) *)
+  (*   ret (mkfundef f_name ret_type f_params vars (* all_temps *) *)
+  (*          temps body) *)
+  (* in *)
+  (* match aux f_name ret_type params body (initial_generator tt) with *)
+  (* | Err msg => Error msg *)
+  (* | Res f g i => OK (f, g.(gen_trail)) *)
+  (* end. *)
 
 
 
@@ -656,6 +701,10 @@ Section Compil.
 
 (** CFML to CompCert conversions *)
 
+
+
+
+
 Coercion tr_int64 (n : int) : Integers.Int64.int :=
   Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
 
@@ -728,15 +777,14 @@ Fixpoint is_expr (t : trm) : bool :=
 
 
 
-Fixpoint tr_trm_expr (E : env_var)
-  (var_ids : list (var*AST.ident)) (t : trm) : res Clight.expr :=
-  let aux := tr_trm_expr E var_ids in
+Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
+  let aux := tr_trm_expr E in
   match t with
   (* longs *)
   | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
   (* get *)
   | trm_apps val_get ((trm_var x) :: nil) =>
-      do i <- find_var x var_ids;
+      do i <- get_ident x;
       match PTree.get i E with
       (* stack *)
       | Some (stack, ty) =>
@@ -749,7 +797,7 @@ Fixpoint tr_trm_expr (E : env_var)
       end
   (* temp *)
   | trm_var x =>
-      do i <- find_var x var_ids;
+      do i <- get_ident x;
       match PTree.get i E with
       | Some (const, ty) =>
           OK (Clight.Etempvar i ty)
@@ -774,11 +822,10 @@ Fixpoint tr_trm_expr (E : env_var)
 
 
 Fixpoint tr_trm_stmt (E : env_var)
-  (var_ids : list (var*AST.ident))
   (t : trm) : res (Clight.statement) :=
 
-  let aux := tr_trm_stmt E var_ids in
-  let auxe := tr_trm_expr E var_ids in
+  let aux := tr_trm_stmt E in
+  let auxe := tr_trm_expr E in
   match t with
   (* sequence: [let _ = t1 in t2] *)
   | trm_let binding_anon t1 t2 =>
@@ -794,7 +841,7 @@ Fixpoint tr_trm_stmt (E : env_var)
 (*      to a temp *)
   | trm_let (binding_var x ty const)
       (trm_apps val_alloc [tn] ) tk =>
-      do i <- find_var x var_ids;
+      do i <- get_ident x;
       do en <- auxe tn;
       do stk <- aux tk;
       OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
@@ -805,7 +852,7 @@ Fixpoint tr_trm_stmt (E : env_var)
   (* [let x = e in tk] *)
 
   | trm_let (binding_var x ty d) t tk =>
-      do i <- find_var x var_ids;
+      do i <- get_ident x;
       do e <- auxe t;
       do stk <- aux tk;
       match d with
@@ -825,7 +872,7 @@ Fixpoint tr_trm_stmt (E : env_var)
   (* various forms of [x = v;] *)
   | trm_apps val_set [(trm_var x) ; tv] =>
       do ev <- auxe tv;
-      do i <- find_var x var_ids;
+      do i <- get_ident x;
       match PTree.get i E with
       (* alloc on stack *)
       | Some (stack, t) =>
@@ -861,11 +908,17 @@ Fixpoint tr_trm_stmt (E : env_var)
   end.
 
 
-Definition tr_function (f : fundef) (var_ids : list (var * AST.ident))
-  : res Clight.function :=
-  let env := fold_left (fun '(x,i,ty) env => PTree.set i (const, ty) env) (env_var_join f.(vars) f.(temps)) f.(params) in
-  do sbody <- tr_trm_stmt env var_ids f.(body);
-  do cparams <- mmap (fun '(x, i, ty) => OK (i, tr_types ty)) f.(params);
+Definition tr_function (f : fundef) : res Clight.function :=
+
+  do env <- mfold (fun env '(x, ty) =>
+                    do i <- get_ident x;
+                    OK (PTree.set i (const, ty) env))
+                 (env_var_join f.(vars) f.(temps)) f.(params);
+  do sbody <- tr_trm_stmt env f.(body);
+  do cparams <- mmap (fun '(x, ty) =>
+                       do i <- get_ident x;
+                       OK (i, tr_types ty))
+                 f.(params);
   do cvars <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(vars));
   do ctemps <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(temps));
   OK (Clight.mkfunction
@@ -1034,7 +1087,7 @@ Section Tests.
   Example test_trm_stmt : trm :=
     trm_let (binding_var 'x type_long const) (val_int 3)
       (trm_let (binding_var 'y (type_ref type_long) const) (val_int 42)
-         (trm_var "arg")).
+         (trm_var ("arg",None))).
 
 
   Import CFMLSyntax.
@@ -1064,18 +1117,19 @@ Section Tests.
 
 
 
-  Compute match get_temp_defs test_trm_stmt (initial_generator tt) with
-          | Err msg => Error msg
-          | Res env g i => OK (PTree.elements env, g.(gen_trail))
-          end.
+  (* Compute match get_temp_defs test_trm_stmt (initial_generator tt) with *)
+  (*         | Err msg => Error msg *)
+  (*         | Res env g i => OK (PTree.elements env, g.(gen_trail)) *)
+  (*         end. *)
 
-  Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) nil test_trm_expr).
+  Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) test_trm_expr).
 
 
-  Compute do (f, l) <- make_function "funct" type_long
-                        [('n, type_long)] test_trm_syntax;
-          do cf <- tr_function f l;
-          OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf, l).
+  Compute do f <- make_function "funct" type_long
+                   [(('n : var'), type_long)] test_trm_syntax;
+          do cf <- tr_function f;
+          OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf
+            ).
 
 
 
