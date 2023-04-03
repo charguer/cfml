@@ -17,6 +17,8 @@ int main() {
 
 	double tableau[2];
 	tableau[1] = 2.3;
+	double* truc = &(tableau[1]);
+	int *vtruc = *(&(truc));
 
 	int i = 5;
 	while (i > 1) {

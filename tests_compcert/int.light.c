@@ -35,21 +35,25 @@ int main(void)
   float fz;
   float fz2;
   double tableau[2];
+  double *truc;
+  int *vtruc;
   int i;
-  register int $70;
-  register void *$69;
-  register void *$68;
+  register int $72;
+  register void *$71;
+  register void *$70;
   x = 5 + 5;
   y = 2 + 3;
-  $68 = malloc(1);
-  p = $68;
-  $69 = malloc(sizeof(int));
-  p = $69;
-  $70 = f();
-  z = $70;
+  $70 = malloc(1);
+  p = $70;
+  $71 = malloc(sizeof(int));
+  p = $71;
+  $72 = f();
+  z = $72;
   fz = z;
   fz2 = (float) z;
   *(tableau + 1) = 2.29999999999999982;
+  truc = tableau + 1;
+  vtruc = truc;
   i = 5;
   while (1) {
     if (! (i > 1)) {
