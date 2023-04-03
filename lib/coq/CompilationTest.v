@@ -393,7 +393,7 @@ Coercion tr_int64 (n : int) : Integers.Int64.int :=
   Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
 
 
-Fixpoint tr_types (ty : CompilationTest.type) : Ctypes.type :=
+Fixpoint tr_types (ty : CFML_C.type) : Ctypes.type :=
   match ty with
   | type_long => cc_types.long
   | type_double => cc_types.double
@@ -401,7 +401,7 @@ Fixpoint tr_types (ty : CompilationTest.type) : Ctypes.type :=
   end.
 
 
-Coercion tr_types : CompilationTest.type >-> Ctypes.type.
+Coercion tr_types : CFML_C.type >-> Ctypes.type.
 
 
 
@@ -839,7 +839,7 @@ Section Tests.
   (*         | Res env g i => OK (PTree.elements env, g.(gen_trail)) *)
   (*         end. *)
 
-  Compute (tr_trm_expr (PTree.empty (var_descr*CompilationTest.type)) test_trm_expr).
+  Compute (tr_trm_expr (PTree.empty (var_descr*CFML_C.type)) test_trm_expr).
 
   Open Scope positive.
 

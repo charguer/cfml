@@ -10,7 +10,7 @@ ifeq ($(findstring $(MAKECMDGOALS),clean),)
 endif
 
 
-COQINCLUDE := "-Q . CFML"
+COQINCLUDE := "-Q . CFML\n-Q ../../../CompCert compcert\n-Q ../../../CompCert/flocq Flocq"
 
 COQWARNINGS := "-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overriden"
 

@@ -5,7 +5,7 @@
 _CoqProject:
 	@ rm -f $@
 	@ echo "# This is a generated file. Do not edit." >> $@
-	@ echo $(COQINCLUDE) >> $@
+	@ echo -e $(COQINCLUDE) >> $@
 	@ echo >> $@
 	@ echo $(addprefix -arg ,$(COQWARNINGS)) >> $@
 	@ echo >> $@
