@@ -292,23 +292,6 @@ Definition make_function (f_name : var) (ret_type : type)
   end.
 
 
-  (* let aux f_name ret_type params body : mon fundef := *)
-  (*   do vars <- get_var_defs body; *)
-  (*   do temps <- get_temp_defs body; *)
-  (*   do f_params <- st_mmap (fun '(x, ty) => do i <- gensym x;   *)
-  (*                                       ret (x, i, ty)) params; *)
-  (*   (* do all_temps <- mfold (fun env '(x, ty) => *) *)
-  (*   (*                         do i <- gensym x; *) *)
-  (*   (*                         ret (PTree.set i (const, ty) env)) temps params; *) *)
-  (*   ret (mkfundef f_name ret_type f_params vars (* all_temps *) *)
-  (*          temps body) *)
-  (* in *)
-  (* match aux f_name ret_type params body (initial_generator tt) with *)
-  (* | Err msg => Error msg *)
-  (* | Res f g i => OK (f, g.(gen_trail)) *)
-  (* end. *)
-
-
 
 (** CompCert types *)
 
@@ -332,25 +315,7 @@ Definition make_function (f_name : var) (ret_type : type)
 
 (** Compilation *)
 
-(* Definition program := list toplevel_fundef
-   fundef := {name, rettype, list (var*type), trm}
-
-   Clight.program -> main : "main"
-
-   Definition tr_program (p : program) : mon Clight.program
-
-   Definition gather_vars (t : trm_r) : list (ident*type)
-   Definition gather_temps (t : trm_r) : list (ident*type)
-
-   Definition tr_trm_stmt (E : env_var) (t: trm_r) : mon Clight.statement
-   Definition tr_trm_expr (E : env_var) (t: trm_r) : mon Clight.expr
-
-   Definiton env_var := Ptree.t var_descr
-
-   Inductive var_descr :=
-    | var_stack
-    | var_heap
-    | var_const
+(* Clight.program -> main : "main"
 
 
    Definition trm_get_var_heap_inv (E : env_var) (t : trm) :
@@ -412,38 +377,6 @@ Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
   | _ => Error (msg "tr_binop: not a binop")
   end.
 
-
-
-(* tr_type *)
-
-(* Parameter var_to_ident : var -> AST.ident. *)
-(* rajouter (option ident) dans le constructeur
-   calcul de l'ident
-
-+ Fixpoint set_type (E : map var type) (t : trm) : trm
-rajouter type_unknown dans la grammaire
-   *)
-
-(* Axiom var_ident_bij : forall (v : var) (i : AST.ident), *)
-(*     ident_to_var (var_to_ident v) = v *)
-(*     /\ var_to_ident (ident_to_var i) = i. *)
-
-(* Coercion var_to_ident : var >-> AST.ident. *)
-
-
-(* Definition this_first_unused_ident (x : unit) : AST.ident := *)
-(*   3%positive. *)
-
-(* Definition this_initial_generator (x: unit) : generator := *)
-(*   mkgenerator (this_first_unused_ident x) nil. *)
-
-(* (* Definition mon2 := mon this_first_unused_ident. *) *)
-(* Compute match (gensym cc_types.long) (this_initial_generator tt) with *)
-(*         | Res tbody g i => OK (tbody, g, i) *)
-(*         | Err msg => Error msg *)
-(*         end. *)
-
-(* mmap for the gensym monad *)
 
 
 Local Open Scope error_monad_scope.

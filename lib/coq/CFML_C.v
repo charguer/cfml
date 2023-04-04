@@ -3,8 +3,6 @@ Set Implicit Arguments.
 From CFML Require Import Semantics LibSepFmap.
 Import LibListNotation.
 
-Add Rec LoadPath "../../../CompCert" as compcert.
-Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
 From compcert Require Import Coqlib Maps Integers Floats Values Errors.
 
 (** * Formalizing CFML's fragment resulting from the parsing of C programs *)
@@ -197,6 +195,7 @@ Coercion trm_val : val >-> trm.
 Definition state : Type := fmap loc val.
 
 Implicit Types v : val.
+Implicit Types x : var'.
 Implicit Type l : loc.
 Implicit Types t : trm.
 Implicit Types s : state.
@@ -301,123 +300,6 @@ Qed.
    *)
 
 
-Reserved Notation "t '/' s '-->' P"
-  (at level 40, s at level 30).
-
-Global Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val val_unit). Qed.
-
-
-Fixpoint subst (y:var') (w:val) (t:trm) : trm :=
-  let aux t :=
-    subst y w t in
-  let aux_no_capture z t :=
-    match z with
-    | binding_anon => aux t
-    | binding_var x _ _ => if (var'_eq x y) then t else aux t
-    end in
-    (* If z = binding_var y then t else aux t in *)
-  let aux_no_captures xs t :=
-    If LibList.mem y xs then t else aux t in
-  match t with
-  | trm_val v => trm_val v
-  | trm_var x => If x = y then trm_val w else t
-  | trm_ite t0 t1 t2 => trm_ite (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
-  | trm_apps t0 ts => trm_apps (aux t0) (LibListExec.map aux ts)
-  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  end.
-
-
-Definition subst1 (z:binding) (v:val) (t:trm) :=
-  match z with
-  | binding_anon => t
-  | binding_var x _ _ => subst x v t
-  end.
-
-(* NOTE: substition-based, will need to bridge the gap with the environment-based one on CLight's side *)
-(* NOTE: missing constructs *)
-Inductive cfml_step : state -> trm -> (state->trm->Prop) -> Prop :=
-| cfml_step_val : forall v s P,
-    P s (trm_val v) ->
-    (trm_val v) / s --> P
-
-| cfml_step_seq : forall v1 t2 s P,
-    P s t2 ->
-    (trm_seq (trm_val v1) t2) / s --> P
-
-| cfml_step_seq_l : forall t1 t2 s P P1,
-    t1 / s --> P1 ->
-    (forall t1' s', P1 s' t1' -> (trm_seq t1' t2) / s' --> P) ->
-    (trm_seq t1 t2) / s --> P
-
-| cfml_step_set : forall s l v P,
-    Fmap.indom s l ->
-    P (Fmap.update s l v) val_unit ->
-    (val_set l v) / s --> P
-
-| cfml_step_let : forall s x t2 v1 P,
-    P s (subst1 x v1 t2) ->
-    (trm_let x v1 t2) / s --> P
-
-| cfml_step_ref : forall v s P,
-      (forall l, ~Fmap.indom s l ->
-            l <> null ->
-            P (Fmap.update s l v) (val_loc l)) ->
-      (exists l, ~Fmap.indom s l /\ l <> null) ->
-       (val_ref v)/ s --> P
-
-| cfml_step_get : forall s l P,
-    Fmap.indom s l ->
-    P s (Fmap.read s l) ->
-    (val_get l) / s --> P
-
-| cfml_step_ite : forall s b t1 t2 P,
-    P s (if (b =? 0) then t2 else t1) ->
-    (trm_ite (val_int b) t1 t2) / s --> P
-
-| cfml_step_free : forall s l P,
-    Fmap.indom s l ->
-    P (Fmap.remove s l) val_unit ->
-    (val_free l) / s --> P
-
-| cfml_step_ptr_add : forall l l' n s P,
-    (l':nat) = (l:nat) + n :> int ->
-    P s (val_loc l') ->
-    (val_ptr_add l (val_int n)) / s --> P
-| cfml_step_add : forall s n1 n2 P,
-    P s (val_int (n1 + n2)) ->
-    ((val_add type_long) (val_int n1) (val_int n2)) / s --> P
-
-| cfml_step_lt : forall s n1 n2 P,
-    P s (if (n1 <? n2) then val_int 1 else val_int 0) ->
-    ((val_lt type_long) (val_int n1) (val_int n2)) / s --> P
-
-| cfml_step_alloc : forall n sa P,
-    (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
-               n = nat_to_Z k ->
-               l <> null ->
-               Fmap.disjoint sa sb ->
-               P (sb \+ sa) (val_loc l)) ->
-    (exists l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l
-               /\ n = nat_to_Z k
-               /\ l <> null
-               /\ Fmap.disjoint sa sb) ->
-     (val_alloc (val_int n)) / sa --> P
-| cfml_step_dealloc : forall (n:int) s l P,
-    (forall vs sa sb, s = sb \+ sa ->
-                 sb = Fmap.conseq vs l ->
-                 n = LibList.length vs ->
-                 Fmap.disjoint sa sb ->
-                 P sa val_unit) ->
-    (exists vs sa sb, s = sb \+ sa
-                 /\ sb = Fmap.conseq vs l
-                 /\ n = LibList.length vs
-                 /\ Fmap.disjoint sa sb) ->
-    (val_dealloc (val_int n) l) / s --> P
-
-where "t / s --> P" := (cfml_step s t P).
-(* TODO à compléter *)
 
 
 (** * Surface syntax for CFML_C *)
@@ -554,3 +436,183 @@ Module CFMLSyntax.
 End CFMLSyntax.
 
 
+
+
+Section Semantics.
+
+  Import CFMLSyntax.
+
+  Global Instance Inhab_val : Inhab val.
+  Proof using. apply (Inhab_of_val val_unit). Qed.
+
+
+(*   Fixpoint subst (y:var') (w:val) (t:trm) : trm := *)
+(*     let aux t := *)
+(*       subst y w t in *)
+(*     let aux_no_capture z t := *)
+(*       match z with *)
+(*       | binding_anon => aux t *)
+(*       | binding_var x _ _ => if (var'_eq x y) then t else aux t *)
+(*       end in *)
+(*     (* If z = binding_var y then t else aux t in *) *)
+(*     let aux_no_captures xs t := *)
+(*       If LibList.mem y xs then t else aux t in *)
+(*   match t with *)
+(*   | trm_val v => trm_val v *)
+(*   | trm_var x => If x = y then trm_val w else t *)
+(* | trm_ite t0 t1 t2 => trm_ite (aux t0) (aux t1) (aux t2) *)
+(* | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2) *)
+(* | trm_apps t0 ts => trm_apps (aux t0) (LibListExec.map aux ts) *)
+(* | trm_while t1 t2 => trm_while (aux t1) (aux t2) *)
+(*   end. *)
+
+
+(*   Definition subst1 (z:binding) (v:val) (t:trm) := *)
+(*     match z with *)
+(*     | binding_anon => t *)
+(*     | binding_var x _ _ => subst x v t *)
+(*     end. *)
+
+
+
+  (* variable environments *)
+  Definition env := PTree.t (val * var_descr * type).
+
+
+  Definition postcond : Type := state -> trm -> Prop.
+
+
+  (* NOTE: substition-based, will need to bridge the gap with the environment-based one on CLight's side *)
+  (* NOTE: missing constructs *)
+  Reserved Notation "G '/' t '/' s '-->e' P"
+    (at level 40, t, s at level 30).
+
+  Inductive cfml_omnistep_expr : env -> state -> trm -> postcond -> Prop :=
+  | cfml_omnistep_expr_val : forall G v s P,
+      P s (trm_val v) ->
+      G / (trm_val v) / s -->e P
+  | cfml_omnistep_expr_var : forall G i x v d ty s P,
+      snd x = Some i ->
+      G ! i = Some (v, d, ty) ->
+      P s (trm_val v) ->
+      G / trm_var x / s -->e P
+  (* [get] *)
+  | cfml_omnistep_expr_get_t : forall G t s P1 P,
+      G / t / s -->e P1 ->
+      (forall s' t', P1 s' t' -> G / (val_get t') / s' -->e P) ->
+      G / (val_get t) / s -->e P
+  | cfml_omnistep_expr_get_v : forall G l s P,
+      Fmap.indom s l ->
+      P s (trm_val (Fmap.read s l)) ->
+      G / (val_get l) / s -->e P
+  (* [+] *)
+  | cfml_omnistep_expr_add_l : forall G t1 t2 s P1 P,
+      G / t1 / s -->e P1 ->
+      (forall s' t1', P1 s' t1' -> G / <{t1' + t2}> / s' -->e P) ->
+      G / <{t1 + t2}> / s -->e P
+  | cfml_omnistep_expr_add_r : forall G v1 t2 s P2 P,
+      G / t2 / s -->e P2 ->
+      (forall s' t2', P2 s' t2' -> G / <{v1 + t2'}> / s' -->e P) ->
+      G / <{v1 + t2}> / s -->e P
+  | cfml_omnistep_expr_add_val : forall G n1 n2 s P,
+      P s (val_int (n1 + n2)) ->
+      G / <{n1 + n2}> / s -->e P
+  (* [<] *)
+  | cfml_omnistep_expr_lt_l : forall G t1 t2 s P1 P,
+      G / t1 / s -->e P1 ->
+      (forall s' t1', P1 s' t1' -> G / <{t1' < t2}> / s' -->e P) ->
+      G / <{t1 < t2}> / s -->e P
+  | cfml_omnistep_expr_lt_r : forall G v1 t2 s P2 P,
+      G / t2 / s -->e P2 ->
+      (forall s' t2', P2 s' t2' -> G / <{v1 < t2'}> / s' -->e P) ->
+      G / <{v1 < t2}> / s -->e P
+  | cfml_omnistep_expr_lt_val : forall G (n1 n2 : int) s P,
+      P s (val_int (if (n1 <? n2)%Z then 1 else 0)) ->
+      G / <{n1 < n2}> / s -->e P
+
+  where "G '/' t '/' s '-->e' P" := (cfml_omnistep_expr G s t P).
+
+
+
+  Reserved Notation "G '/' t '/' s '-->' P"
+    (at level 40, t, s at level 30).
+
+  Inductive cfml_step : env -> state -> trm -> (state->trm->Prop) -> Prop :=
+  | cfml_step_seq : forall v1 t2 s P,
+      P s t2 ->
+      G / (trm_seq (trm_val v1) t2) / s --> P
+
+  | cfml_step_seq_l : forall t1 t2 s P P1,
+      t1 / s --> P1 ->
+      (forall t1' s', P1 s' t1' -> (trm_seq t1' t2) / s' --> P) ->
+      (trm_seq t1 t2) / s --> P
+
+  | cfml_step_set : forall s l v P,
+      Fmap.indom s l ->
+      P (Fmap.update s l v) val_unit ->
+      (val_set l v) / s --> P
+
+  | cfml_step_let : forall s x t2 v1 P,
+      P s (subst1 x v1 t2) ->
+      (trm_let x v1 t2) / s --> P
+
+  | cfml_step_ref : forall v s P,
+      (forall l, ~Fmap.indom s l ->
+            l <> null ->
+            P (Fmap.update s l v) (val_loc l)) ->
+      (exists l, ~Fmap.indom s l /\ l <> null) ->
+      (val_ref v)/ s --> P
+
+  | cfml_step_get : forall s l P,
+      Fmap.indom s l ->
+      P s (Fmap.read s l) ->
+      (val_get l) / s --> P
+
+  | cfml_step_ite : forall s b t1 t2 P,
+      P s (if (b =? 0) then t2 else t1) ->
+      (trm_ite (val_int b) t1 t2) / s --> P
+
+  | cfml_step_free : forall s l P,
+      Fmap.indom s l ->
+      P (Fmap.remove s l) val_unit ->
+      (val_free l) / s --> P
+
+  | cfml_step_ptr_add : forall l l' n s P,
+      (l':nat) = (l:nat) + n :> int ->
+      P s (val_loc l') ->
+      (val_ptr_add l (val_int n)) / s --> P
+  | cfml_step_add : forall s n1 n2 P,
+      P s (val_int (n1 + n2)) ->
+      ((val_add type_long) (val_int n1) (val_int n2)) / s --> P
+
+  | cfml_step_lt : forall s n1 n2 P,
+      P s (if (n1 <? n2) then val_int 1 else val_int 0) ->
+      ((val_lt type_long) (val_int n1) (val_int n2)) / s --> P
+
+  | cfml_step_alloc : forall n sa P,
+      (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
+                 n = nat_to_Z k ->
+                 l <> null ->
+                 Fmap.disjoint sa sb ->
+                 P (sb \+ sa) (val_loc l)) ->
+      (exists l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l
+                 /\ n = nat_to_Z k
+                 /\ l <> null
+                 /\ Fmap.disjoint sa sb) ->
+      (val_alloc (val_int n)) / sa --> P
+  | cfml_step_dealloc : forall (n:int) s l P,
+      (forall vs sa sb, s = sb \+ sa ->
+                   sb = Fmap.conseq vs l ->
+                   n = LibList.length vs ->
+                   Fmap.disjoint sa sb ->
+                   P sa val_unit) ->
+      (exists vs sa sb, s = sb \+ sa
+                   /\ sb = Fmap.conseq vs l
+                   /\ n = LibList.length vs
+                   /\ Fmap.disjoint sa sb) ->
+      (val_dealloc (val_int n) l) / s --> P
+
+  where "G / t / s --> P" := (cfml_step G s t P).
+  (* TODO à compléter *)
+
+End Semantics.
