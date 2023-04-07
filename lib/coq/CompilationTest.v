@@ -381,15 +381,6 @@ Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
 
 Local Open Scope error_monad_scope.
 
-Definition is_expr (t : trm) : bool :=
-  match t with
-  | trm_val _ => true
-  | trm_var _ => true
-  | trm_apps val_get _ => true
-  | trm_apps (val_prim op) _ => is_binop op
-  | _ => false
-  end.
-
 
 
 
