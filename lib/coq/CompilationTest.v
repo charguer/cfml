@@ -5,8 +5,6 @@ Set Implicit Arguments.
 From CFML Require Import Semantics LibSepFmap CFML_C Clight_omni.
 Import LibListNotation.
 
-Add Rec LoadPath "../../../CompCert" as compcert.
-Add Rec LoadPath "../../../CompCert/flocq" as Flocq.
 From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight.
 From compcert Require Import Maps Errors SimplExpr.
 
@@ -334,14 +332,32 @@ Definition make_function (f_name : var) (ret_type : type)
 
 Notation "[[ ta1 , .. , tan ]]" := (Ctypes.Tcons ta1 .. (Ctypes.Tcons tan Ctypes.Tnil) ..).
 
-Notation "[| st1 ;; .. ;; stn1 ;; stn |]" := (Clight.Ssequence st1 .. (Clight.Ssequence stn1 stn) ..).
+Notation "[| st1 ;; .. ;; stn1 ;; stn |]" :=
+  (Clight.Ssequence st1 .. (Clight.Ssequence stn1 stn) ..)
+    (only parsing).
 
 
 Module cc_types.
 (** Clight types notations *)
-Definition long := (Ctypes.Tlong Ctypes.Signed Ctypes.noattr).
-Definition double := (Ctypes.Tfloat Ctypes.F64 Ctypes.noattr).
-Definition pointer (ty : Ctypes.type):= (Ctypes.Tpointer ty Ctypes.noattr).
+  Import Ctypes.
+  Definition long := (Tlong Signed noattr).
+  Definition double := (Tfloat F64 noattr).
+  Definition pointer (ty : type):= (Tpointer ty noattr).
+
+  Fixpoint tr_types (ty : CFML_C.type) : Ctypes.type :=
+    match ty with
+    | type_long => cc_types.long
+    | type_double => cc_types.double
+    | type_ref ty => cc_types.pointer (tr_types ty)
+    end.
+
+
+  Coercion tr_types : CFML_C.type >-> Ctypes.type.
+
+  Definition make_funtype (t_params : list CFML_C.type) (rettype : CFML_C.type) : type :=
+
+    Tfunction (fold_right (fun ty tl => Tcons (tr_types ty) tl) Tnil t_params)
+              rettype AST.cc_default.
 
 End cc_types.
 
@@ -351,227 +367,208 @@ Section Compil.
 (** CFML to CompCert conversions *)
 
 
+  Import cc_types.
 
 
-
-Coercion tr_int64 (n : int) : Integers.Int64.int :=
-  Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
-
-
-Fixpoint tr_types (ty : CFML_C.type) : Ctypes.type :=
-  match ty with
-  | type_long => cc_types.long
-  | type_double => cc_types.double
-  | type_ref ty => cc_types.pointer (tr_types ty)
-  end.
-
-
-Coercion tr_types : CFML_C.type >-> Ctypes.type.
-
-
-
-Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
-  match op with
-  | val_add ty => OK (Cop.Oadd, tr_types ty)
-  | val_lt ty => OK (Cop.Olt, tr_types ty)
-  | _ => Error (msg "tr_binop: not a binop")
-  end.
-
-
-
-Local Open Scope error_monad_scope.
+  Coercion tr_int64 (n : int) : Integers.Int64.int :=
+    Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
 
 
 
 
 
-Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
-  let aux := tr_trm_expr E in
-  match t with
-  (* longs *)
-  | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
-  (* get *)
-  | trm_apps val_get ((trm_var x) :: nil) =>
-      do i <- get_ident x;
-      match PTree.get i E with
-      (* stack *)
-      | Some (stack, ty) =>
-          OK (Clight.Evar i ty)
-      | Some (heap, (type_ref ty) as tystar) =>
-          OK (Clight.Ederef (Clight.Evar i tystar) ty)
-      | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
-      | Some (const, _) => Error (msg "tr_trm_expr: trying to 'get' a const")
-      | None => Error (msg "tr_trm_expr: variable not found in environment")
-      end
-  (* temp *)
-  | trm_var x =>
-      do i <- get_ident x;
-      match PTree.get i E with
-      | Some (const, ty) =>
-          OK (Clight.Etempvar i ty)
-      | Some (heap, (type_ref ty) as tystar) =>
-          OK (Clight.Evar i ty)
-      | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
-      | Some (stack, ty) =>
-          OK (Clight.Eaddrof (Clight.Evar i ty) (type_ref ty))
-      | None => Error (msg "tr_trm_expr: variable not found in environment")
-      end
-  (* binop *)
-  | trm_apps (val_prim op) (t1 :: t2 :: nil) =>
-      if is_binop op then
-        do (cop, ty) <- tr_binop op;
-        do en1 <- aux t1;
-        do en2 <- aux t2;
-        OK (Clight.Ebinop cop en1 en2 ty)
-      else Error (msg "tr_trm_expr: not a binop application")
-  | _ => Error (msg "tr_trm_expr: not a translatable expr")
-  end.
+  Definition tr_binop (op : prim) : res (Cop.binary_operation * Ctypes.type) :=
+    match op with
+    | val_add ty => OK (Cop.Oadd, tr_types ty)
+    | val_ptr_add => OK (Cop.Oadd, cc_types.pointer cc_types.long)
+    | val_lt ty => OK (Cop.Olt, tr_types ty)
+    | _ => Error (msg "tr_binop: not a binop")
+    end.
 
 
 
-Fixpoint tr_trm_stmt (E : env_var)
-  (t : trm) : res (Clight.statement) :=
+  Local Open Scope error_monad_scope.
 
-  let aux := tr_trm_stmt E in
-  let auxe := tr_trm_expr E in
-  match t with
-  (* sequence: [let _ = t1 in t2] *)
-  | trm_let binding_anon t1 t2 =>
-      do st1 <- aux t1;
-      do st2 <- aux t2;
-      OK ([| st1 ;; st2 |])
-  (* pattern for funcall, kinda *)
-  (* | trm_let (binding_var x t const) (trm_apps (trm_var f) ts) tk => *)
-  (*     do es <- mmap auxe ts; *)
-  (*     do stk <- aux tk; *)
-  (*     OK (Clight.Scall (Some (var_to_ident x)) (Clight.Evar f [funtype..]) es) *)
-  (* [alloc]. Assumes fun call has already been transformed to assign *)
-(*      to a temp *)
-  | trm_let (binding_var x ty const)
-      (trm_apps val_alloc [tn] ) tk =>
-      do i <- get_ident x;
-      do en <- auxe tn;
-      do stk <- aux tk;
-      OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
-                ([[cc_types.long]])
-                (en :: nil) ;;
-              stk |])
 
-  (* [let x = e in tk] *)
-  | trm_let (binding_var x ty d) (val_uninitialized) tk =>
-      match d with
-      | stack =>
-          do stk <- aux tk;
-          OK stk
-      | _ =>
-          Error (msg "tr_trm_stmt: only stack variabels can be declared as uninitialised")
-      end
-
-  | trm_let (binding_var x ty d) t tk =>
-      do i <- get_ident x;
-      do e <- auxe t;
-      do stk <- aux tk;
-      match d with
-      | const =>
-          OK ([| Clight.Sset i e ;; stk |])
-      | heap =>
-          match ty with
-          | type_ref ty' =>
-              OK ([| Clight.Sassign (Clight.Evar i ty) e ;;
-                     stk |])
-          | _ => Error (msg "tr_trm_stmt: heap variable not declared as a pointer")
-          end
-      | stack =>
-          OK ([| Clight.Sassign (Clight.Evar i ty) e ;; stk |])
-      end
-
-  (* various forms of [x = v;] *)
-  | trm_apps val_set [(trm_var x) ; tv] =>
-      do ev <- auxe tv;
-      do i <- get_ident x;
-      match PTree.get i E with
-      (* alloc on stack *)
-      | Some (stack, ty) =>
-          OK (Clight.Sassign (Clight.Evar i ty) ev)
-      (* alloc on heap *)
-      | Some (heap, (type_ref ty) as tystar) =>
-          OK (Clight.Sassign (Clight.Ederef (Clight.Evar i tystar) ty) ev)
-      | Some (const, ty) =>
-          Error (msg "tr_trm_stmt: trying to set a const var")
-      | _ => Error (msg "tr_trm_stmt: error while setting a variable")
-      end
-
-  (* [while]. Assumes condition is pure *)
-  | trm_while te tb =>
-      do e <- auxe te;
-      do stb <- aux tb;
-      OK (Clight.Swhile e stb)
-  (* [if]. Assumes condition is pure *)
-  | trm_ite te t1 t2 =>
-      do e <- auxe te;
-      do st1 <- aux t1;
-      do st2 <- aux t2;
-      OK (Clight.Sifthenelse e st1 st2)
-
-  | t =>
-      if is_expr t then
-      match auxe t with
-        | OK e => OK (Clight.Sreturn (Some e))
-        | Error m =>
-            Error (m ++ (msg "tr_trm_stmt: not a translatable statement"))
+  Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
+    let aux := tr_trm_expr E in
+    match t with
+    (* longs *)
+    | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
+    (* get *)
+    | trm_apps val_get [trm_var x] =>
+        do i <- get_ident x;
+        match PTree.get i E with
+        (* stack *)
+        | Some (stack, ty) =>
+            OK (Clight.Evar i ty)
+        | Some (heap, (type_ref ty) as tystar) =>
+            OK (Clight.Ederef (Clight.Evar i tystar) ty)
+        | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
+        | Some (const, _) => Error (msg "tr_trm_expr: trying to 'get' a const")
+        | None => Error (msg "tr_trm_expr: variable not found in environment")
         end
-      else Error (msg "tr_trm_stmt: expr expected")
-  end.
-
-
-Definition tr_function (f : fundef) : res Clight.function :=
-
-  do env <- mfold (fun env '(x, ty) =>
-                    do i <- get_ident x;
-                    OK (PTree.set i (const, ty) env))
-                 (env_var_join f.(vars) f.(temps)) f.(params);
-  do sbody <- tr_trm_stmt env f.(body);
-  do cparams <- mmap (fun '(x, ty) =>
-                       do i <- get_ident x;
-                       OK (i, tr_types ty))
-                 f.(params);
-  do cvars <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(vars));
-  do ctemps <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(temps));
-  OK (Clight.mkfunction
-        f.(rettype)
-        AST.cc_default
-        cparams
-        cvars
-        ctemps
-        sbody).
-
+    (* temp *)
+    | trm_var x =>
+        do i <- get_ident x;
+        match PTree.get i E with
+        | Some (const, ty) =>
+            OK (Clight.Etempvar i ty)
+        | Some (heap, (type_ref ty) as tystar) =>
+            OK (Clight.Evar i tystar)
+        | Some (heap, _) => Error (msg "tr_trm_expr: non-pointer heap allocated variable")
+        | Some (stack, ty) =>
+            OK (Clight.Eaddrof (Clight.Evar i ty) (type_ref ty))
+        | None => Error (msg "tr_trm_expr: variable not found in environment")
+        end
+    (* binop *)
+    | trm_apps (val_prim op) [t1 ; t2] =>
+        if is_binop op then
+          do (cop, ty) <- tr_binop op;
+          do en1 <- aux t1;
+          do en2 <- aux t2;
+          OK (Clight.Ebinop cop en1 en2 ty)
+        else Error (msg "tr_trm_expr: not a binop application")
+    | _ => Error (msg "tr_trm_expr: not a translatable expr")
+    end.
 
 
 
-Definition tr_program (p : program) : res Clight.program.
-Admitted.
+  Fixpoint tr_trm_stmt (E : env_var) (fundecl_types : PTree.t ((list type) * type))
+    (t : trm) : res (Clight.statement) :=
+
+    let aux := tr_trm_stmt E fundecl_types in
+    let auxe := tr_trm_expr E in
+    match t with
+    (* sequence: [let _ = t1 in t2] *)
+    | trm_let binding_anon t1 t2 =>
+        do st1 <- aux t1;
+        do st2 <- aux t2;
+        OK ([| st1 ;; st2 |])
+    (* funcall *)
+    | trm_let (binding_var x ty const) (trm_apps (trm_var f) ts) tk =>
+        do es <- mmap auxe ts;
+        do i__x <- get_ident x;
+        do i__f <- get_ident f;
+        do stk <- aux tk;
+        match fundecl_types ! i__f with
+        | Some (t_params, rettype) =>
+            OK ([| Clight.Scall (Some i__x)
+                     (Clight.Evar i__f (make_funtype t_params rettype)) es ;;
+                   stk |])
+        | None => Error (msg "tr_trm_stmt : call to an undeclared function")
+        end
+    (* [alloc]. Assumes fun call has already been transformed to assign *)
+    (*      to a temp *)
+    | trm_let (binding_var x ty const)
+        (trm_apps val_alloc [tn] ) tk =>
+        do i <- get_ident x;
+        do en <- auxe tn;
+        do stk <- aux tk;
+        OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
+                 ([[cc_types.long]])
+                 (en :: nil) ;;
+               stk |])
+
+    (* [let x = e in tk] *)
+    | trm_let (binding_var x ty d) (val_uninitialized) tk =>
+        match d with
+        | stack =>
+            do stk <- aux tk;
+            OK stk
+        | _ =>
+            Error (msg "tr_trm_stmt: only stack variabels can be declared as uninitialised")
+        end
+
+    | trm_let (binding_var x ty d) t tk =>
+        do i <- get_ident x;
+        do e <- auxe t;
+        do stk <- aux tk;
+        match d with
+        | const =>
+            OK ([| Clight.Sset i e ;; stk |])
+        | heap =>
+            match ty with
+            | type_ref ty' =>
+                OK ([| Clight.Sassign (Clight.Evar i ty) e ;;
+                       stk |])
+            | _ => Error (msg "tr_trm_stmt: heap variable not declared as a pointer")
+            end
+        | stack =>
+            OK ([| Clight.Sassign (Clight.Evar i ty) e ;; stk |])
+        end
+
+    (* various forms of [x = v;] *)
+    | trm_apps val_set [(trm_var x) ; tv] =>
+        do ev <- auxe tv;
+        do i <- get_ident x;
+        match PTree.get i E with
+        (* alloc on stack *)
+        | Some (stack, ty) =>
+            OK (Clight.Sassign (Clight.Evar i ty) ev)
+        (* alloc on heap *)
+        | Some (heap, (type_ref ty) as tystar) =>
+            OK (Clight.Sassign (Clight.Ederef (Clight.Evar i tystar) ty) ev)
+        | Some (const, ty) =>
+            Error (msg "tr_trm_stmt: trying to set a const var")
+        | _ => Error (msg "tr_trm_stmt: error while setting a variable")
+        end
+
+    (* [while]. Assumes condition is pure *)
+    | trm_while te tb =>
+        do e <- auxe te;
+        do stb <- aux tb;
+        OK (Clight.Swhile e stb)
+    (* [if]. Assumes condition is pure *)
+    | trm_ite te t1 t2 =>
+        do e <- auxe te;
+        do st1 <- aux t1;
+        do st2 <- aux t2;
+        OK (Clight.Sifthenelse e st1 st2)
+
+    | t =>
+        if is_expr t then
+          match auxe t with
+          | OK e => OK (Clight.Sreturn (Some e))
+          | Error m =>
+              Error (m ++ (msg "tr_trm_stmt: not a translatable statement"))
+          end
+        else Error (msg "tr_trm_stmt: expr expected")
+    end.
+
+
+  Definition tr_function (f : fundef)
+    (fundecl_types : PTree.t ((list type) * type)) : res Clight.function :=
+    do env <- mfold (fun env '(x, ty) =>
+                      do i <- get_ident x;
+                      OK (PTree.set i (const, ty) env))
+               (env_var_join f.(vars) f.(temps)) f.(params);
+    do sbody <- tr_trm_stmt env fundecl_types f.(body);
+    do cparams <- mmap (fun '(x, ty) =>
+                         do i <- get_ident x;
+                         OK (i, tr_types ty))
+                   f.(params);
+    do cvars <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(vars));
+    do ctemps <- mmap (fun '(i, (d, ty)) => OK (i, tr_types ty)) (PTree.elements f.(temps));
+    OK (Clight.mkfunction
+          f.(rettype)
+              AST.cc_default
+              cparams
+              cvars
+              ctemps
+              sbody).
+
+
+
+
+  Definition tr_program (p : program) : res Clight.program.
+  Admitted.
 
 End Compil.
 
 Import Clight AST Ctypes.
 
-(* Declare Custom Entry statement. *)
-(* Declare Custom Entry expr. *)
-
 Declare Scope stmt_scope.
-
-(* Notation "<[ c ]>" := *)
-(*   c (at level 0, c custom statement at level 99, only printing) : stmt_scope. *)
-
-(* Notation "( c )" := *)
-(*   c (in custom statement, c at level 99, only printing) : stmt_scope. *)
-
-(* Notation "{ c }" := *)
-(*   c (in custom statement, c constr) : stmt_scope. *)
-
-
-(* Notation "c" := *)
-(*   c (in custom statement at level 0, c constr at level 0) : stmt_scope. *)
 
 Notation "n 'i'" :=
   ({| Integers.Int64.intval := n; Integers.Int64.intrange := _ |})

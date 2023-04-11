@@ -17,7 +17,7 @@ From TLC Require Import LibCore LibInt.
    (program)  p ::= list f
    (function) f ::= { name ; rettype: τ; params: list (var * τ); vars: σ; temps: σ; body: t }
    (env_var)  σ ::=
-   (prims)    ρ ::= free (heap x) | alloc e
+   (prims)    ρ ::= dealloc (e, e) | alloc (e)
    (fun)      φ ::= name f | ρ
    (terms)    t ::= | e
 
@@ -510,6 +510,7 @@ Section Semantics.
 
   (* variable environments *)
   Definition env := PTree.t (val * var_descr * type).
+  Definition fundef_env := PTree.t fundef.
 
 
   Definition postcond : Type := state -> env -> trm -> Prop.
@@ -572,7 +573,7 @@ Section Semantics.
   | cfml_omnistep_expr_ptr_add : forall G (l l' : loc) (n : Z) s P,
       (l' : nat) = (l : nat) + n :> int ->
       P s G (val_loc l') ->
-      G / <{ l +p n }> (* (val_ptr_add l (val_int n)) *) / s -->e P
+      G / <{ l +p n }> / s -->e P
 
   where "G '/' t '/' s '-->e' P" := (cfml_omnistep_expr G s t P).
 
@@ -581,59 +582,67 @@ Section Semantics.
   Inductive eval_expr_ctx : (trm -> trm) -> Prop :=
   | eval_expr_ctx_ite : forall t2 t3,
       eval_expr_ctx (fun e1 => <{if e1 then t2 else t3}>)
+  (* | eval_expr_ctx_while :  forall t, *)
+  (*     eval_expr_ctx (fun e => <{ while e do t done}>) *)
   | eval_expr_ctx_apps_arg : forall v0 vs ts,
       eval_expr_ctx (fun e1 => trm_apps v0 ((trms_vals vs)++e1::ts))
   | eval_expr_ctx_let_expr : forall z t,
       eval_expr_ctx (fun e => trm_let z e t).
 
+  Inductive eval_trm_ctx : (trm -> trm) -> Prop :=
+  | eval_trm_ctx_seq : forall t2,
+      eval_trm_ctx (fun t1 => <{ t1 ; t2 }>)
+  (* let const : only during reduction can t1 be anything other than a funcall *)
+  | eval_trm_ctx_let_const : forall x ty t2,
+      eval_trm_ctx (fun t1 => <{ let (x : ty#const) = t1 in t2 }>).
 
-  Reserved Notation "G '/' t '/' s '-->' P"
-    (at level 40, t, s at level 30).
 
-  Inductive cfml_omnistep : env -> state -> trm -> postcond -> Prop :=
+  Reserved Notation "F '/' G '/' t '/' s '-->' P"
+    (at level 40, G, t, s at level 30).
+
+  Inductive cfml_omnistep : fundef_env -> env -> state -> trm -> postcond -> Prop :=
   (* when a subterm can only be an expression *)
-  | cfml_omnistep_expr_ctx : forall G C e s P1 P,
+  | cfml_omnistep_expr_ctx : forall F G C e s P1 P,
       is_expr e ->
       eval_expr_ctx C ->
       ~ trm_is_val e ->
       G / e / s -->e P1 ->
       (forall s1 G1 e1, P1 s1 G1 e1 -> P s1 G (C e1)) -> (* we do not pass the env to the outer context *)
-      G / (C e) / s --> P
+      F / G / (C e) / s --> P
 
-  | cfml_omnistep_is_expr : forall G e s P,
+  | cfml_omnistep_trm_ctx : forall F G G1 C t s P1 P,
+      eval_trm_ctx C ->
+      ~ trm_is_val t ->
+      F / G / t / s --> P1 ->
+      (forall s1 G2 e1, P1 s1 G1 e1 -> P s1 G (C e1)) ->
+      F / G / t / s --> P
+
+  (* ? FIXME *)
+  | cfml_omnistep_is_expr : forall F G e s P,
       is_expr e ->
       G / e / s -->e P ->
-      G / e / s --> P
-
-  | cfml_omnistep_ite : forall G n t1 t2 s P,
-      (* C-style boolean values *)
-      P s G (if (n =? 0)%Z then t2 else t1) ->
-      G / <{if n then t1 else t2}> / s --> P
+      F / G / e / s --> P
 
   (* sequence *)
-  | cfml_step_seq_l : forall G t1 t2 s P P1,
-      G / t1 / s --> P1 ->
-      (forall t1' G' s', P1 s' G' t1' -> P s' G' <{t1' ; t2}>) -> (* but here we do *)
-      G / <{t1 ; t2}> / s --> P
-
-  | cfml_step_seq_r : forall G v1 t2 s P,
+  | cfml_step_seq : forall F G v1 t2 s P,
       P s G t2 ->
-      G / <{v1 ; t2}> / s --> P
+      F / G / <{v1 ; t2}> / s --> P
 
-  | cfml_step_set : forall G s l v P,
+  (* let binding *)
+  | cfml_step_let : forall F G G' s x i ty d t2 v1 P,
+      snd x = Some i ->
+      G' = PTree.set i (v1, const, ty) G ->
+      P s G' t2 ->
+      F / G / <{ let (x : ty#d) = v1 in t2 }> / s --> P
+
+  (* prims *)
+  | cfml_step_set : forall F G s l v P,
       Fmap.indom s l ->
       P (Fmap.update s l v) G val_unit ->
-      G / (val_set l v) / s --> P
-
-  | cfml_step_let : forall G G' s x i d ty t2 v1 P,
-
-      snd x = Some i ->
-      G' = PTree.set i (v1, d, ty) G ->
-      P s G' t2 ->
-      G / <{ let (x : ty#d) = v1 in t2 }> / s --> P
+      F / G / (val_set l v) / s --> P
 
 
-  | cfml_step_alloc : forall G n sa P,
+  | cfml_step_alloc : forall F G n sa P,
       (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
                  n = nat_to_Z k ->
                  l <> null ->
@@ -643,9 +652,9 @@ Section Semantics.
                  /\ n = nat_to_Z k
                  /\ l <> null
                  /\ Fmap.disjoint sa sb) ->
-      G / (val_alloc (val_int n)) / sa --> P
+      F / G / (val_alloc (val_int n)) / sa --> P
 
-  | cfml_step_dealloc : forall G (n:int) s l P,
+  | cfml_step_dealloc : forall F G (n:int) s l P,
       (forall vs sa sb, s = sb \+ sa ->
                    sb = Fmap.conseq vs l ->
                    n = LibList.length vs ->
@@ -655,7 +664,32 @@ Section Semantics.
                    /\ sb = Fmap.conseq vs l
                    /\ n = LibList.length vs
                    /\ Fmap.disjoint sa sb) ->
-      G / (val_dealloc (val_int n) l) / s --> P
+      F / G / (val_dealloc (val_int n) l) / s --> P
+
+
+  | cfml_omnistep_apps : forall F (f : fundef) t G G' x i vs s P,
+      snd x = Some i ->
+      F ! i = Some f ->
+      f.(body) = t ->
+      G' = fold_right (fun '(x,ty,v) G =>
+                         match snd x with
+                         | Some i => PTree.set i (v, const, ty) G
+                         | None => G (* never happens (see CompilationTest.make_function) *)
+                         end)
+             G (combine f.(params) vs) ->
+      P s G' t ->
+      F / G / trm_apps x (trms_vals vs) / s --> P
+
+  | cfml_omnistep_ite : forall F G n t1 t2 s P,
+      (* C-style boolean values *)
+      P s G (if (n =? 0)%Z then t2 else t1) ->
+      F / G / <{if n then t1 else t2}> / s --> P
+
+  | cfml_omnistep_while : forall F G e t s P1 P,
+      P s G <{if e then val_unit
+              else (t; while e do t done)}> ->
+      F / G / <{while e do t done}> / s --> P
+
 
   (* | cfml_step_free : forall s l P, *)
   (*     Fmap.indom s l -> *)
@@ -664,7 +698,7 @@ Section Semantics.
 
 
 
-  where "G / t / s --> P" := (cfml_omnistep G s t P).
+  where "F / G / t / s --> P" := (cfml_omnistep F G s t P).
   (* TODO à compléter *)
 
   (* Unset Printing Notations. *)
