@@ -389,6 +389,7 @@ Section Compil.
 
   Local Open Scope error_monad_scope.
 
+  (** ** Compiles pure expressions  *)
 
   Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
     let aux := tr_trm_expr E in
@@ -433,6 +434,7 @@ Section Compil.
     end.
 
 
+  (** ** Compiles statements *)
 
   Fixpoint tr_trm_stmt (E : env_var) (fundecl_types : PTree.t ((list type) * type))
     (t : trm) : res (Clight.statement) :=
@@ -565,6 +567,60 @@ Section Compil.
   Admitted.
 
 End Compil.
+
+
+
+
+Section Compil_correct.
+
+(* rel_state : cfml.state -> clight.state -> Prop
+
+   tr_correct : forall t s g P,
+               t / s --> P ->
+               rel_state s g ->
+               (tr_trm E t) / g -->+
+                       (fun c' g' => exists t' s',
+                                     P t' s' /\
+                                     rel_state s' g')
+
+
+
+      G / t / s --> P
+       -> si t := let x = t1 in t2
+                 (x,v1)::G / t2 / s' --> P
+
+G := env * temp_env
+
+rel_state G env s g :=
+        g = g1 \+ g2,
+        forall l, v ∈ s, (l, tr v) ∈ G
+        forall x,v ∈ G,
+               ∃ l, env!x = Some l, g2 l = Some tr v
+
+Props:
+rel_state -> dom s c dom g
+rel_state -> fresh l g -> fresh l s
+
+(define eventually omni small for clight :
+ soit par dessus la small, soit directement ->
+ puis prouver equiv avec small sous hyp que les fonctions externes sont deter
+)
+
+
+   OU : arriver dans un small traditionel : soit en partant d'un omni-small, soit d'un smallstep traditionel.
+
+   tr_subst_com
+
+
+   tr_expr : forall t,
+             is_expr t ->
+             eval_expr (tr_trm E t) G g (tr_val (subst G t))
+
+ *)
+
+End Compil_correct.
+
+
 
 Import Clight AST Ctypes.
 
@@ -779,48 +835,3 @@ Section Tests.
             ).
 
 End Tests.
-
-(* rel_state : cfml.state -> clight.state -> Prop
-
-   tr_correct : forall t s g P,
-               t / s --> P ->
-               rel_state s g ->
-               (tr_trm E t) / g -->+
-                       (fun c' g' => exists t' s',
-                                     P t' s' /\
-                                     rel_state s' g')
-
-
-
-      G / t / s --> P
-       -> si t := let x = t1 in t2
-                 (x,v1)::G / t2 / s' --> P
-
-G := env * temp_env
-
-rel_state G env s g :=
-        g = g1 \+ g2,
-        forall l, v ∈ s, (l, tr v) ∈ G
-        forall x,v ∈ G,
-               ∃ l, env!x = Some l, g2 l = Some tr v
-
-Props:
-rel_state -> dom s c dom g
-rel_state -> fresh l g -> fresh l s
-
-(define eventually omni small for clight :
- soit par dessus la small, soit directement ->
- puis prouver equiv avec small sous hyp que les fonctions externes sont deter
-)
-
-
-   OU : arriver dans un small traditionel : soit en partant d'un omni-small, soit d'un smallstep traditionel.
-
-   tr_subst_com
-
-
-   tr_expr : forall t,
-             is_expr t ->
-             eval_expr (tr_trm E t) G g (tr_val (subst G t))
-
- *)

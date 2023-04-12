@@ -3,7 +3,8 @@ Set Implicit Arguments.
 From CFML Require Import Semantics LibSepFmap.
 Import LibListNotation.
 
-From compcert Require Import Coqlib Maps Integers Floats Values Errors.
+From compcert Require Integers.
+From compcert Require Import Coqlib Maps Floats Values Errors.
 
 From TLC Require Import LibCore LibInt.
 
@@ -477,35 +478,7 @@ Section Semantics.
   Proof using. apply (Inhab_of_val val_unit). Qed.
 
 
-(*   Fixpoint subst (y:var') (w:val) (t:trm) : trm := *)
-(*     let aux t := *)
-(*       subst y w t in *)
-(*     let aux_no_capture z t := *)
-(*       match z with *)
-(*       | binding_anon => aux t *)
-(*       | binding_var x _ _ => if (var'_eq x y) then t else aux t *)
-(*       end in *)
-(*     (* If z = binding_var y then t else aux t in *) *)
-(*     let aux_no_captures xs t := *)
-(*       If LibList.mem y xs then t else aux t in *)
-(*   match t with *)
-(*   | trm_val v => trm_val v *)
-(*   | trm_var x => If x = y then trm_val w else t *)
-(* | trm_ite t0 t1 t2 => trm_ite (aux t0) (aux t1) (aux t2) *)
-(* | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2) *)
-(* | trm_apps t0 ts => trm_apps (aux t0) (LibListExec.map aux ts) *)
-(* | trm_while t1 t2 => trm_while (aux t1) (aux t2) *)
-(*   end. *)
-
-
-(*   Definition subst1 (z:binding) (v:val) (t:trm) := *)
-(*     match z with *)
-(*     | binding_anon => t *)
-(*     | binding_var x _ _ => subst x v t *)
-(*     end. *)
-
-
-  Notation int := Z.
+  (* Notation int := Z. *)
 
 
   (* variable environments *)
@@ -518,6 +491,8 @@ Section Semantics.
   Implicit Type P : postcond.
   Implicit Type G : env.
 
+
+  (** *** Bind contexts for expressions *)
   Inductive evalctx_expr : (trm -> trm) -> Prop :=
   | evalctx_expr_add_l : forall t2,
       evalctx_expr (fun t1 => <{t1 + t2}>)
@@ -534,8 +509,8 @@ Section Semantics.
   | evalctx_expr_get : evalctx_expr (fun t => <{ !t }>).
 
 
-  (* NOTE: substition-based, will need to bridge the gap with the environment-based one on CLight's side *)
-  (* NOTE: missing constructs *)
+  (** ** Sub-judgment of omni-small step, for pure expressions (see grammar) *)
+
   Reserved Notation "G '/' t '/' s '-->e' P"
     (at level 40, t, s at level 30).
 
@@ -547,9 +522,11 @@ Section Semantics.
       G / t / s -->e P1 ->
       (forall s1 G1 t1, P1 s1 G1 t1 -> P s1 G (C t1)) -> (* FIXME maybe *)
       G / (C t) / s -->e P
+  (* values *)
   | cfml_omnistep_expr_val : forall G v s P,
       P s G (trm_val v) ->
       G / (trm_val v) / s -->e P
+  (* variables *)
   | cfml_omnistep_expr_var : forall G i x v d ty s P,
       snd x = Some i ->
       G ! i = Some (v, d, ty) ->
@@ -569,7 +546,7 @@ Section Semantics.
       (* C-style boolean values *)
       P s G (val_int (if (n1 <? n2)%Z then 1 else 0)) ->
       G / <{n1 < n2}> / s -->e P
-
+  (* pointer arithmetic *)
   | cfml_omnistep_expr_ptr_add : forall G (l l' : loc) (n : Z) s P,
       (l' : nat) = (l : nat) + n :> int ->
       P s G (val_loc l') ->
@@ -578,17 +555,16 @@ Section Semantics.
   where "G '/' t '/' s '-->e' P" := (cfml_omnistep_expr G s t P).
 
 
-  (* the arguments are restricted to exprs (see rule cfml_omnistep_expr_ctx) *)
+  (** *** Bind contexts where arguments are restricted to pure expressions *)
   Inductive eval_expr_ctx : (trm -> trm) -> Prop :=
   | eval_expr_ctx_ite : forall t2 t3,
       eval_expr_ctx (fun e1 => <{if e1 then t2 else t3}>)
-  (* | eval_expr_ctx_while :  forall t, *)
-  (*     eval_expr_ctx (fun e => <{ while e do t done}>) *)
   | eval_expr_ctx_apps_arg : forall v0 vs ts,
       eval_expr_ctx (fun e1 => trm_apps v0 ((trms_vals vs)++e1::ts))
   | eval_expr_ctx_let_expr : forall z t,
       eval_expr_ctx (fun e => trm_let z e t).
 
+  (** *** The other bind contexts *)
   Inductive eval_trm_ctx : (trm -> trm) -> Prop :=
   | eval_trm_ctx_seq : forall t2,
       eval_trm_ctx (fun t1 => <{ t1 ; t2 }>)
@@ -596,6 +572,8 @@ Section Semantics.
   | eval_trm_ctx_let_const : forall x ty t2,
       eval_trm_ctx (fun t1 => <{ let (x : ty#const) = t1 in t2 }>).
 
+
+  (** ** Omni-small step for terms *)
 
   Reserved Notation "F '/' G '/' t '/' s '-->' P"
     (at level 40, G, t, s at level 30).
@@ -609,7 +587,7 @@ Section Semantics.
       G / e / s -->e P1 ->
       (forall s1 G1 e1, P1 s1 G1 e1 -> P s1 G (C e1)) -> (* we do not pass the env to the outer context *)
       F / G / (C e) / s --> P
-
+  (* the rest of the contexts *)
   | cfml_omnistep_trm_ctx : forall F G G1 C t s P1 P,
       eval_trm_ctx C ->
       ~ trm_is_val t ->
@@ -686,8 +664,8 @@ Section Semantics.
       F / G / <{if n then t1 else t2}> / s --> P
 
   | cfml_omnistep_while : forall F G e t s P1 P,
-      P s G <{if e then val_unit
-              else (t; while e do t done)}> ->
+      P s G <{if e then (t; while e do t done)
+              else val_unit}> ->
       F / G / <{while e do t done}> / s --> P
 
 
@@ -696,11 +674,25 @@ Section Semantics.
   (*     P (Fmap.remove s l) val_unit -> *)
   (*     (val_free l) / s --> P *)
 
-
-
   where "F / G / t / s --> P" := (cfml_omnistep F G s t P).
-  (* TODO à compléter *)
+  (* TODO à compléter : DONE? *)
 
-  (* Unset Printing Notations. *)
-  (* Set Printing Coercions. *)
+
+
+  (** ** Eventually judgment *)
+
+  Reserved Notation "F / G / t / s -->⋄ P" (at level 40, G, t, s at level 30).
+
+  Inductive eventually : fundef_env -> env -> state -> trm -> postcond -> Prop :=
+  | eventually_here : forall s G F t P,
+      P s G t ->
+      F / G / t / s -->⋄ P
+  | eventually_step : forall G F s t P1 P,
+      F / G / t / s -->⋄ P1 ->
+      (forall s' G' t', P1 s' G' t' ->
+                   F / G' / t' / s' -->⋄ P) ->
+      F / G / t / s -->⋄ P
+
+  where "F / G / t / s -->⋄ P" := (eventually F G s t P).
+
 End Semantics.
