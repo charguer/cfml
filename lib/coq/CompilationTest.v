@@ -389,6 +389,12 @@ Section Compil.
 
   Local Open Scope error_monad_scope.
 
+
+  Parameter tr_val : val -> Values.val.
+  Parameter tr_env : env -> Clight.env.
+  Parameter tr_temp_env : env -> Clight.temp_env.
+  Parameter tr_mem : state -> Memory.mem.
+
   (** ** Compiles pure expressions  *)
 
   Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
@@ -617,6 +623,26 @@ rel_state -> fresh l g -> fresh l s
              eval_expr (tr_trm E t) G g (tr_val (subst G t))
 
  *)
+
+  (* probably not the best way to do that, temporary solution *)
+  Definition env_to_env_var (G : env) : env_var :=
+    PTree.map1 (fun '(v, d, ty) => (d, ty)) G.
+
+  (** ** Correctness of pure expression translation *)
+
+  (** If [e] is an expression, reduces to a value in environment [G]
+      and memory state [s], and compiles to a Clight expression [ex],
+      then so does [ex]. *)
+  Lemma tr_expr_correct : forall (e : trm) (ex : Clight.expr) G s (v : val) (ge : Clight.genv),
+      is_expr e ->
+      (* G / e / s -->e⋄ (fun s' G' v' => s' = s /\  G' = G /\ v' = v) -> *)
+      eventually_expr G s e (fun s' G' v' => s' = s /\ G' = G /\ v' = v)  ->
+      (tr_trm_expr (env_to_env_var G) e) = OK ex ->
+      Clight.eval_expr ge (tr_env G) (tr_temp_env G)
+        (tr_mem s) ex (tr_val v).
+  Proof.
+  Admitted.
+
 
 End Compil_correct.
 

@@ -555,6 +555,24 @@ Section Semantics.
   where "G '/' t '/' s '-->e' P" := (cfml_omnistep_expr G s t P).
 
 
+
+  (** ** Eventually judgment for exprs *)
+
+  Reserved Notation "G '/' t '/' s '-->e⋄' P" (at level 40, t, s at level 30).
+
+  Inductive eventually_expr : env -> state -> trm -> postcond -> Prop :=
+  | eventually_expr_here : forall s G t P,
+      P s G t ->
+      G / t / s -->e⋄ P
+  | eventually_expr_step : forall G s t P1 P,
+      G / t / s -->e P1 ->
+      (forall s' G' t', P1 s' G' t' ->
+                   G' / t' / s' -->e⋄ P) ->
+      G / t / s -->e⋄ P
+
+  where "G '/' t '/' s '-->e⋄' P" := (eventually_expr G s t P).
+
+
   (** *** Bind contexts where arguments are restricted to pure expressions *)
   Inductive eval_expr_ctx : (trm -> trm) -> Prop :=
   | eval_expr_ctx_ite : forall t2 t3,

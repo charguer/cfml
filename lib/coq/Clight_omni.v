@@ -13,7 +13,7 @@ From compcert Require Import Maps Errors SimplExpr Values Memory AST Events Ctyp
 
 Section Clight_OMNI.
 
-  Definition postcond := state -> Prop.
+  Definition postcond := state -> trace -> Prop.
 
   Implicit Type st : state.
   Implicit Type tr : trace.
@@ -26,15 +26,16 @@ Section Clight_OMNI.
      [function_entry2] where function parameters are passed as temporaries *)
   Let step := step2 ge.
 
-  (* FIXME: maybe I can just re-use compcert.Smallstep.eventually? Do
-     we need the trace?  *)
-  Inductive eventually' : state -> postcond -> Prop :=
-  | eventually'_here : forall st P,
-      P st ->
-      eventually' st P
-  | eventually'_step : forall st P,
-      (exists st' tr, step st tr st') ->
-      (forall st' tr, step st tr st' -> eventually' st' P) ->
-      eventually' st P.
+  (** [eventually' st tr P] denotes that all executions from state
+      [st], with starting trace [tr], eventually reache a state [st']
+      with trace [tr'] such that [(st',tr')] ∈ [P] *)
+  Inductive eventually' : state -> trace -> postcond -> Prop :=
+  | eventually'_here : forall st tr P,
+      P st tr ->
+      eventually' st tr P
+  | eventually'_step : forall st tr P,
+      (exists st' tr', step st tr' st') ->
+      (forall st' tr', step st tr' st' -> eventually' st' (tr ** tr') P) ->
+      eventually' st tr P.
 
 End Clight_OMNI.
