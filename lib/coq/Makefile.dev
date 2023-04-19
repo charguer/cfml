@@ -1,7 +1,7 @@
 CFML := /home/charguer/cfml2
 EXAMPLEINCLUDE := -R . CFML
 OPENINIDE := $(wildcard */*_proof.v)
-
+CURRENTFOLDERISLIBCOQ := false
 include $(CFML)/lib/make/Makefile.dev
 
 

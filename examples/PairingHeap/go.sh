@@ -9,6 +9,15 @@ if [[ ${ARG} = "" ]]; then
   ARG="PairingHeap_ml.vos"
 fi
 
+if [[ ${ARG} = "clean" ]]; then
+
+make -j4 -C ../../lib/coq -f Makefile.dev clean
+make -C ../../lib/stdlib -f Makefile.dev clean
+make -f Makefile.dev clean
+
+exit
+
+fi
 
 # For development purposes
 # make sure to first recompile your local TLC
@@ -19,7 +28,9 @@ make -f Makefile.dev _CoqProject
 if [[ ${ARG} = "mlv" ]]; then
 
   make -C ../../lib/stdlib -f Makefile.dev depend
+  make -j4 -C ../../lib/stdlib -f Makefile.dev depend
   make -j4 -C ../../lib/stdlib -f Makefile.dev Pervasives_ml.v
+  make -f Makefile.dev depend
   make -f Makefile.dev ${ARG}
 
 else
@@ -29,6 +40,7 @@ else
   make -C ../../lib/stdlib -f Makefile.dev depend
   make -j4 -C ../../lib/stdlib -f Makefile.dev vos
   make -f Makefile.dev depend
+  make -f Makefile.dev MList_proof.vos
   make -f Makefile.dev ${ARG}
   # make -j4 -C ../../lib/stdlib -f Makefile.dev vos
 

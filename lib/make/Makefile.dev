@@ -420,12 +420,12 @@ LIBCOQGOALS := libcoq libcoqs libcoqk
 
 ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) depend .depend_libcoq .depend_v .depend_ml mlv),)
    ifeq ($(wildcard .depend_libcoq),)
-      $(error Missing .depend_libcoq; try 'make depend' first.)
+      $(error Missing .depend_libcoq in $(PWD); try 'make depend' first.)
    endif
    include .depend_libcoq
 endif
 
-ifndef $(CURRENTFOLDERISLIBCOQ)
+ifeq ($(CURRENTFOLDERISLIBCOQ),false)
    ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) depend .depend_libcoq .depend_v .depend_ml),)
       ifeq ($(wildcard .depend_ml),)
          $(error Missing .depend_ml; try 'make depend' first.)
