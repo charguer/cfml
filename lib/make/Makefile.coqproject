@@ -5,7 +5,9 @@
 _CoqProject:
 	@ rm -f $@
 	@ echo "# This is a generated file. Do not edit." >> $@
-	@ echo -e $(COQINCLUDE) >> $@
+	@ echo $(COQINCLUDE) >> $@
+	@ echo $(INCLUDECOMPCERT) >> $@
+	@ echo $(INCLUDECOMPCERTFLOCQ) >> $@
 	@ echo >> $@
 	@ echo $(addprefix -arg ,$(COQWARNINGS)) >> $@
 	@ echo >> $@
