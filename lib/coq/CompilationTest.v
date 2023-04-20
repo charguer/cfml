@@ -389,10 +389,27 @@ Section Compil.
 
   Local Open Scope error_monad_scope.
 
+  (** translate values (mostly for temporary environments) *)
+  Definition tr_val (v : val) : Values.val :=
+    match v with
+    | val_uninitialized => Values.Vundef
+    | val_loc O => Values.Vundef
+    | val_loc l => Values.Vptr (Pos.of_nat l) Integers.Ptrofs.zero
+    | val_int i => Values.Vlong i
+    | val_unit => Values.Vlong 0
+    | val_prim _ => Values.Vundef
+    end.
 
-  Parameter tr_val : val -> Values.val.
   Parameter tr_env : env -> Clight.env.
-  Parameter tr_temp_env : env -> Clight.temp_env.
+
+  (** get values of consts from an [env] *)
+  Definition tr_temp_env (G : env) : Clight.temp_env :=
+    PTree.fold (fun g i '(v,d,ty) => match d with
+                                  | const => PTree.set i (tr_val v) g
+                                  | _ => g
+                                  end)
+               G (PTree.empty Values.val).
+
   Parameter tr_mem : state -> Memory.mem.
 
   (** ** Compiles pure expressions  *)
@@ -624,28 +641,36 @@ rel_state -> fresh l g -> fresh l s
 
  *)
 
+
+
+
   (* probably not the best way to do that, temporary solution *)
-  Definition env_to_env_var (G : env) : env_var :=
-    PTree.map1 (fun '(v, d, ty) => (d, ty)) G.
+  Definition env_and_env_var_match (G : env) (GV : env_var) : Prop :=
+    PTree.fold (fun b i '(v, d, ty) => b /\ (PTree.get i GV = Some (d, ty))) G True.
 
   (** ** Correctness of pure expression translation *)
 
   (** If [e] is an expression, reduces to a value in environment [G]
       and memory state [s], and compiles to a Clight expression [ex],
       then so does [ex]. *)
-  Lemma tr_expr_correct : forall (e : trm) (ex : Clight.expr) G s (v : val) (ge : Clight.genv),
+  Lemma tr_expr_correct : forall (e : trm) (ex : Clight.expr) (G : env) (GV : env_var)
+                            s (v : val) (ge : Clight.genv),
       is_expr e ->
+      env_and_env_var_match G GV ->
       (* G / e / s -->e⋄ (fun s' G' v' => s' = s /\  G' = G /\ v' = v) -> *)
       eventually_expr G s e (fun s' G' v' => s' = s /\ G' = G /\ v' = v)  ->
-      (tr_trm_expr (env_to_env_var G) e) = OK ex ->
+      (tr_trm_expr GV e) = OK ex ->
       Clight.eval_expr ge (tr_env G) (tr_temp_env G)
         (tr_mem s) ex (tr_val v).
   Proof.
   Admitted.
 
 
-End Compil_correct.
+  (** ** Correctness of statement translation *)
 
+  (* Lemma tr_stmt_correct : forall t (st : Clight.state) (ge : Clight.genv) *)
+
+End Compil_correct.
 
 
 Import Clight AST Ctypes.
@@ -848,9 +873,9 @@ Section Tests.
 
   (* Unset Printing Notations. *)
   (* Set Printing Coercions. *)
-  Eval vm_compute in do f <- make_function "funct" type_long
+  Eval compute in do f <- make_function "funct" type_long
                    [(('n : var'), type_long)] test_trm_syntax;
-          do cf <- tr_function f;
+          do cf <- tr_function f (PTree.empty (list CFML_C.type * CFML_C.type));
           OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf
             ).
 

@@ -207,6 +207,10 @@ Coercion val_loc : loc >-> val.
 Coercion trm_var : var' >-> trm.
 Coercion trm_val : val >-> trm.
 
+
+(** potential block memory model : block index -> offset -> value *)
+Definition state' : Type := fmap positive (fmap int val).
+
 Definition state : Type := fmap loc val.
 
 Implicit Types v : val.
