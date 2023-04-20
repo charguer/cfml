@@ -618,9 +618,9 @@ Section Semantics.
       F / G / t / s --> P
 
   (* ? FIXME *)
-  | cfml_omnistep_is_expr : forall F G e s P,
+  | cfml_omnistep_is_return : forall F G e s P,
       is_expr e ->
-      G / e / s -->e P ->
+      G / e / s -->e⋄ P ->
       F / G / e / s --> P
 
   (* sequence *)
@@ -710,7 +710,7 @@ Section Semantics.
       P s G t ->
       F / G / t / s -->⋄ P
   | eventually_step : forall G F s t P1 P,
-      F / G / t / s -->⋄ P1 ->
+      F / G / t / s --> P1 ->
       (forall s' G' t', P1 s' G' t' ->
                    F / G' / t' / s' -->⋄ P) ->
       F / G / t / s -->⋄ P

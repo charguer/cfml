@@ -653,22 +653,36 @@ rel_state -> fresh l g -> fresh l s
   (** If [e] is an expression, reduces to a value in environment [G]
       and memory state [s], and compiles to a Clight expression [ex],
       then so does [ex]. *)
-  Lemma tr_expr_correct : forall (e : trm) (ex : Clight.expr) (G : env) (GV : env_var)
-                            s (v : val) (ge : Clight.genv),
-      is_expr e ->
-      env_and_env_var_match G GV ->
-      (* G / e / s -->e⋄ (fun s' G' v' => s' = s /\  G' = G /\ v' = v) -> *)
-      eventually_expr G s e (fun s' G' v' => s' = s /\ G' = G /\ v' = v)  ->
-      (tr_trm_expr GV e) = OK ex ->
-      Clight.eval_expr ge (tr_env G) (tr_temp_env G)
-        (tr_mem s) ex (tr_val v).
-  Proof.
-  Admitted.
+  (* Lemma tr_expr_correct : forall (e : trm) (ex : Clight.expr) (G : env) (GV : env_var) *)
+  (*                           s (v : val) (ge : Clight.genv), *)
+  (*     is_expr e -> *)
+  (*     env_and_env_var_match G GV -> *)
+  (*     (* G / e / s -->e⋄ (fun s' G' v' => s' = s /\  G' = G /\ v' = v) -> *) *)
+  (*     eventually_expr G s e (fun s' G' v' => s' = s /\ G' = G /\ v' = v)  -> *)
+  (*     (tr_trm_expr GV e) = OK ex -> *)
+  (*     Clight.eval_expr ge (tr_env G) (tr_temp_env G) *)
+  (*       (tr_mem s) ex (tr_val v). *)
+  (* Proof. *)
+  (* Admitted. *)
 
 
   (** ** Correctness of statement translation *)
+  Parameter is_final :  CFML_C.postcond -> Prop.
 
-  (* Lemma tr_stmt_correct : forall t (st : Clight.state) (ge : Clight.genv) *)
+  Lemma tr_stmt_correct : forall t s (Q : CFML_C.postcond)
+                            (G : env) (GV : env_var)
+                            (F : fundef_env) (FT : PTree.t (list type * type))
+                            (st : Clight.statement) (ge : Clight.genv) (k : Clight.cont)
+                            (f : Clight.function) (m : Memory.Mem.mem) (tr : Events.trace),
+      env_and_env_var_match G GV ->
+      is_final Q ->
+      tr_trm_stmt GV FT t = OK st ->
+      eventually F G s t Q ->
+      Clight_omni.eventually' ge (Clight.State f st k (tr_env G) (tr_temp_env G) m) tr
+                              (fun st' tr' => True).
+  Proof.
+  Admitted.
+
 
 End Compil_correct.
 
