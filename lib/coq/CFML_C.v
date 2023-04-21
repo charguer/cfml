@@ -486,14 +486,14 @@ Section Semantics.
 
 
   (* variable environments *)
-  Definition env := PTree.t (val * var_descr * type).
+  Definition val_env := PTree.t (val * var_descr * type).
   Definition fundef_env := PTree.t fundef.
 
 
-  Definition postcond : Type := state -> env -> trm -> Prop.
+  Definition postcond : Type := state -> val_env -> trm -> Prop.
 
   Implicit Type P : postcond.
-  Implicit Type G : env.
+  Implicit Type G : val_env.
 
 
   (** *** Bind contexts for expressions *)
@@ -518,7 +518,7 @@ Section Semantics.
   Reserved Notation "G '/' t '/' s '-->e' P"
     (at level 40, t, s at level 30).
 
-  Inductive cfml_omnistep_expr : env -> state -> trm -> postcond -> Prop :=
+  Inductive cfml_omnistep_expr : val_env -> state -> trm -> postcond -> Prop :=
   (* bind *)
   | cfml_omnistep_expr_bind : forall G C t s P1 P,
       evalctx_expr C ->
@@ -564,7 +564,7 @@ Section Semantics.
 
   Reserved Notation "G '/' t '/' s '-->e⋄' P" (at level 40, t, s at level 30).
 
-  Inductive eventually_expr : env -> state -> trm -> postcond -> Prop :=
+  Inductive eventually_expr : val_env -> state -> trm -> postcond -> Prop :=
   | eventually_expr_here : forall s G t P,
       P s G t ->
       G / t / s -->e⋄ P
@@ -600,7 +600,7 @@ Section Semantics.
   Reserved Notation "F '/' G '/' t '/' s '-->' P"
     (at level 40, G, t, s at level 30).
 
-  Inductive cfml_omnistep : fundef_env -> env -> state -> trm -> postcond -> Prop :=
+  Inductive cfml_omnistep : fundef_env -> val_env -> state -> trm -> postcond -> Prop :=
   (* when a subterm can only be an expression *)
   | cfml_omnistep_expr_ctx : forall F G C e s P1 P,
       is_expr e ->
@@ -705,7 +705,7 @@ Section Semantics.
 
   Reserved Notation "F / G / t / s -->⋄ P" (at level 40, G, t, s at level 30).
 
-  Inductive eventually : fundef_env -> env -> state -> trm -> postcond -> Prop :=
+  Inductive eventually : fundef_env -> val_env -> state -> trm -> postcond -> Prop :=
   | eventually_here : forall s G F t P,
       P s G t ->
       F / G / t / s -->⋄ P

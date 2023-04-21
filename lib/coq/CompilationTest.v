@@ -400,10 +400,10 @@ Section Compil.
     | val_prim _ => Values.Vundef
     end.
 
-  Parameter tr_env : env -> Clight.env.
+  Parameter tr_env : val_env -> Clight.env.
 
-  (** get values of consts from an [env] *)
-  Definition tr_temp_env (G : env) : Clight.temp_env :=
+  (** get values of consts from a [val_env] *)
+  Definition tr_temp_env (G : val_env) : Clight.temp_env :=
     PTree.fold (fun g i '(v,d,ty) => match d with
                                   | const => PTree.set i (tr_val v) g
                                   | _ => g
@@ -645,7 +645,7 @@ rel_state -> fresh l g -> fresh l s
 
 
   (* probably not the best way to do that, temporary solution *)
-  Definition env_and_env_var_match (G : env) (GV : env_var) : Prop :=
+  Definition val_env_and_env_var_match (G : val_env) (GV : env_var) : Prop :=
     PTree.fold (fun b i '(v, d, ty) => b /\ (PTree.get i GV = Some (d, ty))) G True.
 
   (** ** Correctness of pure expression translation *)
@@ -665,21 +665,27 @@ rel_state -> fresh l g -> fresh l s
   (* Proof. *)
   (* Admitted. *)
 
+  (** [R] is the bisim relation we will be using.
+      [R t f G s st] *)
+  Parameter R : CFML_C.trm -> CFML_C.fundef -> CFML_C.val_env -> CFML_C.state ->
+                Clight.state -> Events.trace -> Prop.
+  (* st -> State f (tr_trm_stmt t) ... *)
 
   (** ** Correctness of statement translation *)
   Parameter is_final :  CFML_C.postcond -> Prop.
 
   Lemma tr_stmt_correct : forall t s (Q : CFML_C.postcond)
-                            (G : env) (GV : env_var)
+                            (G : val_env) (GV : env_var)
+                            (f : CFML_C.fundef)
                             (F : fundef_env) (FT : PTree.t (list type * type))
-                            (st : Clight.statement) (ge : Clight.genv) (k : Clight.cont)
-                            (f : Clight.function) (m : Memory.Mem.mem) (tr : Events.trace),
-      env_and_env_var_match G GV ->
+                            (ge : Clight.genv)
+                            (st : Clight.state) (tr : Events.trace),
+      val_env_and_env_var_match G GV ->
       is_final Q ->
-      tr_trm_stmt GV FT t = OK st ->
+      R t f G s st tr ->
       eventually F G s t Q ->
-      Clight_omni.eventually' ge (Clight.State f st k (tr_env G) (tr_temp_env G) m) tr
-                              (fun st' tr' => True).
+      Clight_omni.eventually' ge st tr
+        (fun st' tr' => exists t' f' G' s', Q s' G' t' /\ R t' f' G' s' st' tr').
   Proof.
   Admitted.
 
@@ -893,10 +899,10 @@ Section Tests.
           OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf
             ).
 
-  Eval vm_compute in do f <- make_function "funct" type_long
-                   [(('n : var'), type_long)] test_trm_syntax_stack;
-          do cf <- tr_function f;
-          OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf
-            ).
+  (* Eval vm_compute in do f <- make_function "funct" type_long *)
+  (*                  [(('n : var'), type_long)] test_trm_syntax_stack; *)
+  (*         do cf <- tr_function f; *)
+  (*         OK (f, PTree.elements f.(temps), PTree.elements f.(vars), cf *)
+  (*           ). *)
 
 End Tests.
