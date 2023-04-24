@@ -668,7 +668,7 @@ rel_state -> fresh l g -> fresh l s
   (** [R] is the bisim relation we will be using.
       [R t f G s st] *)
   Parameter R : CFML_C.trm -> CFML_C.fundef -> CFML_C.val_env -> CFML_C.state ->
-                Clight.state -> Events.trace -> Prop.
+                Clight.state -> Prop.
   (* st -> State f (tr_trm_stmt t) ... *)
 
   (** ** Correctness of statement translation *)
@@ -679,13 +679,13 @@ rel_state -> fresh l g -> fresh l s
                             (f : CFML_C.fundef)
                             (F : fundef_env) (FT : PTree.t (list type * type))
                             (ge : Clight.genv)
-                            (st : Clight.state) (tr : Events.trace),
+                            (st : Clight.state),
       val_env_and_env_var_match G GV ->
       is_final Q ->
-      R t f G s st tr ->
+      R t f G s st ->
       eventually F G s t Q ->
-      Clight_omni.eventually' ge st tr
-        (fun st' tr' => exists t' f' G' s', Q s' G' t' /\ R t' f' G' s' st' tr').
+      Clight_omni.eventually' ge st
+        (fun st' => exists t' f' G' s', Q s' G' t' /\ R t' f' G' s' st').
   Proof.
   Admitted.
 
