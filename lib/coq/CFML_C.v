@@ -101,6 +101,8 @@ Proof using. apply (Inhab_of_val (stack,type_long)). Qed.
 Definition var' : Type := var * (option AST.ident).
 Coercion var_to_var' (x : var) : var' := (x, None).
 
+Definition var'_ident (x : var') := snd x.
+
 
 Definition var'_eq (x y : var') : bool :=
   match x, y with
@@ -576,6 +578,10 @@ Section Semantics.
       cfml_omnibig_expr_list G s ts Qs ->
       cfml_omnibig_expr_list G s (e :: ts) (Q :: Qs).
 
+  (** [val_list_sat_pc_list [Q1..Qn] [v1..vn]] := Q1 v1 /\ .. Qn vn *)
+  Definition val_list_sat_pc_list (Qs : list expr_pc) (vs : list val) :=
+    fold_right (fun '(Q, v) p => p /\ Q v) True (combine Qs vs).
+
   (* (** ** Eventually judgment for exprs *) *)
 
   (* Reserved Notation "G '/' t '/' s '-->e⋄' P" (at level 40, t, s at level 30). *)
@@ -615,13 +621,31 @@ Section Semantics.
 
   (** ** Omni-small step for terms *)
 
-  Definition config : Type := (fundef * val_env * state * trm).
+  Inductive continuation : Type :=
+  | Kstop : continuation        (* top level *)
+  | Kcall : fundef ->            (* caller *)
+            val_env ->           (* outer environment *)
+            continuation ->      (* previous continuation *)
+            continuation.
+
+  Implicit Type k : continuation.
+
+  Definition config : Type := (fundef * val_env * state * trm * continuation).
   Implicit Type c : config.
 
   (* TODO: refactor *)
   Definition stmt_pc := config -> Prop.
   Implicit Type P : stmt_pc.
 
+
+  (** relates the parameters of a fundef to a list of idents and types *)
+  Definition R_params
+    (fun_par_list : list (var' * type))
+    (id_ty_list : list (AST.ident * type)) : Prop :=
+    length fun_par_list = length id_ty_list
+    /\ (fold_right (fun '((x, ty), (i, ty')) p =>
+                     p /\ ty = ty' /\ var'_ident x = Some i)
+         True (combine fun_par_list id_ty_list)).
 
 
   Reserved Notation "F '/' c '-->' P"
@@ -637,91 +661,120 @@ Section Semantics.
   (*     (forall s1 G1 e1, P1 s1 G1 e1 -> P s1 G (C e1)) -> (* we do not pass the env to the outer context *) *)
   (*     F / G / (C e) / s --> P *)
   (* the rest of the contexts *)
-  | cfml_omnistep_trm_ctx : forall f G C t s P1 P,
+  | cfml_omnistep_trm_ctx : forall f G C t s k P1 P,
       eval_trm_ctx C ->
       ~ trm_is_val t ->
-      F / (f, G, s, t) --> P1 ->
-      (forall f1 s1 G1 t1, P1 (f1, G1, s1, t1) -> P (f1, G1, s1, (C t1))) ->
-      F / (f, G, s, (C t)) --> P
+      F / (f, G, s, t, k) --> P1 ->
+      (forall f1 s1 G1 t1 k1, P1 (f1, G1, s1, t1, k1) -> P (f1, G1, s1, (C t1), k1)) ->
+      F / (f, G, s, (C t), k) --> P
 
-  (* ? FIXME *)
-  | cfml_omnistep_is_return : forall f G s e Q P,
-      is_expr e ->
-      G / s / e ⇓ Q ->
-      (forall v, Q v -> P (f, G , s, trm_val v)) ->
-      F / (f, G, s, e) --> P
+  (* let bindings *)
+  | cfml_omnistep_let_fun_call : forall f f' xf i_f G G' s x ix ty es Qs prms t k P,
+      F ! i_f = Some f ->
+      R_params f.(params) prms ->
+      ty = f.(rettype) ->
 
-  (* sequence *)
-  | cfml_step_seq : forall f G v1 t2 s P,
-      P (f, G, s, t2) ->
-      F / (f, G, s, <{v1 ; t2}>) --> P
+      length es = length prms ->
+      cfml_omnibig_expr_list G s es Qs ->
 
-  (* let binding *)
-  | cfml_step_let : forall f G G' s x i ty d t2 e Q P,
+      (forall vs, length vs = length Qs ->
+             val_list_sat_pc_list Qs vs ->
+             G' = fold_right (fun '(i, ty, v) G =>
+                                PTree.set i (v, const, ty) G)
+                    G (combine prms vs) ->
+             P (f, G', s,
+                 <{ let ({(x, Some ix)} : ty#const) = {f.(body)} in t }>,
+                    Kcall f' G k)) ->
+
+      F / (f', G, s, <{let ({(x, Some ix)} : ty#const) =
+                            {trm_apps (trm_var (xf, Some i_f)) es} in t}>, k) --> P
+
+
+  (* | cfml_omnistep_apps : forall (f f1 : fundef) t G G' x i ts Qs s P, *)
+  (*     F ! i = Some f1 -> *)
+  (*     f1.(body) = t -> *)
+  (*     length ts = length f1.(params) -> *)
+  (*     cfml_omnibig_expr_list G s ts Qs -> *)
+  (*     (forall vs, fold_right (fun '(Q, v) p => p /\ Q v) True (combine Qs vs) -> *)
+  (*            G' = fold_right *)
+  (*                   (fun '(x,ty,v) G => *)
+  (*                      match snd x with *)
+  (*                      | Some i => PTree.set i (v, const, ty) G *)
+  (*                      | None => G (* never happens (see CompilationTest.make_function) *) *)
+  (*                      end) *)
+  (*                   G (combine f.(params) vs) -> *)
+  (*            (* TODO better = relation that takes f.(params) and *)
+  (*               return list (ident * type) *) *)
+  (*            P (f1, G', s, t)) -> *)
+  (*     F / (f, G, s, trm_apps (trm_var (x, Some i)) ts) --> P *)
+
+  | cfml_omnistep_let_fun_ret : forall f f' G G' s x i ty t e k Q P,
       G / s / e ⇓ Q ->
       (forall v, Q v ->
-            G' = PTree.set i (v, const, ty) G ->
-            P (f, G', s, t2)) ->
-      F / (f, G, s, <{ let ({(x, Some i)} : ty#d) = e in t2 }>) --> P
+            P (f', PTree.set i (v, const, ty) G', s, t, k)) ->
+      F / (f, G, s,
+          <{ let ({(x, Some i)} : ty#const) = e in t }>,
+             Kcall f' G' k) --> P
+
+  | cfml_omnistep_let_expr : forall f G s x i ty d e t k Q P,
+      G / s / e ⇓ Q ->
+      (forall v, Q v -> P (f, PTree.set i (v, const, ty) G, s, t, k)) ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty#d) = e in t}>, k) --> P
+
+  (* only an expression left: return *)
+  | cfml_omnistep_is_return : forall x f f' G G' s e k Q P,
+      is_expr e ->
+      G / s / e ⇓ Q ->
+      (forall v, Q v -> P (f', G', s, trm_val v, k)) ->
+      F / (f, G, s, e, k) --> P
+
+  (* sequence *)
+  | cfml_omnistep_seq : forall f G v1 t2 s k P,
+      P (f, G, s, t2, k) ->
+      F / (f, G, s, <{v1 ; t2}>, k) --> P
+
 
   (* prims *)
-  | cfml_step_set : forall f G s l v P,
+  | cfml_omnistep_set : forall f G s l v k P,
       Fmap.indom s l ->
-      P (f, G, (Fmap.update s l v), trm_val val_unit) ->
-      F / (f, G, s, <{l := v }>) --> P
+      P (f, G, (Fmap.update s l v), trm_val val_unit, k) ->
+      F / (f, G, s, <{l := v }>, k) --> P
 
 
-  | cfml_step_alloc : forall f G n sa P,
-      (forall l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l ->
-                 n = nat_to_Z k ->
+  | cfml_omnistep_alloc : forall f G n sa k P,
+      (forall l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l ->
+                 n = nat_to_Z i ->
                  l <> null ->
                  Fmap.disjoint sa sb ->
-                 P (f, G, (sb \+ sa), trm_val (val_loc l))) ->
-      (exists l k sb, sb = Fmap.conseq (LibList.make k val_uninitialized) l
-                 /\ n = nat_to_Z k
+                 P (f, G, (sb \+ sa), trm_val (val_loc l), k)) ->
+      (exists l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l
+                 /\ n = nat_to_Z i
                  /\ l <> null
                  /\ Fmap.disjoint sa sb) ->
-      F / (f, G, sa, <{alloc(n)}>) --> P
+      F / (f, G, sa, <{alloc(n)}>, k) --> P
 
-  | cfml_step_dealloc : forall f G (n:int) s l P,
+  | cfml_step_dealloc : forall f G (n:int) s l k P,
       (forall vs sa sb, s = sb \+ sa ->
                    sb = Fmap.conseq vs l ->
                    n = LibList.length vs ->
                    Fmap.disjoint sa sb ->
-                   P (f, G, sa, trm_val val_unit)) ->
+                   P (f, G, sa, trm_val val_unit, k)) ->
       (exists vs sa sb, s = sb \+ sa
                    /\ sb = Fmap.conseq vs l
                    /\ n = LibList.length vs
                    /\ Fmap.disjoint sa sb) ->
-      F / (f, G, s, <{dealloc(n, l)}>) --> P
+      F / (f, G, s, <{dealloc(n, l)}>, k) --> P
 
-  | cfml_omnistep_apps : forall (f f1 : fundef) t G G' x i ts Qs s P,
-      F ! i = Some f1 ->
-      f1.(body) = t ->
-      cfml_omnibig_expr_list G s ts Qs ->
-      (forall vs, fold_right (fun '(Q, v) p => p /\ Q v) True (combine Qs vs) ->
-             G' = fold_right
-                    (fun '(x,ty,v) G =>
-                       match snd x with
-                       | Some i => PTree.set i (v, const, ty) G
-                       | None => G (* never happens (see CompilationTest.make_function) *)
-                       end)
-                    G (combine f.(params) vs) ->
-             (* TODO better = relation that takes f.(params) and
-                return list (ident * type) *)
-             P (f1, G', s, t)) ->
-      F / (f, G, s, trm_apps (trm_var (x, Some i)) ts) --> P
-
-  | cfml_omnistep_ite : forall f G e (n : int) t1 t2 s Q P,
+  | cfml_omnistep_ite : forall f G e (n : int) t1 t2 s k Q P,
       (* C-style boolean values *)
       G / s / e ⇓ Q ->
-      (forall n, Q (val_int n) -> P (f, G, s, (if (n =? 0)%Z then t2 else t1))) ->
-      F / (f, G, s, <{if e then t1 else t2}>) --> P
+      (forall n, Q (val_int n) -> P (f, G, s, (if (n =? 0)%Z then t2 else t1), k)) ->
+      F / (f, G, s, <{if e then t1 else t2}>, k) --> P
 
-  | cfml_omnistep_while : forall f G e t s P1 P,
+  | cfml_omnistep_while : forall f G e t s P1 k P,
       P (f, G, s, <{if e then (t; while e do t done)
-                    else val_unit}>) ->
-      F / (f, G, s, <{while e do t done}>) --> P
+                    else val_unit}>, k) ->
+      F / (f, G, s, <{while e do t done}>, k) --> P
 
 
   (* | cfml_step_free : forall s l P, *)
@@ -736,18 +789,17 @@ Section Semantics.
 
   (** ** Eventually judgment *)
 
-  Reserved Notation "F / G / t / s -->⋄ P" (at level 40, G, t, s at level 30).
+  Reserved Notation "F '/' c '-->⋄' P" (at level 40, c at level 30).
 
-  Inductive eventually : fundef_env -> val_env -> state -> trm -> postcond -> Prop :=
-  | eventually_here : forall s G F t P,
-      P s G t ->
-      F / G / t / s -->⋄ P
-  | eventually_step : forall G F s t P1 P,
-      F / G / t / s --> P1 ->
-      (forall s' G' t', P1 s' G' t' ->
-                   F / G' / t' / s' -->⋄ P) ->
-      F / G / t / s -->⋄ P
+  Inductive eventually (F : fundef_env) : config -> stmt_pc -> Prop :=
+  | eventually_here : forall c P,
+      P c ->
+      F / c -->⋄ P
+  | eventually_step : forall c P1 P,
+      F / c --> P1 ->
+      (forall c', P1 c' -> F / c' -->⋄ P) ->
+      F / c -->⋄ P
 
-  where "F / G / t / s -->⋄ P" := (eventually F G s t P).
+  where "F / c -->⋄ P" := (eventually F c P).
 
 End Semantics.
