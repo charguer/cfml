@@ -494,6 +494,10 @@ Section Semantics.
   (* variable environments *)
   Definition val_env := PTree.t (val * var_descr * type).
   Definition fundef_env := PTree.t fundef.
+  Definition funtypes_env := PTree.t (list type * type).
+
+  Definition funtypes_from_fundef_env (F : fundef_env) :=
+    PTree.map (fun i f => (List.map (fun '(x,ty) => ty) f.(params), f.(rettype))) F.
 
 
   Definition postcond : Type := state -> val_env -> trm -> Prop.
@@ -669,7 +673,7 @@ Section Semantics.
       F / (f, G, s, (C t), k) --> P
 
   (* let bindings *)
-  | cfml_omnistep_let_fun_call : forall f f' xf i_f G G' s x ix ty es Qs prms t k P,
+  | cfml_omnistep_let_fun_call : forall f f' xf i_f G G' s x ty es Qs prms t k P,
       F ! i_f = Some f ->
       R_params f.(params) prms ->
       ty = f.(rettype) ->
@@ -683,10 +687,10 @@ Section Semantics.
                                 PTree.set i (v, const, ty) G)
                     G (combine prms vs) ->
              P (f, G', s,
-                 <{ let ({(x, Some ix)} : ty#const) = {f.(body)} in t }>,
+                 <{ let (x : ty#const) = {f.(body)} in t }>,
                     Kcall f' G k)) ->
 
-      F / (f', G, s, <{let ({(x, Some ix)} : ty#const) =
+      F / (f', G, s, <{let (x : ty#const) =
                             {trm_apps (trm_var (xf, Some i_f)) es} in t}>, k) --> P
 
 

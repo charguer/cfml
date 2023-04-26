@@ -400,7 +400,7 @@ Section Compil.
     | val_prim _ => Values.Vundef
     end.
 
-  Parameter tr_env : val_env -> Clight.env.
+  Parameter R_env : val_env -> Clight.env -> Clight.temp_env -> Prop.
 
   (** get values of consts from a [val_env] *)
   Definition tr_temp_env (G : val_env) : Clight.temp_env :=
@@ -410,7 +410,9 @@ Section Compil.
                                   end)
                G (PTree.empty Values.val).
 
-  Parameter tr_mem : state -> Memory.mem.
+  Parameter R_mem : state -> Memory.mem -> Prop.
+
+  Parameter R_cont : CFML_C.continuation -> Clight.cont -> Prop.
 
   (** ** Compiles pure expressions  *)
 
@@ -667,21 +669,33 @@ rel_state -> fresh l g -> fresh l s
 
   (** [R] is the bisim relation we will be using.
       [R t f G s st] *)
-  Parameter R : CFML_C.config ->
-                Clight.state -> Prop.
-  (* st -> State f (tr_trm_stmt t) ... *)
+  Definition R (FT : CFML_C.funtypes_env) (E : env_var) (c : CFML_C.config)
+    (st : Clight.state) : Prop :=
+    let '(f, G, s, t, k) := c in
+    match st with
+    | (Clight.State fc sc kc Ec tEc mc) =>
+        tr_function f FT = OK fc
+        /\ tr_trm_stmt E FT t = OK sc
+        /\ R_mem s mc
+        /\ R_env G Ec tEc
+        /\ R_cont k kc
+    | _ => False
+    end.
 
   (** ** Correctness of statement translation *)
-  Parameter is_final :  CFML_C.stmt_pc -> Prop.
+  Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop :=
+    forall f G s t k, P (f, G, s, t, k) ->
+                 (exists v, t = trm_val v).
 
-  Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc)
+
+  Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var)
                             (F : fundef_env) (FT : PTree.t (list type * type))
                             (ge : Clight.genv) (st : Clight.state),
-      is_final P ->
-      R c st ->
+      stmt_pc_final P ->
+      R FT E c st ->
       eventually F c P ->
       Clight_omni.eventually' ge st
-        (fun st' => exists c', P c' /\ R c' st').
+        (fun st' => exists c', P c' /\ R FT E c' st').
   Proof.
   Admitted.
 
