@@ -412,8 +412,6 @@ Section Compil.
 
   Parameter R_mem : state -> Memory.mem -> Prop.
 
-  Parameter R_cont : CFML_C.continuation -> Clight.cont -> Prop.
-
   (** ** Compiles pure expressions  *)
 
   Fixpoint tr_trm_expr (E : env_var) (t : trm) : res Clight.expr :=
@@ -554,6 +552,7 @@ Section Compil.
         OK (Clight.Sifthenelse e st1 st2)
 
     | t =>
+        (* TODO: invariant, expr ici jamais à gauche d'une seq *)
         if is_expr t then
           match auxe t with
           | OK e => OK (Clight.Sreturn (Some e))
@@ -667,7 +666,18 @@ rel_state -> fresh l g -> fresh l s
   (* Proof. *)
   (* Admitted. *)
 
-  (** [R] is the bisim relation we will be using.
+  Definition R_commands (t :CFML_C.trm) (cs : CFML_C.call_stack)
+    (s : Clight.statement) (k : Clight.cont) : Prop :=
+
+
+  Admitted.
+
+  Definition config_final (c : CFML_C.config) : Prop :=
+    let '(f, G, s, t, k) := c in
+    k = Ctop /\ exists v, t = trm_val v.
+
+
+  (** [R] is the sim relation we will be using.
       [R t f G s st] *)
   Definition R (FT : CFML_C.funtypes_env) (E : env_var) (c : CFML_C.config)
     (st : Clight.state) : Prop :=
@@ -675,17 +685,16 @@ rel_state -> fresh l g -> fresh l s
     match st with
     | (Clight.State fc sc kc Ec tEc mc) =>
         tr_function f FT = OK fc
-        /\ tr_trm_stmt E FT t = OK sc
+        /\ R_commands t k sc kc
         /\ R_mem s mc
         /\ R_env G Ec tEc
-        /\ R_cont k kc
+
     | _ => False
     end.
 
   (** ** Correctness of statement translation *)
   Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop :=
-    forall f G s t k, P (f, G, s, t, k) ->
-                 (exists v, t = trm_val v).
+    forall c, P c -> config_final c.
 
 
   Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var)

@@ -24,5 +24,5 @@
 - [DONE] remove subst for cfml omnismall, and add envs
 - Rewrite memory model of CFML_C to be closer to Clight's
   (*ie* `block -> offset -> val`)
-- Maybe Add traces to CFML_C's semantic?
-- Actually refactor semantics (cf Clight.state)
+- [DONE] Actually refactor semantics (cf Clight.state)
+- characterise initial states in cfml

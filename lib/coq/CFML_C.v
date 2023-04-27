@@ -625,16 +625,16 @@ Section Semantics.
 
   (** ** Omni-small step for terms *)
 
-  Inductive continuation : Type :=
-  | Kstop : continuation        (* top level *)
-  | Kcall : fundef ->            (* caller *)
+  Inductive call_stack : Type :=
+  | Ctop : call_stack           (* top level *)
+  | Ccall : fundef ->            (* caller *)
             val_env ->           (* outer environment *)
-            continuation ->      (* previous continuation *)
-            continuation.
+            call_stack ->
+            call_stack.
 
-  Implicit Type k : continuation.
+  Implicit Type k : call_stack.
 
-  Definition config : Type := (fundef * val_env * state * trm * continuation).
+  Definition config : Type := (fundef * val_env * state * trm * call_stack).
   Implicit Type c : config.
 
   (* TODO: refactor *)
@@ -688,7 +688,7 @@ Section Semantics.
                     G (combine prms vs) ->
              P (f, G', s,
                  <{ let (x : ty#const) = {f.(body)} in t }>,
-                    Kcall f' G k)) ->
+                    Ccall f' G k)) ->
 
       F / (f', G, s, <{let (x : ty#const) =
                             {trm_apps (trm_var (xf, Some i_f)) es} in t}>, k) --> P
@@ -718,7 +718,7 @@ Section Semantics.
             P (f', PTree.set i (v, const, ty) G', s, t, k)) ->
       F / (f, G, s,
           <{ let ({(x, Some i)} : ty#const) = e in t }>,
-             Kcall f' G' k) --> P
+             Ccall f' G' k) --> P
 
   | cfml_omnistep_let_expr : forall f G s x i ty d e t k Q P,
       G / s / e ⇓ Q ->
