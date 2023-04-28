@@ -400,15 +400,19 @@ Section Compil.
     | val_prim _ => Values.Vundef
     end.
 
-  Parameter R_env : val_env -> Clight.env -> Clight.temp_env -> Prop.
+  Definition R_env (G : val_env)
+    (c_e : Clight.env) (c_te : Clight.temp_env) : Prop :=
+    forall (i : AST.ident), exists v d ty,
+      PTree.get i G = Some (v, d, ty) ->
+      match d with
+      | heap
+      | stack =>
+          exists (b : Values.block),
+          PTree.get i c_e = Some (b, tr_types ty)
+          /\ tr_val v = Values.Vptr b Integers.Ptrofs.zero
+      | const => PTree.get i c_te = Some (tr_val v)
+      end.
 
-  (** get values of consts from a [val_env] *)
-  Definition tr_temp_env (G : val_env) : Clight.temp_env :=
-    PTree.fold (fun g i '(v,d,ty) => match d with
-                                  | const => PTree.set i (tr_val v) g
-                                  | _ => g
-                                  end)
-               G (PTree.empty Values.val).
 
   Parameter R_mem : state -> Memory.mem -> Prop.
 
@@ -597,6 +601,8 @@ End Compil.
 
 Section Compil_correct.
 
+  Import CFMLSyntax.
+
 (* rel_state : cfml.state -> clight.state -> Prop
 
    tr_correct : forall t s g P,
@@ -666,11 +672,40 @@ rel_state -> fresh l g -> fresh l s
   (* Proof. *)
   (* Admitted. *)
 
-  Definition R_commands (t :CFML_C.trm) (cs : CFML_C.call_stack)
-    (s : Clight.statement) (k : Clight.cont) : Prop :=
+  Inductive match_commands (G : env_var) (F : funtypes_env) :
+    CFML_C.trm -> CFML_C.call_stack -> Clight.statement -> Clight.cont -> Prop :=
+(* (t :CFML_C.trm) (cs : CFML_C.call_stack) *)
+(*     (s : Clight.statement) (k : Clight.cont) : Prop := *)
 
+  | match_commands_top : forall t cs s,
+      cs = Ctop ->
+      tr_trm_stmt G F t = OK s ->
+      match_commands G F t cs s Clight.Kstop
 
-  Admitted.
+  | match_commands_seq : forall t s cs s' k' t1 t2,
+      t = <{t1 ; t2}> ->
+      tr_trm_stmt G F t1 = OK s ->
+      match_commands G F t2 cs s' k' ->
+      match_commands G F t cs s (Clight.Kseq s' k')
+
+  | match_commands_call_assign : forall t cs s x i ty fc e te k' f E cs' t1 t2,
+      cs = Ccall f E cs' ->
+      tr_function f F = OK fc ->
+      R_env E e te ->
+      t = <{let ({(x, Some i)} : ty#const) = t1 in t2}> ->
+      tr_trm_stmt G F t1 = OK s ->
+      match_commands G F t2 cs' Clight.Sskip k' ->
+      match_commands G F t cs s (Clight.Kcall (Some i) fc e te k')
+
+  | match_commands_call_anon : forall t cs s fc e te k' f E cs' t1 t2,
+      cs = Ccall f E cs' ->
+      tr_function f F = OK fc ->
+      R_env E e te ->
+      t = trm_let binding_anon t1 t2 ->
+      tr_trm_stmt G F t1 = OK s ->
+      match_commands G F t2 cs' Clight.Sskip k' ->
+      match_commands G F t cs s (Clight.Kcall None fc e te k').
+
 
   Definition config_final (c : CFML_C.config) : Prop :=
     let '(f, G, s, t, k) := c in
