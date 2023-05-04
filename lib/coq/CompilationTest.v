@@ -720,7 +720,7 @@ rel_state -> fresh l g -> fresh l s
     match st with
     | (Clight.State fc sc kc Ec tEc mc) =>
         tr_function f FT = OK fc
-        /\ R_commands t k sc kc
+        /\ match_commands E FT t k sc kc
         /\ R_mem s mc
         /\ R_env G Ec tEc
 
@@ -735,14 +735,14 @@ rel_state -> fresh l g -> fresh l s
   Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var)
                             (F : fundef_env) (FT : PTree.t (list type * type))
                             (ge : Clight.genv) (st : Clight.state),
-      stmt_pc_final P ->
       R FT E c st ->
-      eventually F c P ->
+      cfml_omnistep F c P ->
       Clight_omni.eventually' ge st
         (fun st' => exists c', P c' /\ R FT E c' st').
   Proof.
-  Admitted.
-
+    introv HR Hred. unfold config in *. generalize dependent c.
+    destruct c as [f G s t cs].
+    
 
 End Compil_correct.
 

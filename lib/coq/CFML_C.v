@@ -80,8 +80,6 @@ Note: x ::= v == trm_apps (val_prim val_set) [x;v]
 
  *)
 
-Unset Elimination Schemes.
-
 Section CFML_TYPES.
 
 Inductive type : Type :=
@@ -285,7 +283,7 @@ Section Trm_induct.
 
 End Trm_induct.
 
-Lemma trm_ind : forall P : trm -> Prop,
+Lemma trm_induct : forall P : trm -> Prop,
   (forall v : val, P v) ->
   (forall v : var', P v) ->
   (forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_ite t t0 t1)) ->
@@ -807,3 +805,9 @@ Section Semantics.
   where "F / c -->⋄ P" := (eventually F c P).
 
 End Semantics.
+
+(* t / s --> P => t / Kstop / s -->⋄ [P]
+   
+
+   t / k / s ----> compcert
+ *)
