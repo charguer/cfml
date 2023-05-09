@@ -33,6 +33,19 @@ Section Simulation_diagram.
       eventually step a P.
 
 
+  Lemma eventually_cut {A : Type} :
+    forall (R : A -> (A -> Prop) -> Prop) a P' P,
+      eventually R a P' ->
+      (forall a', P' a' -> eventually R a' P) ->
+      eventually R a P.
+  Proof using.
+    introv Hstep Hrest. induction Hstep.
+    - applys Hrest H.
+    - eapply eventually_step. apply H.
+      intros. now apply H1.
+  Qed.
+
+
   Implicit Type s : Cs.
   Implicit Type t : Ct.
   Implicit Type Ps : post_s.
@@ -47,7 +60,25 @@ Section Simulation_diagram.
       eventually omnismall_s s Ps ->
       R s t ->
       exists Pt, eventually omnismall_t t Pt /\ lift_R R Ps Pt.
-  Proof.
-    introv step inv.
+  Proof using diagram.
+    introv step. revert t. induction step; introv inv.
+    - exists (fun (t' : Ct) => exists s', P s' /\ R s' t'). split.
+      + apply eventually_here; eauto.
+      + unfold lift_R. tauto.
+    - set (Pt := fun t => exists Pt'', Pt'' t /\ lift_R R P Pt'').
+      exists Pt. split.
+      + destruct (@diagram a P' t H inv) as (Pt'&diag_step&diag_R).
+        apply eventually_cut with Pt'.
+        * apply diag_step.
+        * intros t' Ht'. unfold lift_R in diag_R.
+          destruct (diag_R t' Ht') as (s' & Hs' & Hs'R).
+          destruct (H1 s' Hs' t' Hs'R) as (Pt'' & HevPt'' & HRPt'').
+          unfold Pt.
+          apply eventually_cut with Pt''; auto.
+          intros. apply eventually_here; eauto.
+      + intro t'. unfold Pt. intros (Pt''&Ht'&HR).
+        destruct (HR t' Ht') as (s'&Hs'); eauto.
+  Qed.
+
 
 End Simulation_diagram.
