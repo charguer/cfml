@@ -742,7 +742,7 @@ rel_state -> fresh l g -> fresh l s
   Proof.
     introv HR Hred. unfold config in *. generalize dependent c.
     destruct c as [f G s t cs].
-    
+
 
 End Compil_correct.
 
