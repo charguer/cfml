@@ -14,34 +14,44 @@ From compcert Require Import Maps Errors SimplExpr Values Memory AST Globalenvs 
 (** * Non-CPS omnismall step for Clight *)
 Section Clight_OMNI.
 
-  Variant state : Type :=
-    State
-      (s : statement)
-      (e : env)
-      (le : temp_env)
-      (m : mem) : state.
+  Definition state : Type := statement * env * temp_env * mem.
 
   Definition pc : Type := state -> Prop.
 
   Implicit Type P : pc.
+
+
+  Inductive clight_evalctx : (statement -> statement) -> Prop :=
+  | clight_evalctx_seq : forall s',
+      clight_evalctx (fun s => Ssequence s s')
+  | clight_evalctx_loop1 : forall s',
+      clight_evalctx (fun s => Sloop s s')
+  | clight_evalctx_loop2 : clight_evalctx (fun s => Sloop Sskip s).
 
   Variable ge: genv.
 
   Variable function_entry: function -> list val -> mem -> env -> temp_env -> mem -> Prop.
 
   Inductive step : state -> pc -> Prop :=
+  | step_evalctx : forall C st e le m P' P,
+      clight_evalctx C ->
+      step (st, e, le, m) P' ->
+      (forall '(st', e', le', m'), P' (st', e', le', m') ->
+                              P ((C st'), e', le', m')) ->
+      step ((C st), e, le, m) P
+
   | step_assign: forall a1 a2 e le m loc ofs bf v2 v m' P,
       eval_lvalue ge e le m a1 loc ofs bf ->
       eval_expr ge e le m a2 v2 ->
       Cop.sem_cast v2 (typeof a2) (typeof a1) m = Some v ->
       assign_loc ge (typeof a1) m loc ofs bf v m' ->
-      P (State Sskip e le m') ->
-      step (State (Sassign a1 a2) e le m) P
+      P (Sskip, e, le, m') ->
+      step ((Sassign a1 a2), e, le, m) P
 
   | step_set:   forall id a e le m v P,
       eval_expr ge e le m a v ->
-      P (State Sskip e (PTree.set id v le) m) ->
-      step (State (Sset id a) e le m) P
+      P (Sskip, e, (PTree.set id v le), m) ->
+      step ((Sset id a), e, le, m) P
 
   | step_call_internal:   forall optid a al e le m tyargs tyres cconv vf vargs fd P
                             e' le' m1 P',
@@ -51,37 +61,51 @@ Section Clight_OMNI.
       Globalenvs.Genv.find_funct ge vf = Some (Internal fd) ->
       type_of_fundef (Internal fd) = Tfunction tyargs tyres cconv ->
       function_entry fd vargs m e' le' m1 ->
-      step (State fd.(fn_body) e' le' m1) P' ->
-      (forall st', P' st' -> step st' P) ->
-      step (State (Scall optid a al) e le m) P
+      step (fd.(fn_body), e', le', m1) P' ->
+      (forall st', P' st' -> P st') ->
+      step ((Scall optid a al), e, le, m) P
 
   | step_builtin: forall optid ef tyargs al e le m vargs t vres m' P,
       eval_exprlist ge e le m al tyargs vargs ->
       external_call ef ge vargs m t vres m' ->
-      P (State Sskip e (set_opttemp optid vres le) m') ->
-      step (State (Sbuiltin optid ef tyargs al) e le m) P.
+      P (Sskip, e, (set_opttemp optid vres le), m') ->
+      step ((Sbuiltin optid ef tyargs al), e, le, m) P
+
+  (* | step_seq: forall s1 s2 e le m P' P, *)
+  (*     step (s1, e, le, m) P' -> *)
+  (*     (forall st, P' st -> *)
+  (*            let '(s1', e', le', m') := st in *)
+  (*            P ((Ssequence s1' s2), e', le', m')) -> *)
+  (*     step ((Ssequence s1 s2), e, le, m) P *)
+
+  | step_skip_seq: forall s e le m P,
+      P (s, e, le, m) ->
+      step ((Ssequence Sskip s), e, le, m) P
+
+  | step_ifthenelse: forall a s1 s2 e le m v1 b P,
+      eval_expr ge e le m a v1 ->
+      Cop.bool_val v1 (typeof a) m = Some b ->
+      P ((if b then s1 else s2), e, le, m) ->
+      step ((Sifthenelse a s1 s2), e, le, m) P
+
+  | step_loop_break : forall s2 e le m P,
+      P (Sskip, e, le, m) ->
+      step ((Sloop Sbreak s2), e, le, m) P
+  | step_loop_skip1 : forall s2 e le m P,
+      P () ->
+      step ((Sloop Sskip s2), e, le, m) P.
+
+
+
+  (* Swhile e s := Sloop (Ssequence (Sifthenelse e Sskip Sbreak) s) Sskip.
+     -->
+     ? Sifthenelse e (Ssequence s (Swhile e s)) Sskip (le + proche de cfml)
+   *)
 
 (*
 
 
-  | step_seq:  forall f s1 s2 k e le m,
-      step (State f (Ssequence s1 s2) k e le m)
-        E0 (State f s1 (Kseq s2 k) e le m)
-  | step_skip_seq: forall f s k e le m,
-      step (State f Sskip (Kseq s k) e le m)
-        E0 (State f s k e le m)
-  | step_continue_seq: forall f s k e le m,
-      step (State f Scontinue (Kseq s k) e le m)
-        E0 (State f Scontinue k e le m)
-  | step_break_seq: forall f s k e le m,
-      step (State f Sbreak (Kseq s k) e le m)
-        E0 (State f Sbreak k e le m)
 
-  | step_ifthenelse:  forall f a s1 s2 k e le m v1 b,
-      eval_expr e le m a v1 ->
-      bool_val v1 (typeof a) m = Some b ->
-      step (State f (Sifthenelse a s1 s2) k e le m)
-        E0 (State f (if b then s1 else s2) k e le m)
 
   | step_loop: forall f s1 s2 k e le m,
       step (State f (Sloop s1 s2) k e le m)
