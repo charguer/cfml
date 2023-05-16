@@ -55,6 +55,7 @@ Section Simulation_diagram.
       omnismall_s s Ps ->
       R s t ->
       exists Pt, eventually omnismall_t t Pt /\ lift_R R Ps Pt.
+      (* eventually omnismall_t t (fun t => exists s, Ps s /\ R s t) *)
 
   Lemma stitch_source : forall s Ps t,
       eventually omnismall_s s Ps ->
@@ -93,6 +94,8 @@ Section Simulation_diagram.
         (exists s', tradsmall_s s s')
         /\ (forall s', tradsmall_s s s' -> Ps s').
 
+  (* axiomatiser : forall relation samll qui vérifie, ... *)
+
   Hypothesis os_iff_prog_and_correct_t : forall t Pt,
       (omnismall_t t Pt) <->
         (exists t', tradsmall_t t t')
@@ -111,5 +114,12 @@ Section Simulation_diagram.
     forwards * : lock_diagram s t (fun s' => tradsmall_s s s'). firstorder.
   Qed.
 
+(* tout passer en eventually
+   cf TLC/LibRelation.v
+
+omnismall_star
+onmismall_plus
+
+ *)
 
 End Simulation_diagram.

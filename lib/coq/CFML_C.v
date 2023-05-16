@@ -17,19 +17,18 @@ From TLC Require Import LibCore LibInt.
 
    (program)  p ::= list f
    (function) f ::= { name ; rettype: τ; params: list (var * τ); vars: σ; temps: σ; body: t }
-   (env_var)  σ ::=
+   (env_var)  σ ::= PTree.t (var_descr*type)
+   (var)      x ::= (string * option ident)
    (prims)    ρ ::= dealloc (e, e) | alloc (e)
    (fun)      φ ::= name f | ρ
    (terms)    t ::= | e
 
-                    | let const x = φ t* in t
-                    | let const x = e in t
-                    | let stack x = undef in t
-                    | let heap  p = var const x in t
+                    | let const x : τ = φ(t,..t) in t
+                    | let const x : τ = e in t
+                    | let stack x : τ = undef in t
+                    | let heap  p : τ = const x in t
 
-                    | let _       = t in t   *
-                    | stack x := e
-                    | heap  x := e
+                    | x := e
 
                     | let _       = t in t
                     | if e then t else t

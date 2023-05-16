@@ -88,41 +88,16 @@ Section Clight_OMNI.
       P ((if b then s1 else s2), e, le, m) ->
       step ((Sifthenelse a s1 s2), e, le, m) P
 
-  | step_loop_break : forall s2 e le m P,
-      P (Sskip, e, le, m) ->
-      step ((Sloop Sbreak s2), e, le, m) P
-  | step_loop_skip1 : forall s2 e le m P,
-      P () ->
-      step ((Sloop Sskip s2), e, le, m) P.
-
-
+  | step_loop: forall e le m a s P,
+      P ((Sifthenelse a (Ssequence s (Swhile a s)) Sskip), e, le, m) ->
+      step (Swhile a s, e, le, m) P.
 
   (* Swhile e s := Sloop (Ssequence (Sifthenelse e Sskip Sbreak) s) Sskip.
      -->
-     ? Sifthenelse e (Ssequence s (Swhile e s)) Sskip (le + proche de cfml)
+     Sifthenelse e (Ssequence s (Swhile e s)) Sskip (le + proche de cfml)
    *)
 
 (*
-
-
-
-
-  | step_loop: forall f s1 s2 k e le m,
-      step (State f (Sloop s1 s2) k e le m)
-        E0 (State f s1 (Kloop1 s1 s2 k) e le m)
-  | step_skip_or_continue_loop1:  forall f s1 s2 k e le m x,
-      x = Sskip \/ x = Scontinue ->
-      step (State f x (Kloop1 s1 s2 k) e le m)
-        E0 (State f s2 (Kloop2 s1 s2 k) e le m)
-  | step_break_loop1:  forall f s1 s2 k e le m,
-      step (State f Sbreak (Kloop1 s1 s2 k) e le m)
-        E0 (State f Sskip k e le m)
-  | step_skip_loop2: forall f s1 s2 k e le m,
-      step (State f Sskip (Kloop2 s1 s2 k) e le m)
-        E0 (State f (Sloop s1 s2) k e le m)
-  | step_break_loop2: forall f s1 s2 k e le m,
-      step (State f Sbreak (Kloop2 s1 s2 k) e le m)
-        E0 (State f Sskip k e le m)
 
   | step_return_0: forall f k e le m m',
       Mem.free_list m (blocks_of_env e) = Some m' ->
