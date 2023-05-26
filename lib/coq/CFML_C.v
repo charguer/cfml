@@ -522,13 +522,13 @@ Section Semantics.
 
   (** ** Omni-big step judgement, for pure expressions (see grammar) *)
 
-  Definition expr_pc := val -> Prop.
-  Implicit Type Q : expr_pc.
+  Definition val_pc := val -> Prop.
+  Implicit Type Q : val_pc.
 
   Reserved Notation "G '/' s '/' t '⇓' Q"
     (at level 40, t, s at level 30).
 
-  Inductive cfml_omnibig_expr (G : val_env) (s :state) : trm -> expr_pc -> Prop :=
+  Inductive cfml_omnibig_expr (G : val_env) (s :state) : trm -> val_pc -> Prop :=
   (* bind *)
   | cfml_omnibig_expr_bind : forall C t Q1 Q,
       evalctx_expr C ->
@@ -571,7 +571,7 @@ Section Semantics.
 
   (** eval a list of expressions to a list of postconditions *)
   Inductive cfml_omnibig_expr_list (G : val_env) (s : state) :
-    list trm -> list expr_pc -> Prop :=
+    list trm -> list val_pc -> Prop :=
   | cfml_omnibig_expr_list_nil :
     cfml_omnibig_expr_list G s nil nil
   | cfml_omnibig_expr_list_cons : forall e Q ts Qs,
@@ -580,7 +580,8 @@ Section Semantics.
       cfml_omnibig_expr_list G s (e :: ts) (Q :: Qs).
 
   (** [val_list_sat_pc_list [Q1..Qn] [v1..vn]] := Q1 v1 /\ .. Qn vn *)
-  Definition val_list_sat_pc_list (Qs : list expr_pc) (vs : list val) :=
+  Definition val_list_sat_pc_list (Qs : list val_pc) (vs : list val) :=
+    length Qs = length vs /\
     fold_right (fun '(Q, v) p => p /\ Q v) True (combine Qs vs).
 
   (* (** ** Eventually judgment for exprs *) *)
@@ -803,10 +804,121 @@ Section Semantics.
 
   where "F / c -->⋄ P" := (eventually F c P).
 
+
+  Definition final_config : Type :=
+    fundef * val_env * state * val * call_stack.
+
+  Definition apply_ctx_cfg (C : (trm -> trm)) : final_config -> config :=
+    fun '(f, G, s, v, k) => (f, G, s, C v, k).
+
+
+  Definition big_pc := final_config -> Prop.
+
+  Implicit Type Qb : big_pc.
+
+
+  Reserved Notation "F '/' c '==>' Q" (at level 40, c at level 30).
+
+  Inductive cfml_omnibig_stmt (F : fundef_env) :
+    config -> big_pc -> Prop :=
+  | cfml_omnibig_stmt_ctx : forall C f G s t k Qb1 Qb,
+      eval_trm_ctx C ->
+      ~ trm_is_val t ->
+      F / (f, G, s, t, k) ==> Qb1 ->
+      (forall (c1 : final_config), Qb1 c1 -> F / (apply_ctx_cfg C c1) ==> Qb) ->
+      F / (f, G, s, (C t), k) ==> Qb
+
+  (* | cfml_omnibig_let_fun_call : forall f f' xf i_f G s x ty es Qs prms t k Q1 Q, *)
+  (*     F ! i_f = Some f -> *)
+  (*     R_params f.(params) prms -> *)
+  (*     ty = f.(rettype) -> *)
+
+  (*     cfml_omnibig_expr_list G s es Qs -> *)
+
+  (*     (exists vs G', val_list_sat_pc_list Qs vs *)
+  (*                  /\ G' = fold_right (fun '(i, ty, v) G => *)
+  (*                                       PTree.set i (v, const, ty) G) *)
+  (*                           G (combine prms vs) *)
+  (*                  /\ F / (f, G', s, f.(body), Ccall f' G k) ==> Q1) -> *)
+
+  (*     (forall vs G', *)
+  (*         val_list_sat_pc_list Qs vs -> *)
+  (*         G' = fold_right (fun '(i, ty, v) G => *)
+  (*                            PTree.set i (v, const, ty) G) *)
+  (*                G (combine prms vs) -> *)
+  (*         F / (f, G', s, f.(body), Ccall f' G k) ==> Q1 -> *)
+  (*         forall v1, Q1 v1 -> *)
+  (*               F / (f', G, s, <{let (x : ty#const) = v1 in t}>, *)
+  (*                                 k) ==> Q *)
+  (*     ) -> *)
+
+  (*     F / (f', G, s, <{let (x : ty#const) = *)
+  (*                           {trm_apps (trm_var (xf, Some i_f)) es} in t}>, k) ==> Q *)
+
+  | cfml_omnibig_let_expr : forall f G s x i ty d e t k Qe Qb,
+      G / s / e ⇓ Qe ->
+      (forall v, Qe v -> F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb) ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty#d) = e in t}>, k) ==> Qb
+
+  | cfml_omnibig_is_return : forall x f G s e k Qe Qb,
+      is_expr e ->
+      G / s / e ⇓ Qe ->
+      (forall v, Qe v -> Qb (f, G, s, v, k)) ->
+      F / (f, G, s, e, k) ==> Qb
+
+
+  | cfml_omnibig_seq : forall f G v1 t2 s k Qb,
+      F / (f, G, s, t2, k) ==> Qb ->
+      F / (f, G, s, <{v1 ; t2}>, k) ==> Qb
+
+  (* prims *)
+  | cfml_omnibig_set : forall f G s l v k Qb,
+      Fmap.indom s l ->
+      Qb (f, G, (Fmap.update s l v), val_unit, k) ->
+      F / (f, G, s, <{l := v }>, k) ==> Qb
+
+  | cfml_omnibig_alloc : forall f G n sa k Qb,
+      (forall l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l ->
+                 n = nat_to_Z i ->
+                 l <> null ->
+                 Fmap.disjoint sa sb ->
+                 Qb (f, G, (sb \+ sa), (val_loc l), k)) ->
+      (exists l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l
+                 /\ n = nat_to_Z i
+                 /\ l <> null
+                 /\ Fmap.disjoint sa sb) ->
+      F / (f, G, sa, <{alloc(n)}>, k) ==> Qb
+
+  | cfml_omnibig_dealloc : forall f G (n:int) s l k Qb,
+      (forall vs sa sb, s = sb \+ sa ->
+                   sb = Fmap.conseq vs l ->
+                   n = LibList.length vs ->
+                   Fmap.disjoint sa sb ->
+                   Qb (f, G, sa, val_unit, k)) ->
+      (exists vs sa sb, s = sb \+ sa
+                   /\ sb = Fmap.conseq vs l
+                   /\ n = LibList.length vs
+                   /\ Fmap.disjoint sa sb) ->
+      F / (f, G, s, <{dealloc(n, l)}>, k) ==> Qb
+
+  | cfml_omnibig_ite : forall f G e (n : int) t1 t2 s k Qe Qb,
+      (* C-style boolean values *)
+      G / s / e ⇓ Qe ->
+      (forall n, Qe (val_int n) -> F / (f, G, s, (if (n =? 0)%Z then t2 else t1), k) ==> Qb) ->
+      F / (f, G, s, <{if e then t1 else t2}>, k) ==> Qb
+
+  | cfml_omnibig_while : forall f G e t s k Qb,
+      F / (f, G, s, <{if e then (t; while e do t done)
+                    else val_unit}>, k) ==> Qb ->
+      F / (f, G, s, <{while e do t done}>, k) ==> Qb
+
+  where "F / c ==> Q" := (cfml_omnibig_stmt F c Q).
+
+
 End Semantics.
 
 (* t / s --> P => t / Kstop / s -->⋄ [P]
-   
+
 
    t / k / s ----> compcert
  *)

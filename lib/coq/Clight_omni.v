@@ -9,7 +9,7 @@ From compcert Require Import Maps Errors SimplExpr Values Memory AST Globalenvs 
 
 (* We define an omni-small-step semantics for CLight *)
 
-(* TODO *)
+(*** WIP, unusable for now *)
 
 (** * Non-CPS omnismall step for Clight *)
 Section Clight_OMNI.

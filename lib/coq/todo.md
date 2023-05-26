@@ -26,3 +26,4 @@
   (*ie* `block -> offset -> val`)
 - [DONE] Actually refactor semantics (cf Clight.state)
 - characterise initial states in cfml
+- omnisemantics.6.2 pour big step trad en target
