@@ -414,7 +414,17 @@ Section Compil.
       end.
 
 
-  Parameter R_mem : state -> Memory.mem -> Prop.
+  Definition tr_env (G : val_env) : Clight.env * Clight.temp_env :=
+    PTree.fold (fun '(e, ge) i '(v, d, ty) =>
+                  match d with
+                  | stack | heap =>
+                              let '(Values.Vptr b ofs) := tr_val v in
+                              ((PTree.set i (b, tr_types ty) e), ge)
+                  | const => (e, PTree.set i (tr_val v) ge)
+                  end) G (PTree.empty, PTree.empty).
+
+
+  Parameter R_mem : CFML_C.state -> Memory.mem -> Prop.
 
   (** ** Compiles pure expressions  *)
 
@@ -567,8 +577,11 @@ Section Compil.
     end.
 
 
+
+
+
   Definition tr_function (f : fundef)
-    (fundecl_types : PTree.t ((list type) * type)) : res Clight.function :=
+    (fundecl_types : CFML_C.funtypes_env) : res Clight.function :=
     do env <- mfold (fun env '(x, ty) =>
                       do i <- get_ident x;
                       OK (PTree.set i (const, ty) env))
@@ -587,6 +600,23 @@ Section Compil.
               cvars
               ctemps
               sbody).
+
+
+
+
+
+
+  Definition compile_config (FT : CFML_C.funtypes_env)
+    (c : CFML_C.config) : res (Clight.env
+                               * Clight.temp_env
+                               * Memory.Mem.mem
+                               * Clight.statement) :=
+    let '(f, G, s, t, k) := c in
+    
+    Error (msg "TODO").
+
+
+
 
 
 
@@ -732,16 +762,16 @@ rel_state -> fresh l g -> fresh l s
     forall c, P c -> config_final c.
 
 
-  Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var)
-                            (F : fundef_env) (FT : PTree.t (list type * type))
-                            (ge : Clight.genv) (st : Clight.state),
-      R FT E c st ->
-      cfml_omnistep F c P ->
-      Clight_omni.eventually' ge st
-        (fun st' => exists c', P c' /\ R FT E c' st').
-  Proof.
-    introv HR Hred. unfold config in *. generalize dependent c.
-    destruct c as [f G s t cs].
+  (* Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var) *)
+  (*                           (F : fundef_env) (FT : PTree.t (list type * type)) *)
+  (*                           (ge : Clight.genv) (st : Clight.state), *)
+  (*     R FT E c st -> *)
+  (*     cfml_omnistep F c P -> *)
+  (*     Clight_omni.eventually' ge st *)
+  (*       (fun st' => exists c', P c' /\ R FT E c' st'). *)
+  (* Proof. *)
+  (*   introv HR Hred. unfold config in *. generalize dependent c. *)
+  (*   destruct c as [f G s t cs]. *)
 
 
 End Compil_correct.

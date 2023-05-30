@@ -157,6 +157,7 @@ End Clight_OMNI.
 
 Section Clight_eventually.
 
+  Import Clight.
   Definition postcond := state -> Prop.
 
   Implicit Type st : state.

@@ -618,7 +618,6 @@ Section Semantics.
   (* let const : only during reduction can t1 be anything other than a funcall *)
   | eval_trm_ctx_let_const : forall x ty t2,
       eval_trm_ctx (fun t1 => <{ let (x : ty#const) = t1 in t2 }>).
-  (* FIXME, remove, funcall is a special case *)
 
 
   (** ** Omni-small step for terms *)
@@ -653,6 +652,7 @@ Section Semantics.
   Reserved Notation "F '/' c '-->' P"
     (at level 40, c at level 30).
 
+  (* WIP, not fully correct *)
   Inductive cfml_omnistep (F : fundef_env) : config -> stmt_pc -> Prop :=
   (* (* when a subterm can only be an expression *) *)
   (* | cfml_omnistep_expr_ctx : forall F G C e s P1 P, *)
@@ -828,37 +828,28 @@ Section Semantics.
       (forall (c1 : final_config), Qb1 c1 -> F / (apply_ctx_cfg C c1) ==> Qb) ->
       F / (f, G, s, (C t), k) ==> Qb
 
-  (* | cfml_omnibig_let_fun_call : forall f f' xf i_f G s x ty es Qs prms t k Q1 Q, *)
-  (*     F ! i_f = Some f -> *)
-  (*     R_params f.(params) prms -> *)
-  (*     ty = f.(rettype) -> *)
 
-  (*     cfml_omnibig_expr_list G s es Qs -> *)
+  | cfml_omnibig_fun_app : forall f f' xf i_f G s x ty es Qs prms k Qb1 Qb,
+      F ! i_f = Some f ->
+      R_params f.(params) prms ->
+      ty = f.(rettype) ->
 
-  (*     (exists vs G', val_list_sat_pc_list Qs vs *)
-  (*                  /\ G' = fold_right (fun '(i, ty, v) G => *)
-  (*                                       PTree.set i (v, const, ty) G) *)
-  (*                           G (combine prms vs) *)
-  (*                  /\ F / (f, G', s, f.(body), Ccall f' G k) ==> Q1) -> *)
+      cfml_omnibig_expr_list G s es Qs ->
 
-  (*     (forall vs G', *)
-  (*         val_list_sat_pc_list Qs vs -> *)
-  (*         G' = fold_right (fun '(i, ty, v) G => *)
-  (*                            PTree.set i (v, const, ty) G) *)
-  (*                G (combine prms vs) -> *)
-  (*         F / (f, G', s, f.(body), Ccall f' G k) ==> Q1 -> *)
-  (*         forall v1, Q1 v1 -> *)
-  (*               F / (f', G, s, <{let (x : ty#const) = v1 in t}>, *)
-  (*                                 k) ==> Q *)
-  (*     ) -> *)
+      (forall vs G',
+         val_list_sat_pc_list Qs vs ->
+         G' = fold_right (fun '(i,ty,v) G =>
+                            PTree.set i (v, const, ty) G)
+                G (combine prms vs) ->
+         F / (f, G', s, f.(body), Ccall f' G k) ==> Qb1
+      ) ->
 
-  (*     F / (f', G, s, <{let (x : ty#const) = *)
-  (*                           {trm_apps (trm_var (xf, Some i_f)) es} in t}>, k) ==> Q *)
+      F / (f', G, s, trm_apps (trm_var (xf, Some i_f)) es, k) ==> Qb1
 
-  | cfml_omnibig_let_expr : forall f G s x i ty d e t k Qe Qb,
-      G / s / e ⇓ Qe ->
-      (forall v, Qe v -> F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb) ->
-      F / (f, G, s, <{let ({(x, Some i)} : ty#d) = e in t}>, k) ==> Qb
+
+  | cfml_omnibig_let : forall f G s x i ty d v t k Qb,
+      F / (f, PTree.set i (v, d, ty) G, s, t, k) ==> Qb ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty # d) = v in t}>, k) ==> Qb
 
   | cfml_omnibig_is_return : forall x f G s e k Qe Qb,
       is_expr e ->
