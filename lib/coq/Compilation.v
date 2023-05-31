@@ -2,10 +2,10 @@
 
 Set Implicit Arguments.
 
-From CFML Require Import Semantics LibSepFmap CFML_C Clight_omni.
+From CFML Require Import Semantics LibSepFmap CFML_C ClightInterface.
 Import LibListNotation.
 
-From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight.
+From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight ClightBigstep.
 From compcert Require Import Maps Errors SimplExpr.
 
 (* utility for var-ident translation *)
@@ -361,6 +361,7 @@ Module cc_types.
 
 End cc_types.
 
+
 Section Compil.
 
 
@@ -414,15 +415,25 @@ Section Compil.
       end.
 
 
-  Definition tr_env (G : val_env) : Clight.env * Clight.temp_env :=
-    PTree.fold (fun '(e, ge) i '(v, d, ty) =>
-                  match d with
-                  | stack | heap =>
-                              let '(Values.Vptr b ofs) := tr_val v in
-                              ((PTree.set i (b, tr_types ty) e), ge)
-                  | const => (e, PTree.set i (tr_val v) ge)
-                  end) G (PTree.empty, PTree.empty).
+  Definition tr_env (G : val_env) : res (Clight.env * Clight.temp_env) :=
+    PTree.fold (fun res i '(v, d, ty) =>
+                  match res with
+                  | OK (e, ge) =>
+                      match d with
+                      | stack
+                      | heap =>
+                          match tr_val v with
+                          | Values.Vptr b ofs =>
+                              OK ((PTree.set i (b, tr_types ty) e), ge)
+                          | _ => Error (msg "tr_env: ill defined values")
+                          end
+                      | const => OK (e, PTree.set i (tr_val v) ge)
+                      end
+                  | Error msg => Error msg
+                  end) G (OK (PTree.empty (Values.block * Ctypes.type), PTree.empty Values.val)).
 
+  Definition compile_init_mem (s : CFML_C.state) : res Memory.mem.
+    Admitted.
 
   Parameter R_mem : CFML_C.state -> Memory.mem -> Prop.
 
@@ -606,18 +617,16 @@ Section Compil.
 
 
 
-  Definition compile_config (FT : CFML_C.funtypes_env)
+  Definition compile_config (FT : CFML_C.funtypes_env) (E : env_var)
     (c : CFML_C.config) : res (Clight.env
                                * Clight.temp_env
                                * Memory.Mem.mem
                                * Clight.statement) :=
     let '(f, G, s, t, k) := c in
-    
-    Error (msg "TODO").
-
-
-
-
+    do (e, te) <- tr_env G;
+    do m <- compile_init_mem s;
+    do stmt <- tr_trm_stmt E FT t;
+    OK (e, te, m, stmt).
 
 
 
@@ -702,39 +711,39 @@ rel_state -> fresh l g -> fresh l s
   (* Proof. *)
   (* Admitted. *)
 
-  Inductive match_commands (G : env_var) (F : funtypes_env) :
-    CFML_C.trm -> CFML_C.call_stack -> Clight.statement -> Clight.cont -> Prop :=
-(* (t :CFML_C.trm) (cs : CFML_C.call_stack) *)
-(*     (s : Clight.statement) (k : Clight.cont) : Prop := *)
+(*   Inductive match_commands (G : env_var) (F : funtypes_env) : *)
+(*     CFML_C.trm -> CFML_C.call_stack -> Clight.statement -> Clight.cont -> Prop := *)
+(* (* (t :CFML_C.trm) (cs : CFML_C.call_stack) *) *)
+(* (*     (s : Clight.statement) (k : Clight.cont) : Prop := *) *)
 
-  | match_commands_top : forall t cs s,
-      cs = Ctop ->
-      tr_trm_stmt G F t = OK s ->
-      match_commands G F t cs s Clight.Kstop
+(*   | match_commands_top : forall t cs s, *)
+(*       cs = Ctop -> *)
+(*       tr_trm_stmt G F t = OK s -> *)
+(*       match_commands G F t cs s Clight.Kstop *)
 
-  | match_commands_seq : forall t s cs s' k' t1 t2,
-      t = <{t1 ; t2}> ->
-      tr_trm_stmt G F t1 = OK s ->
-      match_commands G F t2 cs s' k' ->
-      match_commands G F t cs s (Clight.Kseq s' k')
+(*   | match_commands_seq : forall t s cs s' k' t1 t2, *)
+(*       t = <{t1 ; t2}> -> *)
+(*       tr_trm_stmt G F t1 = OK s -> *)
+(*       match_commands G F t2 cs s' k' -> *)
+(*       match_commands G F t cs s (Clight.Kseq s' k') *)
 
-  | match_commands_call_assign : forall t cs s x i ty fc e te k' f E cs' t1 t2,
-      cs = Ccall f E cs' ->
-      tr_function f F = OK fc ->
-      R_env E e te ->
-      t = <{let ({(x, Some i)} : ty#const) = t1 in t2}> ->
-      tr_trm_stmt G F t1 = OK s ->
-      match_commands G F t2 cs' Clight.Sskip k' ->
-      match_commands G F t cs s (Clight.Kcall (Some i) fc e te k')
+(*   | match_commands_call_assign : forall t cs s x i ty fc e te k' f E cs' t1 t2, *)
+(*       cs = Ccall f E cs' -> *)
+(*       tr_function f F = OK fc -> *)
+(*       R_env E e te -> *)
+(*       t = <{let ({(x, Some i)} : ty#const) = t1 in t2}> -> *)
+(*       tr_trm_stmt G F t1 = OK s -> *)
+(*       match_commands G F t2 cs' Clight.Sskip k' -> *)
+(*       match_commands G F t cs s (Clight.Kcall (Some i) fc e te k') *)
 
-  | match_commands_call_anon : forall t cs s fc e te k' f E cs' t1 t2,
-      cs = Ccall f E cs' ->
-      tr_function f F = OK fc ->
-      R_env E e te ->
-      t = trm_let binding_anon t1 t2 ->
-      tr_trm_stmt G F t1 = OK s ->
-      match_commands G F t2 cs' Clight.Sskip k' ->
-      match_commands G F t cs s (Clight.Kcall None fc e te k').
+(*   | match_commands_call_anon : forall t cs s fc e te k' f E cs' t1 t2, *)
+(*       cs = Ccall f E cs' -> *)
+(*       tr_function f F = OK fc -> *)
+(*       R_env E e te -> *)
+(*       t = trm_let binding_anon t1 t2 -> *)
+(*       tr_trm_stmt G F t1 = OK s -> *)
+(*       match_commands G F t2 cs' Clight.Sskip k' -> *)
+(*       match_commands G F t cs s (Clight.Kcall None fc e te k'). *)
 
 
   Definition config_final (c : CFML_C.config) : Prop :=
@@ -744,13 +753,13 @@ rel_state -> fresh l g -> fresh l s
 
   (** [R] is the sim relation we will be using.
       [R t f G s st] *)
-  Definition R (FT : CFML_C.funtypes_env) (E : env_var) (c : CFML_C.config)
-    (st : Clight.state) : Prop :=
-    let '(f, G, s, t, k) := c in
+  Definition match_final_states (FT : CFML_C.funtypes_env) (E : env_var)
+    (c : CFML_C.final_config)
+    (st : Clight.temp_env * Memory.mem * ClightBigstep.outcome) : Prop :=
+    let '(f, G, s, v, k) := c in
     match st with
     | (Clight.State fc sc kc Ec tEc mc) =>
         tr_function f FT = OK fc
-        /\ match_commands E FT t k sc kc
         /\ R_mem s mc
         /\ R_env G Ec tEc
 
@@ -758,8 +767,8 @@ rel_state -> fresh l g -> fresh l s
     end.
 
   (** ** Correctness of statement translation *)
-  Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop :=
-    forall c, P c -> config_final c.
+  (* Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop := *)
+  (*   forall c, P c -> config_final c. *)
 
 
   (* Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var) *)

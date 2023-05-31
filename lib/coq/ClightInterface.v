@@ -2,9 +2,31 @@ Set Implicit Arguments.
 
 
 From compcert Require Coqlib Maps Integers Floats.
-From compcert Require Import Maps Errors SimplExpr Values Memory AST Globalenvs Events Ctypes Clight.
+From compcert Require Import Maps Errors SimplExpr Values Memory AST Globalenvs Events Ctypes Clight ClightBigstep.
 
 
+Section Bigstep_interface.
+
+
+  Definition config : Type :=
+    Clight.env
+    * Clight.temp_env
+    * Memory.Mem.mem
+    * Clight.statement.
+
+  Definition final_config : Type :=
+    Clight.temp_env
+    * Memory.mem
+    * ClightBigstep.outcome.
+
+  Variable ge : genv.
+
+  (* [exec_stmt] uncurrified, and with empty trace *)
+  Definition exec_stmt' : config -> final_config -> Prop :=
+    fun '(e, te, m, s) '(te', m', out) =>
+      exec_stmt ge e te m s E0 te' m' out.
+
+End Bigstep_interface.
 
 
 (* We define an omni-small-step semantics for CLight *)
