@@ -2,6 +2,7 @@
 
 Set Implicit Arguments.
 
+From CFML Require OmnibigMeta.
 From CFML Require Import Semantics LibSepFmap CFML_C ClightInterface.
 Import LibListNotation.
 
@@ -618,10 +619,7 @@ Section Compil.
 
 
   Definition compile_config (FT : CFML_C.funtypes_env) (E : env_var)
-    (c : CFML_C.config) : res (Clight.env
-                               * Clight.temp_env
-                               * Memory.Mem.mem
-                               * Clight.statement) :=
+    (c : CFML_C.config) : res ClightInterface.config :=
     let '(f, G, s, t, k) := c in
     do (e, te) <- tr_env G;
     do m <- compile_init_mem s;
@@ -751,20 +749,54 @@ rel_state -> fresh l g -> fresh l s
     k = Ctop /\ exists v, t = trm_val v.
 
 
-  (** [R] is the sim relation we will be using.
-      [R t f G s st] *)
-  Definition match_final_states (FT : CFML_C.funtypes_env) (E : env_var)
-    (c : CFML_C.final_config)
-    (st : Clight.temp_env * Memory.mem * ClightBigstep.outcome) : Prop :=
-    let '(f, G, s, v, k) := c in
-    match st with
-    | (Clight.State fc sc kc Ec tEc mc) =>
-        tr_function f FT = OK fc
-        /\ R_mem s mc
-        /\ R_env G Ec tEc
+  Definition match_values (vs : CFML_C.val) (vt : Values.val) : Prop.
+  Admitted.
 
-    | _ => False
+  Definition match_final_env (G : CFML_C.val_env) (te : Clight.temp_env) : Prop :=
+    forall (i : AST.ident), exists (vs : val) (ty : type) (vt : Values.val),
+      (G ! i = Some (vs, const, ty) <-> te ! i = Some vt)
+      /\ match_values vs vt.
+
+  Definition match_memories (s : CFML_C.state) (m : Memory.mem) : Prop.
+  Admitted.
+
+  Definition match_outs (vs : CFML_C.val) (out : ClightBigstep.outcome) : Prop :=
+    match vs with
+    | val_unit => out = ClightBigstep.Out_normal
+                 \/ out = ClightBigstep.Out_return None
+    | _ => exists vt ty, match_values vs vt
+                   /\ out = ClightBigstep.Out_return (Some (vt, ty))
     end.
+
+
+
+  Definition match_final_states (FT : CFML_C.funtypes_env) (E : env_var)
+    (vs : CFML_C.final_config)
+    (vt : ClightInterface.final_config) : Prop :=
+    let '(f, G, s, v, k) := vs in
+    let '(te, m, out) := vt in
+    match_final_env G te
+    /\ match_memories s m
+    /\ match_outs v out.
+
+
+  Import CFML_C OmnibigMeta.
+
+  Lemma forward (F : CFML_C.fundef_env) (FT : funtypes_env) (E : env_var) (ge : Clight.genv) : forall (c : CFML_C.config) (cc : ClightInterface.config) (Q : big_pc),
+      compile_config FT E c = OK cc ->
+      cfml_omnibig_stmt F c Q ->
+      ClightInterface.terminates ge cc
+      /\ (forall fc, ClightInterface.exec_stmt' ge cc fc ->
+               lift_R (match_final_states FT E) Q fc).
+  Proof.
+    introv Hcomp Hred. generalize dependent cc.
+    induction Hred; introv Hcomp.
+    - admit.                    (* MDR les contextes on verra plus tard *)
+    - admit.                    (* idem pour les apps *)
+    - destruct d; simpl in Hcomp.
+      + destruct v; cbn; auto.
+        * monadInv Hcomp. monadInv EQ0. split.
+          ** red.
 
   (** ** Correctness of statement translation *)
   (* Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop := *)

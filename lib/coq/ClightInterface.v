@@ -19,6 +19,10 @@ Section Bigstep_interface.
     * Memory.mem
     * ClightBigstep.outcome.
 
+
+  Definition terminates (c : config) : Prop :=
+    exists (fc : final_config), exec_stmt' c fc.
+
   Variable ge : genv.
 
   (* [exec_stmt] uncurrified, and with empty trace *)
