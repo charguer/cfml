@@ -19,9 +19,9 @@ Section Bigstep_interface.
     * Memory.mem
     * ClightBigstep.outcome.
 
+  Definition pc : Type := final_config -> Prop.
+  Implicit Type Q : pc.
 
-  Definition terminates (c : config) : Prop :=
-    exists (fc : final_config), exec_stmt' c fc.
 
   Variable ge : genv.
 
@@ -29,6 +29,99 @@ Section Bigstep_interface.
   Definition exec_stmt' : config -> final_config -> Prop :=
     fun '(e, te, m, s) '(te', m', out) =>
       exec_stmt ge e te m s E0 te' m' out.
+
+  Definition terminates (c : config) : Prop :=
+    exists (fc : final_config), exec_stmt' c fc.
+
+  Import Cop Coqlib.
+
+  Inductive omni_exec_stmt: config -> pc -> Prop :=
+  | omni_exec_Sskip: forall e le m Q,
+      Q (le, m, Out_normal) ->
+      omni_exec_stmt (e, le, m, Sskip) Q
+  | omni_exec_Sassign:   forall e le m a1 a2 loc ofs bf v2 v m' Q,
+      eval_lvalue ge e le m a1 loc ofs bf ->
+      eval_expr ge e le m a2 v2 ->
+      sem_cast v2 (typeof a2) (typeof a1) m = Some v ->
+      assign_loc ge (typeof a1) m loc ofs bf v m' ->
+      Q (le, m', Out_normal) ->
+      omni_exec_stmt (e, le, m, (Sassign a1 a2)) Q
+  | omni_exec_Sset:  forall e le m id a v Q,
+      eval_expr ge e le m a v ->
+      Q ((PTree.set id v le), m, Out_normal) ->
+      omni_exec_stmt (e, le, m, (Sset id a)) Q
+  (* | exec_Scall:   forall e le m optid a al tyargs tyres cconv vf vargs f t m' vres, *)
+  (*     classify_fun (typeof a) = fun_case_f tyargs tyres cconv -> *)
+  (*     eval_expr ge e le m a vf -> *)
+  (*     eval_exprlist ge e le m al tyargs vargs -> *)
+  (*     Genv.find_funct ge vf = Some f -> *)
+  (*     type_of_fundef f = Tfunction tyargs tyres cconv -> *)
+  (*     eval_funcall m f vargs t m' vres -> *)
+  (*     exec_stmt e le m (Scall optid a al) *)
+  (*               t (set_opttemp optid vres le) m' Out_normal *)
+  (* | exec_Sbuiltin:   forall e le m optid ef al tyargs vargs t m' vres, *)
+  (*     eval_exprlist ge e le m al tyargs vargs -> *)
+  (*     external_call ef ge vargs m t vres m' -> *)
+  (*     exec_stmt e le m (Sbuiltin optid ef tyargs al) *)
+  (*               t (set_opttemp optid vres le) m' Out_normal *)
+  | omni_exec_Sseq_1:   forall e le m s1 s2 Q1 Q,
+      omni_exec_stmt (e, le, m, s1) Q1 ->
+      (forall le1 m1 out, Q1 (le1, m1, out) ->
+                 omni_exec_stmt (e, le1, m1, s2) Q) ->
+      omni_exec_stmt (e, le, m, (Ssequence s1 s2)) Q
+  (* | exec_Sifthenelse: forall e le m a s1 s2 v1 b t le' m' out, *)
+  (*     eval_expr ge e le m a v1 -> *)
+  (*     bool_val v1 (typeof a) m = Some b -> *)
+  (*     exec_stmt e le m (if b then s1 else s2) t le' m' out -> *)
+  (*     exec_stmt e le m (Sifthenelse a s1 s2) *)
+  (*               t le' m' out *)
+  (* | exec_Sreturn_none:   forall e le m, *)
+  (*     exec_stmt e le m (Sreturn None) *)
+  (*              E0 le m (Out_return None) *)
+  (* | exec_Sreturn_some: forall e le m a v, *)
+  (*     eval_expr ge e le m a v -> *)
+  (*     exec_stmt e le m (Sreturn (Some a)) *)
+  (*               E0 le m (Out_return (Some (v, typeof a))) *)
+  (* | exec_Sbreak:   forall e le m, *)
+  (*     exec_stmt e le m Sbreak *)
+  (*              E0 le m Out_break *)
+  (* | exec_Sloop_stop1: forall e le m s1 s2 t le' m' out' out, *)
+  (*     exec_stmt e le m s1 t le' m' out' -> *)
+  (*     out_break_or_return out' out -> *)
+  (*     exec_stmt e le m (Sloop s1 s2) *)
+  (*               t le' m' out *)
+  (* | exec_Sloop_stop2: forall e le m s1 s2 t1 le1 m1 out1 t2 le2 m2 out2 out, *)
+  (*     exec_stmt e le m s1 t1 le1 m1 out1 -> *)
+  (*     out_normal_or_continue out1 -> *)
+  (*     exec_stmt e le1 m1 s2 t2 le2 m2 out2 -> *)
+  (*     out_break_or_return out2 out -> *)
+  (*     exec_stmt e le m (Sloop s1 s2) *)
+  (*               (t1**t2) le2 m2 out *)
+  (* | exec_Sloop_loop: forall e le m s1 s2 t1 le1 m1 out1 t2 le2 m2 t3 le3 m3 out, *)
+  (*     exec_stmt e le m s1 t1 le1 m1 out1 -> *)
+  (*     out_normal_or_continue out1 -> *)
+  (*     exec_stmt e le1 m1 s2 t2 le2 m2 Out_normal -> *)
+  (*     exec_stmt e le2 m2 (Sloop s1 s2) t3 le3 m3 out -> *)
+  (*     exec_stmt e le m (Sloop s1 s2) *)
+  (*               (t1**t2**t3) le3 m3 out *)
+
+(** [eval_funcall m1 fd args t m2 res] describes the invocation of
+  function [fd] with arguments [args].  [res] is the value returned
+  by the call.  *)
+
+with eval_funcall: mem -> fundef -> list val -> mem -> val -> Prop :=
+  | eval_funcall_internal: forall m f vargs e m1 m2 vres m4 Q,
+      alloc_variables ge empty_env m (f.(fn_params) ++ f.(fn_vars)) e m1 ->
+      list_norepet (var_names f.(fn_params) ++ var_names f.(fn_vars)) ->
+      bind_parameters ge e m1 f.(fn_params) vargs m2 ->
+      omni_exec_stmt (e, (create_undef_temps f.(fn_temps)), m2, f.(fn_body)) Q ->
+        (forall le m3 out, Q (le, m3, out) ->
+      outcome_result_value out f.(fn_return) vres m3 ->
+      Mem.free_list m3 (blocks_of_env ge e) = Some m4) ->
+      eval_funcall m (Internal f) vargs m4 vres
+  | eval_funcall_external: forall m ef targs tres cconv vargs t vres m',
+      external_call ef ge vargs m t vres m' ->
+      eval_funcall m (External ef targs tres cconv) vargs m' vres.
 
 End Bigstep_interface.
 

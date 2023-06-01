@@ -463,7 +463,7 @@ Section Compil.
     let aux := tr_trm_expr E in
     match t with
     (* longs *)
-    | trm_val v => OK (Clight.Econst tr_val v) (* (val_int n) => OK (Clight.Econst_long n cc_types.long) *)
+    | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
     (* get *)
     | trm_apps val_get [trm_var x] =>
         do i <- get_ident x;
@@ -776,8 +776,28 @@ rel_state -> fresh l g -> fresh l s
       (G ! i = Some (vs, const, ty) <-> te ! i = Some vt)
       /\ match_values vs vt.
 
-  Definition match_memories (s : CFML_C.state) (m : Memory.mem) : Prop.
-  Admitted.
+  Coercion Integers.Ptrofs.intval : Integers.Ptrofs.int >-> Z.
+
+  Variant match_memories (s : CFML_C.state) (m : Memory.mem) : Prop :=
+    | match_memories_intro : forall (ll : list (list loc)) (lb : list (Values.block * list Integers.Ptrofs.int))
+                               (f : list loc -> Values.block),
+        List.map f ll = List.map (fun '(b, l) => b) lb ->
+        (forall (b : Values.block) (l l' : list loc)
+           (lfst llst : loc)
+           (li li' : list Integers.Ptrofs.int)
+           (ifst ilst : Integers.Ptrofs.int),
+            List.In l ll ->
+            List.In (b, li) lb ->
+            f l = b ->
+            l = lfst :: (l' ++ [llst]) ->
+            li = ifst :: (li' ++ [ilst]) ->
+            length l = length li /\
+              (llst : nat) - (lfst : nat) = ilst - ifst :> int
+        ) ->
+        (* (forall b ofs loc : *)
+
+        (*     get loc s = get (b, ofs) m *)
+        match_memories s m.
 
   Definition match_outs (vs : CFML_C.val) (out : ClightBigstep.outcome) : Prop :=
     match vs with

@@ -36,10 +36,12 @@ Section Omni_and_big_correction.
   Definition lift_R (R : sVal -> tVal -> Prop) : ((sVal -> Prop) -> tVal -> Prop) :=
     fun P vt => exists vs, P vs /\ R vs vt.
 
-  Hypothesis forward : forall (t : sTrm) (P : pc),
-      sOmniBig t P ->
-      @terminates _ _ tBig (compile t) /\
-        (forall v, tBig (compile t) v -> lift_R Rval P v).
+
+  Hypothesis forward : forall (src_t : sTrm) (tgt_t : tTrm) (P : pc),
+      R src_t tgt_t ->
+      sOmniBig src_t P ->
+      @terminates _ _ tBig tgt_t /\
+        (forall v, tBig tgt_t v -> lift_R Rval P v).
 
 
   Hypothesis omnibig_iff_terminates_and_correct : forall t P,
@@ -47,6 +49,7 @@ Section Omni_and_big_correction.
 
   (* Hypothesis tBig_deter : forall t v v', *)
   (*     tBig t v -> tBig t v' -> v = v'. *)
+
 
   Lemma correction : forall (t : sTrm),
       @terminates _ _ sBig t ->
