@@ -391,6 +391,7 @@ Section Compil.
 
   Local Open Scope error_monad_scope.
 
+  (* FIXME: not as easy to relate CFML locations and CompCert blocks *)
   (** translate values (mostly for temporary environments) *)
   Definition tr_val (v : val) : Values.val :=
     match v with
@@ -433,6 +434,24 @@ Section Compil.
                   | Error msg => Error msg
                   end) G (OK (PTree.empty (Values.block * Ctypes.type), PTree.empty Values.val)).
 
+
+  (* FIXME *)
+  Lemma tr_env_set_stack_or_heap :
+    forall (G : val_env) (i : AST.ident) (v : val) (ty : type) (d : var_descr)
+      (e : Clight.env) (te : Clight.temp_env) (b : Values.block) ofs,
+      (d = stack \/ d = heap) ->
+      tr_env G = OK (e, te) ->
+      tr_val v = Values.Vptr b ofs ->
+      tr_env (PTree.set i (v, d, ty) G) = OK (PTree.set i (b, tr_types ty) e, te).
+  Admitted.
+
+  Lemma tr_env_set_const :
+    forall (G : val_env) (i : AST.ident) (v : val) (ty : type)
+      (e : Clight.env) (te : Clight.temp_env),
+      tr_env G = OK (e, te) ->
+      tr_env (PTree.set i (v, const, ty) G) = OK (e, PTree.set i (tr_val v) te).
+  Admitted.
+
   Definition compile_init_mem (s : CFML_C.state) : res Memory.mem.
     Admitted.
 
@@ -444,7 +463,7 @@ Section Compil.
     let aux := tr_trm_expr E in
     match t with
     (* longs *)
-    | trm_val (val_int n) => OK (Clight.Econst_long n cc_types.long)
+    | trm_val v => OK (Clight.Econst tr_val v) (* (val_int n) => OK (Clight.Econst_long n cc_types.long) *)
     (* get *)
     | trm_apps val_get [trm_var x] =>
         do i <- get_ident x;
@@ -793,10 +812,21 @@ rel_state -> fresh l g -> fresh l s
     induction Hred; introv Hcomp.
     - admit.                    (* MDR les contextes on verra plus tard *)
     - admit.                    (* idem pour les apps *)
+    - forwards*: IHHred. simpl in Hcomp. simpl.
+      monadInv Hcomp. monadInv EQ0. rewrite EQ, EQ1, EQ2. auto.
     - destruct d; simpl in Hcomp.
-      + destruct v; cbn; auto.
-        * monadInv Hcomp. monadInv EQ0. split.
-          ** red.
+      + destruct v; try contradiction; cbn in *; monadInv Hcomp.
+        monadInv EQ0.
+        rewrites * (>> tr_env_set_stack_or_heap x0 x1) in IHHred.
+
+
+
+
+        set (cc' := (do (e, te) <- tr_env (PTree.set i (val_int z, stack, ty) G);
+                     do m <- compile_init_mem s; do stmt <- tr_trm_stmt E FT t; OK (e, te, m, stmt))%error_scope).
+        rewrite (tr_env_set_stack_or_heap G i) in cc'.
+        rewrite EQ1 in cc'. EQ2 in cc'.
+        forwards*: IHHred cc'. 
 
   (** ** Correctness of statement translation *)
   (* Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop := *)
