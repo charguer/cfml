@@ -15,6 +15,8 @@ Section Omni_and_big_correction.
 
   Variable compile : sTrm -> tTrm.
 
+  Variable R : sTrm -> tTrm -> Prop.
+
   Variable Rval : sVal -> tVal -> Prop.
 
   (* Variable comp_values : sVal -> tVal. *)
@@ -51,28 +53,28 @@ Section Omni_and_big_correction.
   (*     tBig t v -> tBig t v' -> v = v'. *)
 
 
-  Lemma correction : forall (t : sTrm),
-      @terminates _ _ sBig t ->
-      @terminates _ _ tBig (compile t)
-      /\ forall vt, tBig (compile t) vt ->
-              exists vs, Rval vs vt /\ sBig t vs.
-      (* /\ forall v, tBig (compile t) v -> *)
-      (*        exists P, sOmniBig t P /\ P (comp_values_inv v). *)
-  Proof using forward omnibig_iff_terminates_and_correct.
-    introv Hterm.
-    specialize (@omnibig_iff_terminates_and_correct t (sp t)).
-    (* simpl in omnibig_iff_terminates_and_correct. *)
-    assert (sOmniBig t (sp t)). now apply omnibig_iff_terminates_and_correct.
-    specialize (@forward t (sp t) H).
-    destruct forward as (Htermcomp&Hcomps).
-    unfold terminates in Htermcomp. destruct Htermcomp as (vt & Hvt).
-    split. unfold terminates. exists vt. apply Hvt.
-    intros. forwards * : Hcomps vt0 H0.
-    unfold lift_R in H1.
-    destruct H1 as (vs & Hvsinsp & HRv').
-    exists vs. split. auto.
-    apply Hvsinsp.
-  Qed.
+  (* Lemma correction : forall (t : sTrm), *)
+  (*     @terminates _ _ sBig t -> *)
+  (*     @terminates _ _ tBig (compile t) *)
+  (*     /\ forall vt, tBig (compile t) vt -> *)
+  (*             exists vs, Rval vs vt /\ sBig t vs. *)
+  (*     (* /\ forall v, tBig (compile t) v -> *) *)
+  (*     (*        exists P, sOmniBig t P /\ P (comp_values_inv v). *) *)
+  (* Proof using forward omnibig_iff_terminates_and_correct. *)
+  (*   introv Hterm. *)
+  (*   specialize (@omnibig_iff_terminates_and_correct t (sp t)). *)
+  (*   (* simpl in omnibig_iff_terminates_and_correct. *) *)
+  (*   assert (sOmniBig t (sp t)). now apply omnibig_iff_terminates_and_correct. *)
+  (*   specialize (@forward t (sp t) H). *)
+  (*   destruct forward as (Htermcomp&Hcomps). *)
+  (*   unfold terminates in Htermcomp. destruct Htermcomp as (vt & Hvt). *)
+  (*   split. unfold terminates. exists vt. apply Hvt. *)
+  (*   intros. forwards * : Hcomps vt0 H0. *)
+  (*   unfold lift_R in H1. *)
+  (*   destruct H1 as (vs & Hvsinsp & HRv'). *)
+  (*   exists vs. split. auto. *)
+  (*   apply Hvsinsp. *)
+  (* Qed.*)
 
 
 

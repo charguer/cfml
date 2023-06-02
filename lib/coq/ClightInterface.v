@@ -135,9 +135,9 @@ Section Clight_OMNI.
 
   Definition state : Type := statement * env * temp_env * mem.
 
-  Definition pc : Type := state -> Prop.
+  Definition small_pc : Type := state -> Prop.
 
-  Implicit Type P : pc.
+  Implicit Type P : small_pc.
 
 
   Inductive clight_evalctx : (statement -> statement) -> Prop :=
@@ -151,7 +151,7 @@ Section Clight_OMNI.
 
   Variable function_entry: function -> list val -> mem -> env -> temp_env -> mem -> Prop.
 
-  Inductive step : state -> pc -> Prop :=
+  Inductive step : state -> small_pc -> Prop :=
   | step_evalctx : forall C st e le m P' P,
       clight_evalctx C ->
       step (st, e, le, m) P' ->
