@@ -285,11 +285,16 @@ innertopmargin=10pt, ntheorem]{question}{\textit{Q}\!\!\!\!\!}
 Etempvar tmp (void *\)
 Evar p (int *\)
 *)
-Sseq (Sbuiltin (Some p) malloc [1])
+Sseq (Sbuiltin (Some tmp) malloc [1])
      (Sassign (Evar p) (Etempvar tmp))
 \end{lstlisting} &
 \begin{lstlisting}
+(* before pre-proc *)
 trm_let p heap (val_alloc 1)
+
+(* after pre-proc *)
+trm_let tmp const (val_alloc 1)
+  (trm_let p heap tmp <cont>)
 \end{lstlisting} \\
   \clst{*p = v;}  &
 \begin{lstlisting}

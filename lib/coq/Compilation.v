@@ -854,16 +854,11 @@ rel_state -> fresh l g -> fresh l s
       cfml_omnibig_stmt F c Q ->
       omni_exec_stmt ge cc (fun ft => exists fs, Q fs /\ match_final_states FT E fs ft).
   Proof.
-    introv H Hred. generalize dependent cc. induction Hred; introv HR;
-      destruct HR.
+    introv H Hred. generalize dependent cc. induction Hred; introv HR; inversion HR; subst.
     - admit.
     - admit.
-    - forwards*: IHHred. cbn in H |- *. monadInv Hcomp. monadInv EQ0.
-      rewrite EQ, EQ1, EQ2. auto.
-    - destruct d; cbn in Hcomp |- *; monadInv Hcomp.
-      destruct v; try monadInv EQ0; try solve [contradiction];
-        try solve [discriminate].
-      forwards * : IHHred.
+    - cbn in H5. monadInv H5. forwards*: IHHred. constructor; auto.
+    - cbn in H10.
 
   (* Lemma forward (F : CFML_C.fundef_env) (FT : funtypes_env) (E : env_var) (ge : Clight.genv) : forall (c : CFML_C.config) (cc : ClightInterface.config) (Q : big_pc), *)
   (*     compile_config FT E c = OK cc -> *)

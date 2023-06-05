@@ -846,15 +846,27 @@ Section Semantics.
 
       F / (f', G, s, trm_apps (trm_var (xf, Some i_f)) es, k) ==> Qb1
 
-  | cfml_omnibig_let_val_uninit : forall f G s x ty t k Qb,
+  | cfml_omnibig_let_stack : forall f G s x ty t k Qb,
       F / (f, G, s, t, k) ==> Qb ->
       F / (f, G, s, trm_let (binding_var x ty stack)
                       val_uninitialized t, k) ==> Qb
 
-  | cfml_omnibig_let : forall f G s x i ty d v t k Qb,
+  (* a [let heap] results from storing the result of a malloc to a fresh variable *)
+  | cfml_omnibig_let_heap : forall f G s x i ty l e t k Qe Qb,
+      G ! i = Some (val_loc l, heap, ty) ->
+      Fmap.indom s l ->
+      l <> null ->
+      G / s / e ⇓ Qe ->
+      (forall v, Qe v ->
+            exists l', v = val_loc l' /\
+                    F / (f, G, Fmap.update s l (val_loc l'), t, k) ==> Qb) ->
+      F / (f, G, s, trm_let (binding_var (x, Some i) ty heap) e t, k) ==> Qb
+
+  | cfml_omnibig_let_const : forall f G s x i ty v t k Qb,
       v <> val_uninitialized ->
-      F / (f, PTree.set i (v, d, ty) G, s, t, k) ==> Qb ->
-      F / (f, G, s, <{let ({(x, Some i)} : ty # d) = v in t}>, k) ==> Qb
+      (forall l, v <> val_loc l) ->
+      F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty # const) = v in t}>, k) ==> Qb
 
   | cfml_omnibig_is_return : forall x f G s e k Qe Qb,
       is_expr e ->
