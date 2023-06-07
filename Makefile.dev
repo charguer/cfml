@@ -1,3 +1,7 @@
+
+VERBOSE:=1
+
+
 # This Makefile is intented for developer use. 
 # It allows compiling CFML development with fine-grained dependenciez
 # on the CF generator, and on the Coq library files, and CFML stdlib.
@@ -133,12 +137,13 @@ ifdef ARG_EXAMPLEINCLUDE
 	EXAMPLEINCLUDE := $(ARG_EXAMPLEINCLUDE)
 endif
 ifndef EXAMPLEINCLUDE
-	ifneq ($(filter $(abspath $(CFML))/examples/%,$(PWD)),)
-		EXAMPLEINCLUDE := -R .. EXAMPLES
-		COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
-	else
-		EXAMPLEINCLUDE  := -R . $(FOLDER)
-	endif
+	# DEPRECATED
+	# ifneq ($(filter $(abspath $(CFML))/examples/%,$(FOLDER)),)
+	#	EXAMPLEINCLUDE := -R .. EXAMPLES
+	#	COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
+	#else
+		EXAMPLEINCLUDE  := -R $(FOLDER) EXAMPLES
+	#endif
 else
 	ARG_EXAMPLEINCLUDE := $(EXAMPLEINCLUDE)
 	ifeq ($(EXAMPLEINCLUDE),EMPTY)
@@ -151,7 +156,7 @@ endif
 # OCAMLINCLUDE gives the ocamldep include folder.
 
 ifndef OCAMLINCLUDE
-	OCAMLINCLUDE := -I .
+	OCAMLINCLUDE := -I $(FOLDER)
 endif
 
 ############################
@@ -166,7 +171,7 @@ ifndef ML
 	ifeq ($(DONT_INCLUDE_ALL_STDLIB_V),true)
 		ML := 
 	else
-		ML := $(wildcard *.ml)
+		ML := $(wildcard $(FOLDER)/*.ml)
 	endif
 else
 	ARG_ML := $(ML)
@@ -174,6 +179,8 @@ else
 		ML :=
 	endif
 endif
+$(info ARG_ML=$(ARG_ML))
+$(info ML=$(ML))
 
 ############################
 # Ocamlbuild options
@@ -355,7 +362,7 @@ THISMAKEFILE := $(CFML)/lib/make/Makefile.dev
 
 .PHONY: all
 
-all: ocaml vo
+all: vo
 
 vd: $(VD)
 vo: $(VO)
@@ -468,6 +475,10 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 	  | grep cmx \
 	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
 	  > $@
+
+# TEMPORARY WORKAROUND HACK 
+#$(CFML)/examples/PairingHeap/PairingHeap.cmj : 
+#    MList.cmo
 
 
 ############################################################################
@@ -627,11 +638,14 @@ cleancoq:
 	rm -rf $(DEPEND)
 	cd $(LIBCOQ); $(COQCLEAN)
 	cd $(STDLIB); $(COQCLEAN)
-	cd $(FOLDER); $(COQCLEAN)
 	@echo "Clean up compiled scripts"
 
 cleangen:
 	make -C $(GENERATOR) clean
 	@echo "Clean up generator"
 
-clean: cleangen cleancoq
+cleandev:
+	rm -rf $(DEPEND)
+	cd $(FOLDER); $(COQCLEAN)
+
+clean: cleangen cleancoq cleandev
