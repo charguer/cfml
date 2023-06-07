@@ -11,6 +11,10 @@ consists of several parts:
   generator, and a suite of tactics, which make it possible to reason in Coq
   about an OCaml program.
 
+CFML may either be installed as an opam package, or, for developer use,
+one can compile files using `Makefile.dev`, which can be invoked with
+the help of `makedev.sh`.
+
 # Installation
 
 The standard installation procedure requires `opam`, the OCaml package
@@ -86,7 +90,7 @@ The directory `examples` contains a number of examples of use of CFML.
 Provided the above packages have been installed, these examples can be
 compiled by typing `make -C examples` in the root directory of the repository.
 
-# Developer Workflow
+# CFML Opam Package Developer Workflow
 
 The root `Makefile` defines a number of commands that are useful while working
 on CFML.
@@ -109,7 +113,29 @@ on CFML.
   the packages altogether or reinstall the last publicly released versions of
   the packages.
 
+# CFML Direct Developer Workflow
+
+Using `./makedev.sh`, an alias for `make -f Makefile.dev`, enables
+compiling the libraries and example folders with fine-grained dependencies.
+Example targets include: `
+
+* `./makedev.sh gen` for building the characteristic formula generator
+
+* `./makedev.sh mlv` for building `*._mlv` characteristic formulae files
+
+* `./makedev.sh -j4 vos` for compiling files with all proofs admitted
+
+* `./makedev.sh -j4 vok` for fast parallel compilation of all files
+
+* `./makedev.sh -j4 target_file` for a specific target, e.g.
+  `./makedev.sh -j4 examples/PairingHeap/PairingHeap_ml.vos`
+
+
 # References
 
-The implementation of CFML 2.0 is described in the course
+The working of CFML 2.0 is described in the manuscript:
+https://www.chargueraud.org/research/2023/hdr/chargueraud-hdr.pdf
+
+Besides, the core of CFML 2.0 is described in the all-in-Coq course:
 [Foundations of Separation Logic](http://www.chargueraud.org/teach/verif/).
+

@@ -401,6 +401,51 @@ Tactic Notation "rew_enc" "in" hyp(H) :=
 Tactic Notation "rew_enc" "in" "*" :=
   autorewrite with rew_enc in *.
 
+
+(* TODO: generalize *)
+
+Section EncTuple3.
+Context A1 `{EA1:Enc A1} A2 `{EA2:Enc A2} A3 `{EA3:Enc A3}.
+
+Definition enc_tuple3_impl := (fun p : A1*A2*A3 =>
+  let '(x1,x2,x3) := p in val_constr "tuple" (``x1 :: ``x2 :: ``x3 :: nil)).
+
+Lemma injective_enc_tuple3_impl : injective enc_tuple3_impl.
+Proof using. intros [[x1 x2] x3] [[y1 y2] y3] E. inverts E. fequals; applys* Enc_eq_inv. Qed.
+
+Global Instance Enc_tuple3 : Enc (A1*A2*A3)%type := make_Enc injective_enc_tuple3_impl.
+
+Lemma enc_tuple3 : forall (x1:A1) (x2:A2) (x3:A3),
+  enc (x1,x2,x3) = val_constr "tuple" (``x1 :: ``x2 :: ``x3 :: nil).
+Proof using. auto. Qed.
+
+End EncTuple3.
+
+Global Opaque Enc_tuple3.
+Hint Rewrite enc_tuple3 : rew_enc.
+
+
+Section EncTuple4.
+Context A1 `{EA1:Enc A1} A2 `{EA2:Enc A2} A3 `{EA3:Enc A3} A4 `{EA4:Enc A4}.
+
+Definition enc_tuple4_impl := (fun p : A1*A2*A3*A4 =>
+  let '(x1,x2,x3,x4) := p in val_constr "tuple" (``x1 :: ``x2 :: ``x3 :: ``x4 :: nil)).
+
+Lemma injective_enc_tuple4_impl : injective enc_tuple4_impl.
+Proof using. intros [[[x1 x2] x3] x4] [[[y1 y2] y3] y4] E. inverts E. fequals; applys* Enc_eq_inv. Qed.
+
+Global Instance Enc_tuple4 : Enc (A1*A2*A3*A4)%type := make_Enc injective_enc_tuple4_impl.
+
+Lemma enc_tuple4 : forall (x1:A1) (x2:A2) (x3:A3) (x4:A4),
+  enc (x1,x2,x3,x4) = val_constr "tuple" (``x1 :: ``x2 :: ``x3 :: ``x4 :: nil).
+Proof using. auto. Qed.
+
+End EncTuple4.
+
+Global Opaque Enc_tuple4.
+Hint Rewrite enc_tuple4 : rew_enc.
+
+
 (* Demo: dealing with type aliases
 
 Definition t := list int.

@@ -19,9 +19,42 @@ Notation "'LetX' x ':=' F1 'in' F2" :=
 Notation "'int'" := (Z%type).
 
 
+
+
+
+
+
+
+(********************************************************************)
+(** ** RB Tree *)
+
+(**)
+
+Lemma balance_cf_def : balance_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { unfold Wpgen_negpat. intros. lets R : (@Enc_neq_inv _ (@Enc_tuple4 color_ _ rbtree_  _ int _ rbtree_  _)).
+ eapply R. rew_enc. simpl.
+
+    eapply __MatchHyp. }
+  {  }
+  { cf_val. }
+  { cf_case.
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
+
+
+  
+
+
 (********************************************************************)
 (** ** CF proof for size and lookup *)
 
+(*
 (*
 
 let size = function
@@ -90,6 +123,7 @@ Proof using.
             { intros y. cf_app. } } } }
      { cf_match_fail. destruct d; tryfalse. } } }
 Qed.
+*)
 
 
 (********************************************************************)
