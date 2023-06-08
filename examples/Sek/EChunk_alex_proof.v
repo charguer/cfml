@@ -7,7 +7,7 @@ Import IndexHints.
 
 Require Import ListMisc.
 
-Require Import EChunk_ml.
+Require Import EChunk_alex_ml.
 
 (*************************************************)
 (** EChunks *)

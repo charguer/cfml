@@ -17,8 +17,8 @@ Ltac typeclass_only_if_class tt :=
 Hint Resolve Inhab_unit Inhab_list : haffine.
 
 Ltac auto_star ::=
-  autounfold in *;
-  try solve [subst; rew_list; rew_int;
+  try solve [
+		autounfold in *; subst; rew_list; rew_int;
              try math_only_if_arith;
              try typeclass_only_if_class tt; jauto].
 

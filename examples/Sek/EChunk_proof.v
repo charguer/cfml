@@ -149,57 +149,51 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 
 Notation "'K'" := capacity.
 
-(* Record EChunk_inv A {IA:Inhab A} (L:list A) (D:list A) (top:int) (default:A) : Prop :=
-  mkEChunk_inv
-    { echunk_front : forall (i:int), 0 <= i < top -> D[i] = L[top - 1 - i];
-      echunk_tail : forall (i:int), top <= i < K -> D[i] = default;
-      echunk_length : length L = top;
-      echunk_capa : length D = K;
-      echunk_to`p : 0 <= top <= K }. *)
+Definition Wrap_up i := If i >= K then i - K else i.
+Definition Wrap_down i := If i < 0 then i + K else i.
 
 Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (front: int) (size: int) (default: A) : Prop :=
 	mkEChunk_inv {
-		echunk_front : forall (i:int), 0 <= i < top -> D[i] = L[top - 1 - i];
-		echunk_tail : forall (i:int), top <= i < K -> D[i] = default;
+		echunk_in : forall (i: int), 0 <= i < size -> D[Wrap_up (front + i)] = L[i];
+		echunk_out : forall (i: int), size <= i < K -> D[Wrap_up (front + i)] = default;
 		echunk_length : length L = size;
 		echunk_capa : length D = K;
 		echunk_front : 0 <= front < K;
 		echunk_size : 0 <= size <= K
-	}
-.
+	}.
 
-Definition EChunk A {IA:Inhab A} {EA:Enc A} (L:list A) (c:echunk_ A) : hprop :=
-  \exists (data:loc) (D:list A) (top:int) (default:A),
-      c ~~~> `{ data' := data; top' := top; default' := default }
-   \* data ~> Array D
-   \* \[EChunk_inv L D top default].
+Definition EChunk A {IA: Inhab A} {EA: Enc A} (L: list A) (c: echunk_ A) : hprop :=
+  \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
+  	c ~~~> `{ data' := data; front' := front; size' := size; default' := default }
+ 		\* data ~> Array D
+  	\* \[EChunk_inv L D front size default].
 
-Lemma haffine_Echunk : forall A (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
+Lemma haffine_Echunk : forall A (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
     haffine (c ~> EChunk L).
 Proof.
   intros.
-  xunfold EChunk.
+  xunfold EChunk. (* Later : géré par xaffine *)
   xaffine.
 Qed.
 
-Lemma haffine_repr_Echunk : forall A (IA:Inhab A) (EA:Enc A),
+Lemma haffine_repr_Echunk : forall A (IA: Inhab A) (EA: Enc A),
     haffine_repr (@EChunk A IA EA).
 Proof. intros. intros ? ?. apply haffine_Echunk. Qed.
 
 Hint Resolve haffine_Echunk haffine_repr_Echunk : haffine.
 
-Lemma EChunk_eq : forall c A {IA:Inhab A} {EA:Enc A} (L:list A),
+Lemma EChunk_eq : forall c A {IA: Inhab A} {EA: Enc A} (L: list A),
   c ~> EChunk L =
-  \exists (data:loc) (D:list A) (top:int) (default:A),
-      c ~~~> `{ data' := data; top' := top; default' := default }
-   \* data ~> Array D
-   \* \[EChunk_inv L D top default].
+  \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
+    c ~~~> `{ data' := data; front' := front; size' := size; default' := default }
+  	\* data ~> Array D
+  	\* \[EChunk_inv L D front size default].
 Proof. auto. Qed.
 
 Hint Extern 1 (RegisterOpen EChunk) => Provide EChunk_eq.
 
-Lemma echunk_inv_length : forall A (IA:Inhab A) (EA:Enc A) (c:echunk_ A) (L:list A),
-    c ~> EChunk L ==+> \[0 <= length L <= K].
+Lemma echunk_inv_length : forall A (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (L: list A),
+  c ~> EChunk L ==+> \[0 <= length L <= K].
 Proof.
   intros.
   xopen c. introv Hc. lets []: Hc.
@@ -221,26 +215,55 @@ Proof.
 Qed.
 
 Hint Extern 1 (@le _ _ _ capacity) => hint capacity_spec; math.
+Hint Extern 1 (@lt _ _ _ capacity) => hint capacity_spec; math.
 Hint Extern 1 (@ge _ _ capacity _) => hint capacity_spec; math.
+Hint Extern 1 (@gt _ _ capacity _) => hint capacity_spec; math.
 
 (*************************************************)
 (** Specifications *)
 
-Lemma echunk_is_full_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
-  SPEC (echunk_is_full c)
-    PRE (\$1 \* c ~> EChunk L)
-    POST (fun b => c ~> EChunk L \* \[b = isTrue (IsFull L)]).
+Lemma wrap_up_spec : forall (n: int),
+	SPEC (wrap_up n)
+		PRE (\$1)
+		POST (fun n' => \[n' = Wrap_up n]).
 Proof.
-  xcf*. xopen c.  (* xopen_repr EChunk_eq c. *) (* xopen_echunk c. *)
-  intros a s d T Inv. lets []: Inv.
-  xpay. xapp.
-  xclose* c. (* xclose_repr* EChunk_eq c L. *) (* xclose_echunk* c L.*)
-  xvals*.
+	xcf. unfold Wrap_up.
+	xpay.
+	xif; intros C; case_if; xval*; xsimpl*.
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
+Hint Extern 1 (RegisterSpec wrap_up) => Provide wrap_up_spec.
 
-Lemma echunk_is_empty_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
+Lemma wrap_down_spec : forall (n: int),
+	SPEC (wrap_down n)
+		PRE (\$1)
+		POST (fun n' => \[n' = Wrap_down n]).
+Proof.
+	xcf. unfold Wrap_down.
+	xpay.
+	xif; intros C; case_if; xval*; xsimpl*.
+Qed.
+
+Hint Extern 1 (RegisterSpec wrap_down) => Provide wrap_down_spec.
+
+Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (a: A),
+  SPEC (echunk_create a)
+    PRE (\$(K + 1))
+    POST (fun c => c ~> EChunk (@nil A)).
+Proof.
+  xcf. xpay. xapp*. intros d L Hd.
+  xapp*. intros r.
+  xunfolds* EChunk.
+  { constructors*; subst*; intros.
+    { false. math. }
+    { rew_listp*. unfolds Wrap_up. case_if*. }
+    { rew_listp*. }
+	}
+Qed.
+
+Hint Extern 1 (RegisterSpec echunk_create) => Provide echunk_create_spec.
+
+Lemma echunk_is_empty_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   SPEC (echunk_is_empty c)
     PRE (\$1 \* c ~> EChunk L)
     POST (fun b => c ~> EChunk L \* \[ b = isTrue (L = nil)]).
@@ -249,45 +272,48 @@ Proof.
   xopen c; introv Inv. lets []: Inv.
   xpay. xapp.
   xclose* c. xvals*. subst*.
-  now rewrite* length_zero_eq_eq_nil.
-Qed.
-
-Hint Extern 1 (RegisterSpec echunk_is_empty) => Provide echunk_is_empty_spec.
-
-Lemma echunk_create_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (a:A),
-  SPEC (echunk_create a)
-    PRE (\$(K+1))
-    POST (fun c => c ~> EChunk (@nil A)).
-Proof.
-  xcf. xpay. xapp*. intros t L Hl.
-  xapp. intros r.
-  xunfolds EChunk.
-  { constructors*; subst*; intros.
-    { false. math. }
-    { rew_listp*. }
-    { rew_listp*. } }
-  hint capacity_spec. (* TODO: not needed *)
-  math.
+  now rewrite* length_zero_eq_eq_nil. (* now? *)
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_create) => Provide echunk_create_spec.
 
-Lemma echunk_peek_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
+Lemma echunk_is_full_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+  SPEC (echunk_is_full c)
+    PRE (\$1 \* c ~> EChunk L)
+    POST (fun b => c ~> EChunk L \* \[b = isTrue (IsFull L)]).
+Proof.
+  xcf*.
+	xopen c; introv Inv. lets []: Inv.
+  xpay. xapp.
+  xclose* c. xvals*.
+Qed.
+
+Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
+
+Lemma echunk_peek_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil ->
-  SPEC (echunk_peek c)
+  SPEC (echunk_peek_back c)
     PRE (\$2)
     INV (c ~> EChunk L)
-    POST (fun x => \exists L', \[L = x::L']).
+    POST (fun x => \exists L', \[L = L' & x]).
 Proof.
   introv HL.
-  destruct L as [|x L']; tryfalse.
-  xcf. xpay. xassert_cost 1.
-  { xgo*. subst. now rewrite istrue_isTrue_eq. } (* TODO: rewrite* *)
-    xopen c. (*xopen_echunk c;*) intros t s d T Inv. lets [Ifr Itl IL IC IS]: Inv.
-  rew_list* in *. xgo*.
-  { fequals*. rewrite Ifr.
-    list_cases*. rew_list*. }
-  { xclose* c. (*  xclose_echunk* c (x::L'). *)  xsimpl. }
+  xcf*.
+	lets (x&q&->): list_neq_nil_inv_last L HL.
+	xopen* c; intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xpay. xappn*.
+	{ unfolds* Wrap_up. }
+	{ rew_list in *.
+		xsimpl.
+		{ fequals_rec.
+			forwards* E: Iin (size - 1).
+			rew_array in E. case_if; try math. rewrite <- E. fequals. fequals. math. }
+		{ xclose* c.
+			xsimpl. }
+		
+		(* TODO: finir *)
+		
+	}
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_peek) => Provide echunk_peek_spec.
