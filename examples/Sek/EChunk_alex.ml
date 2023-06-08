@@ -1,11 +1,10 @@
 
-(* type 'a default = 'a*)
+type 'a default = 'a
 
 type 'a echunk = {
   data : 'a array;
-  mutable front : int;
-  mutable size : int;
-  default : 'a (* ['a default] *); }
+  mutable top : int;
+  default : 'a default; }
 
 (* Capacity is hard-coded for now, to avoid the boilerplate of a functor *)
 let capacity = 16
@@ -40,20 +39,17 @@ let echunk_pop c =
   c.data.(newtop) <- c.default;
   x
 
-let wrap_up n = if n > capacity then n - capacity else n
+let echunk_push c x =
+  c.data.(c.top) <- x;
+  c.top <- c.top + 1
 
-let echunk_push_back c x =
-  let i = wrap_up (c.front + c.size) in
-  c.data.(i) <- x;
-  c.size <- c.size + 1
-
-(* let echunk_get c i =
+let echunk_get c i =
   c.data.(i)
 
 let echunk_set c i x =
-  c.data.(i) <- x *)
+  c.data.(i) <- x
 
-(* let echunk_copy c =
+let echunk_copy c =
   let data = Array.copy c.data in
   { data = data;
     top = c.top;
@@ -68,4 +64,4 @@ let echunk_sub c size =
   let tsub = Array.init capacity item in
   { data = tsub;
     top = size;
-    default = d; } *)
+    default = d; }
