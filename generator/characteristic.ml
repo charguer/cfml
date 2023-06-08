@@ -1632,7 +1632,7 @@ let cfg_file no_mystd_include str =
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z." ::
       (if !Mytools.generate_encoders then [] else
-         [Coqtop_custom "Existing Instance WPHeader.Enc_any | 99."]) @
+         [Coqtop_custom "Existing Instance WPHeader.Use_Enc_any.Enc_any | 99."]) @
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)
@@ -1643,5 +1643,3 @@ let cfg_file no_mystd_include str =
 
       (*deprecated: (if !pure_mode then "FuncPrim" else "CFHeader") *)
 
-
-      (* TODO: prevent "let int = 3" to work *)

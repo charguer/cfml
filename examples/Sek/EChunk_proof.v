@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-From CFML Require Import LibSepGroup WPLib Stdlib Array_proof.
+From CFML Require Import LibSepGroup WPLibCredits Stdlib Array_proof.
 From TLC Require Import LibListZ.
 
 From CFML Require Import LibSepTLCbuffer.
@@ -8,6 +8,141 @@ Import IndexHints.
 Require Import ListMisc.
 
 Require Import EChunk_ml.
+
+
+
+(* Copy-paste of earlier definitions to work around a notation bug in Coq *)
+
+Notation "<[ e ]>" :=
+ e
+ (at level 0, e custom wp at level 99) : wp_scope.
+
+Notation "'Pay' F" :=
+ ((*Wptag*) (Wpgen_pay F))
+ (in custom wp at level 69, F at level 0) : wp_scope.
+
+Notation "'Fail'" :=
+ ((*Wptag*) (Wpgen_fail))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Done'" :=
+ ((*Wptag*) (Wpgen_done))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Match' V F1" :=
+ ((*Wptag*) (Wpgen_match V F1))
+ (in custom wp at level 69,
+  V custom wp at level 0,
+  F1 custom wp at level 69,
+  format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : wp_scope.
+
+Notation "'Assert' F" :=
+ ((*Wptag*) (Wpgen_assert F))
+ (in custom wp at level 69,
+  F custom wp at level 99) : wp_scope.
+
+Notation "'Val' v" :=
+ ((*Wptag*) (Wpgen_val v))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Let' x ':=' F1 'in' F2" :=
+ ((*Wptag*) (Wpgen_let_trm F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetVal' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_val V (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Alias' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_alias (Wpgen_let_val V (fun x => F1))))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Alias'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ; F2" :=
+ ((*Wptag*) (Wpgen_seq F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f x1 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) .. (cons (Dyn xn) nil) ..)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+(* TODO: why need both? *)
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+Notation "'If_' v 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_if v F1 F2))
+ (in custom wp at level 69,
+  v constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'If_'  v  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'While' F1 'Do' F2 'Done'" :=
+ ((*Wptag*) (Wpgen_while F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  format "'[v' '[' 'While'  F1  'Do'  ']' '/' '['   F2 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'To'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_downto_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'Downto'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
+
+
 
 (*************************************************)
 (** EChunks *)
@@ -147,7 +282,7 @@ Qed.
 Hint Extern 1 (RegisterSpec echunk_peek) => Provide echunk_peek_spec.
 
 Lemma echunk_pop_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
-  L <> nil ->
+  L <> nil -> 
   SPEC (echunk_pop c)
     PRE (\$3 \* c ~> EChunk L)
     POST (fun x => \exists L', c ~> EChunk L' \* \[L = x::L']).
@@ -158,7 +293,7 @@ Proof.
   lets [Ifr Itl IL IC IS]: Inv.
   rew_list in *.
   xapp. xlets.
-  xappn*.
+  xappn*. 
   rew_list* in *.
   xclose* c L'.
   { constructors*.

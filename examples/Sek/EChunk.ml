@@ -1,10 +1,10 @@
 
-type 'a default = 'a
+(* type 'a default = 'a*)
 
 type 'a echunk = {
   data : 'a array;
   mutable top : int;
-  default : 'a default; }
+  default : 'a (* ['a default] *); }
 
 (* Capacity is hard-coded for now, to avoid the boilerplate of a functor *)
 let capacity = 16
