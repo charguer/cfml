@@ -86,6 +86,15 @@ Inductive type : Type :=
 | type_double : type
 | type_ref : type -> type.
 
+Lemma eq_type_dec : forall (ty ty' : type),
+    {ty = ty'} + {ty <> ty'}.
+Proof.
+  induction ty; intros []; (right; discriminate) + auto.
+  destruct (IHty t). left. f_equal. auto. right. intro.
+  inversion H. contradiction.
+Qed.
+
+
 Variant var_descr : Type :=
   | stack : var_descr
   | heap : var_descr
@@ -123,7 +132,7 @@ Inductive binding : Type :=
 Definition numtype := type.
 
 Variant prim : Type :=
-  | val_ptr_add : prim
+  | val_ptr_add : type -> prim
   | val_add : numtype -> prim
   (* | val_cast : numtype -> numtype -> prim
       (en pratique, juste besoin de (val_cast type_long type_double))*)
@@ -132,13 +141,13 @@ Variant prim : Type :=
   | val_get : prim
   | val_set : prim
   | val_free : prim
-  | val_alloc : prim
-  | val_dealloc : prim.
+  | val_alloc : type -> prim
+  | val_dealloc : type -> prim.
 
 
 Definition is_binop (op : prim) : bool :=
   match op with
-  | val_ptr_add
+  | val_ptr_add _
   | val_add _
   | val_lt _
     => true
@@ -437,12 +446,12 @@ Notation "'!' t" :=
 (*   (trm_val (val_prim val_free)) *)
 (*   (in custom trm at level 0) : trm_scope. *)
 
-Notation "'alloc'" :=
-  (trm_val (val_prim val_alloc))
+Notation "'alloc' ty" :=
+  (trm_val (val_prim (val_alloc ty)))
   (in custom trm at level 0) : trm_scope.
 
-Notation "'dealloc'" :=
-  (trm_val (val_prim val_dealloc))
+Notation "'dealloc' ty" :=
+  (trm_val (val_prim (val_dealloc ty)))
   (in custom trm at level 0) : trm_scope.
 
 Notation "t1 ':=' t2" :=
@@ -453,8 +462,8 @@ Notation "t1 + t2" :=
   (trm_apps (val_add type_long) [(t1 : trm); (t2 : trm)])
     (in custom trm at level 58) : trm_scope.
 
-Notation "t1 '+p' t2" :=
-  (trm_apps val_ptr_add [(t1 : trm); (t2 : trm)])
+Notation "t1 '+p' '#' ty t2" :=
+  (trm_apps (val_ptr_add ty) [(t1 : trm); (t2 : trm)])
   (in custom trm at level 58) : trm_scope.
 
 Notation "t1 < t2" :=
@@ -509,16 +518,21 @@ Section Semantics.
       evalctx_expr (fun t1 => <{t1 + t2}>)
   | evalctx_expr_add_r : forall v1,
       evalctx_expr (fun t2 => <{v1 + t2}>)
-  | evalctx_expr_ptr_add_l : forall t2,
-      evalctx_expr (fun t1 => <{t1 +p t2}>)
-  | evalctx_expr_ptr_add_r : forall l1,
-      evalctx_expr (fun t2 => <{l1 +p t2}>)
+  | evalctx_expr_ptr_add_l : forall t2 ty,
+      evalctx_expr (fun t1 => <{t1 +p # ty t2}>)
+  | evalctx_expr_ptr_add_r : forall l1 ty,
+      evalctx_expr (fun t2 => <{l1 +p # ty t2}>)
   | evalctx_expr_lt_l : forall t2,
       evalctx_expr (fun t1 => <{t1 < t2}>)
   | evalctx_expr_lt_r : forall v1,
       evalctx_expr (fun t2 => <{v1 < t2}>)
   | evalctx_expr_get : evalctx_expr (fun t => <{ !t }>).
 
+
+  Lemma evalctx_expr_not_val : forall C t v,
+      evalctx_expr C ->
+      C t <> v.
+  Proof using. introv HC N. inverts HC; tryfalse. Qed.
 
   (** ** Omni-big step judgement, for pure expressions (see grammar) *)
 
@@ -561,13 +575,31 @@ Section Semantics.
       Q (val_int (if (n1 <? n2)%Z then 1 else 0)) ->
       G / s / <{n1 < n2}> ⇓ Q
   (* pointer arithmetic *)
-  | cfml_omnibig_expr_ptr_add : forall (l l' : loc) (n : Z) Q,
+  | cfml_omnibig_expr_ptr_add : forall (l l' : loc) (n : Z) ty Q,
       (l' : nat) = (l : nat) + n :> int ->
       Q (val_loc l') ->
-      G / s / <{ l +p n }> ⇓ Q
+      G / s / <{ l +p # ty n }> ⇓ Q
 
-  where "G '/' s '/' t '⇓' Q" := (cfml_omnibig_expr G s t Q).
+  where "G '/' s '/' t '⇓' Q" := (cfml_omnibig_expr G s t Q)
 
+  with cfml_omnibig_lvalue (G : val_env) (s : state) : trm -> val_pc -> Prop :=
+  | cfml_omnibig_lvalue_var_stack : forall x i l ty Q,
+      G ! i = Some (val_loc l, stack, ty) ->
+      Q (val_loc l) ->
+      cfml_omnibig_lvalue G s (trm_var (x, Some i)) Q
+  | cfml_omnibig_lvalue_var_heap : forall x i l' l ty Q,
+      G ! i = Some (val_loc l, stack, ty) ->
+      Fmap.indom s l ->
+      Fmap.read s l = val_loc l' ->
+      Q (val_loc l') ->
+      cfml_omnibig_lvalue G s (trm_var (x, Some i)) Q
+  | cfml_omnibig_lvalue_deref : forall e Q1 Q,
+      cfml_omnibig_expr G s e Q1 ->
+      (forall v, Q1 v -> (exists l, v = val_loc l
+                         /\ Fmap.indom s l
+                         /\ v = Fmap.read s l
+                         /\ Q v)) ->
+      cfml_omnibig_lvalue G s e Q.
 
   (** eval a list of expressions to a list of postconditions *)
   Inductive cfml_omnibig_expr_list (G : val_env) (s : state) :
@@ -619,6 +651,10 @@ Section Semantics.
   | eval_trm_ctx_let_const : forall x ty t2,
       eval_trm_ctx (fun t1 => <{ let (x : ty#const) = t1 in t2 }>).
 
+  Lemma evalctx_trm_not_val : forall C t v,
+      eval_trm_ctx C ->
+      C t <> v.
+  Proof using. introv HC N. inverts HC; tryfalse. Qed.
 
   (** ** Omni-small step for terms *)
 
@@ -743,7 +779,7 @@ Section Semantics.
       F / (f, G, s, <{l := v }>, k) --> P
 
 
-  | cfml_omnistep_alloc : forall f G n sa k P,
+  | cfml_omnistep_alloc : forall f G n sa k P ty,
       (forall l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l ->
                  n = nat_to_Z i ->
                  l <> null ->
@@ -753,9 +789,9 @@ Section Semantics.
                  /\ n = nat_to_Z i
                  /\ l <> null
                  /\ Fmap.disjoint sa sb) ->
-      F / (f, G, sa, <{alloc(n)}>, k) --> P
+      F / (f, G, sa, <{(alloc ty)(n)}>, k) --> P
 
-  | cfml_step_dealloc : forall f G (n:int) s l k P,
+  | cfml_step_dealloc : forall f G (n:int) s l k P ty,
       (forall vs sa sb, s = sb \+ sa ->
                    sb = Fmap.conseq vs l ->
                    n = LibList.length vs ->
@@ -765,7 +801,7 @@ Section Semantics.
                    /\ sb = Fmap.conseq vs l
                    /\ n = LibList.length vs
                    /\ Fmap.disjoint sa sb) ->
-      F / (f, G, s, <{dealloc(n, l)}>, k) --> P
+      F / (f, G, s, <{(dealloc ty)(n, l)}>, k) --> P
 
   | cfml_omnistep_ite : forall f G e (n : int) t1 t2 s k Q P,
       (* C-style boolean values *)
@@ -856,7 +892,7 @@ Section Semantics.
       G ! i = Some (val_loc l, heap, ty) ->
       Fmap.indom s l ->
       l <> null ->
-      G / s / e ⇓ Qe ->
+      cfml_omnibig_expr G s e Qe ->
       (forall v, Qe v ->
             exists l', v = val_loc l' /\
                     F / (f, G, Fmap.update s l (val_loc l'), t, k) ==> Qb) ->
@@ -880,12 +916,15 @@ Section Semantics.
       F / (f, G, s, <{v1 ; t2}>, k) ==> Qb
 
   (* prims *)
-  | cfml_omnibig_set : forall f G s l v k Qb,
-      Fmap.indom s l ->
-      Qb (f, G, (Fmap.update s l v), val_unit, k) ->
-      F / (f, G, s, <{l := v }>, k) ==> Qb
+  | cfml_omnibig_set : forall f G s e e' Qe Qe' k Qb,
+      cfml_omnibig_lvalue G s e Qe ->
+      G / s / e' ⇓ Qe' ->
+      (forall v v', Qe v -> Qe' v' -> (exists l, v = val_loc l
+                           /\ Fmap.indom s l
+                           /\ Qb (f, G, (Fmap.update s l v'), val_unit, k))) ->
+      F / (f, G, s, <{e := e'}>, k) ==> Qb
 
-  | cfml_omnibig_alloc : forall f G n sa k Qb,
+  | cfml_omnibig_alloc : forall f G n sa k Qb ty,
       (forall l i sb, sb = Fmap.conseq (LibList.make i val_uninitialized) l ->
                  n = nat_to_Z i ->
                  l <> null ->
@@ -895,9 +934,9 @@ Section Semantics.
                  /\ n = nat_to_Z i
                  /\ l <> null
                  /\ Fmap.disjoint sa sb) ->
-      F / (f, G, sa, <{alloc(n)}>, k) ==> Qb
+      F / (f, G, sa, <{(alloc ty)(n)}>, k) ==> Qb
 
-  | cfml_omnibig_dealloc : forall f G (n:int) s l k Qb,
+  | cfml_omnibig_dealloc : forall f G (n:int) s l k Qb ty,
       (forall vs sa sb, s = sb \+ sa ->
                    sb = Fmap.conseq vs l ->
                    n = LibList.length vs ->
@@ -907,7 +946,7 @@ Section Semantics.
                    /\ sb = Fmap.conseq vs l
                    /\ n = LibList.length vs
                    /\ Fmap.disjoint sa sb) ->
-      F / (f, G, s, <{dealloc(n, l)}>, k) ==> Qb
+      F / (f, G, s, <{(dealloc ty)(n, l)}>, k) ==> Qb
 
   | cfml_omnibig_ite : forall f G e (n : int) t1 t2 s k Qe Qb,
       (* C-style boolean values *)
