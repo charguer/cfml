@@ -35,7 +35,11 @@ VERBOSE:=1
 #   TLC : the path to a local TLC installation
 #   COQWARNINGS : custom -w flags for Coq
 #   COQEXTRAFLAGS : other custom flags for Coq 
-#	 DONT_INCLUDE_ALL_STDLIB_V := true : should not compile the stdlib in full
+
+# All variables named ARG_* may have the special value EMPTY.
+# The purpose is to distinguish between an unset environment variables,
+# which should be instantiated to a default value, and a variable that
+# the caller purposely want to set to empty.
 
 
 ##############################################################################
@@ -65,14 +69,24 @@ VERBOSE:=1
 ##############################################################################
 # Parameters
 
+
 ############################
+# Folders
+
 # CFML denotes the path to the root of the CFML folder.
 # We assume that the current folder is the path to CFML.
 
 PWD := $(shell pwd)
 
-# DEPRECATED: CFML := $(shell cd ../.. && pwd)
 CFML = $(PWD)
+
+GENERATOR := $(CFML)/generator
+LIBCOQ := $(CFML)/lib/coq
+STDLIB := $(CFML)/lib/stdlib
+LIBOCAML := $(CFML)/lib/ocaml
+EXAMPLES := $(CFML)/examples
+
+# FOLDER is the folder where to look for .v and .ml files by default 
 
 
 ############################
@@ -122,36 +136,6 @@ ifndef COQFLAGS
 	COQFLAGS:=$(COQWARNINGS) $(COQEXTRAFLAGS)
 endif
 
-
-############################
-# EXAMPLEINCLUDE describes the -R command in use
-
-# Coq include for the current folder
-# - for $(CFML)/examples, we use -R .. EXAMPLE to allow sharing between example folders
-# - otherwise by default we use -R . NAME, where NAME denotes the current folder name
-# - one can provide a custom value for $(EXAMPLEINCLUDE)
-# - the special value EMPTY indicates that $(EXAMPLEINCLUDE) should be empty
-# TODO: document COQPROJECTDEVEXTRA
-
-ifdef ARG_EXAMPLEINCLUDE
-	EXAMPLEINCLUDE := $(ARG_EXAMPLEINCLUDE)
-endif
-ifndef EXAMPLEINCLUDE
-	# DEPRECATED
-	# ifneq ($(filter $(abspath $(CFML))/examples/%,$(FOLDER)),)
-	#	EXAMPLEINCLUDE := -R .. EXAMPLES
-	#	COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
-	#else
-		EXAMPLEINCLUDE  := -R $(FOLDER) EXAMPLES
-	#endif
-else
-	ARG_EXAMPLEINCLUDE := $(EXAMPLEINCLUDE)
-	ifeq ($(EXAMPLEINCLUDE),EMPTY)
-		EXAMPLEINCLUDE :=
-	endif
-endif
-
-
 ############################
 # OCAMLINCLUDE gives the ocamldep include folder.
 
@@ -160,27 +144,56 @@ ifndef OCAMLINCLUDE
 endif
 
 ############################
-# ML lists the sources files in current folder. It is set using ARG_ML.
-
-# - the special value EMPTY indicates that $(ML) should be empty
+# ML lists the ML sources files to process. It is set using ARG_ML.
 
 ifdef ARG_ML
-	ML := $(ARG_ML)
-endif
-ifndef ML
-	ifeq ($(DONT_INCLUDE_ALL_STDLIB_V),true)
-		ML := 
-	else
-		ML := $(wildcard $(FOLDER)/*.ml)
-	endif
+   ifeq ($(ARG_ML),EMPTY)
+      ML :=
+   else
+      ML := $(ARG_ML)
+   endif
 else
-	ARG_ML := $(ML)
-	ifeq ($(ML),EMPTY)
-		ML :=
-	endif
+   ifeq ($(FOLDER),$(LIBCOQ))
+      ML :=
+   else
+      ML := $(wildcard $(FOLDER)/*.ml)
+   endif
 endif
+
 $(info ARG_ML=$(ARG_ML))
 $(info ML=$(ML))
+
+############################
+# COQLIBINCLUDE gives the -R/-Q Coq bindings for compiling files.
+# It is computed using $(FOLDER) and $(ARG_EXAMPLEINCLUDE)
+
+COQLIBINCLUDE_COMMON := \
+  -Q $(TLC) TLC \
+  -Q $(LIBCOQ) CFML \
+
+COQLIBINCLUDE_STDLIB := \
+  -R $(STDLIB) CFML.Stdlib
+
+# Special handling of LIBCOQ and STDLIB folders
+ifeq ($(FOLDER),$(LIBCOQ))
+   COQINCLUDE := $(COQLIBINCLUDE_COMMON) 
+else ifeq ($(FOLDER),$(STDLIB))
+   COQINCLUDE := $(COQLIBINCLUDE_COMMON) $(COQLIBINCLUDE_STDLIB)
+else
+# Generate case for compiling case studies
+   ifdef ARG_EXAMPLEINCLUDE
+      ifeq ($(ARG_EXAMPLEINCLUDE),EMPTY)
+         EXAMPLEINCLUDE :=
+      else
+         EXAMPLEINCLUDE := $(ARG_EXAMPLEINCLUDE)
+      endif
+   else
+      EXAMPLEINCLUDE := -R $(FOLDER) EXAMPLES
+   endif
+   COQINCLUDE := $(COQLIBINCLUDE_COMMON) $(COQLIBINCLUDE_STDLIB) $(EXAMPLEINCLUDE)
+endif
+
+$(info COQINCLUDE=$(COQINCLUDE))
 
 ############################
 # Ocamlbuild options
@@ -204,23 +217,19 @@ endif
 # V_AUX lists the auxiliary Coq files (local libraries). 
 # It is set using ARG_V_AUX, of by default taking all 
 # .v files in FOLDER that are not _proof.v files.
-
-# Coq extra files in current folder
-# By default, all the local files that are not %_ml.v or %_proof.v
-# the special value EMPTY indicates that $(V_AUX) should be empty
+# The special value EMPTY may be provided for ARG_V_AUX.
 
 ifdef ARG_V_AUX
-	V_AUX := $(ARG_V_AUX)
-endif
-ifndef V_AUX
-	V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard $(FOLDER)*.v))
+   ifeq ($(ARG_ML),EMPTY)
+      V_AUX :=
+   else
+      V_AUX := $(ARG_V_AUX)
+   endif
 else
-	ARG_V_AUX := $(V_AUX)
-	ifeq ($(V_AUX),EMPTY)
-		V_AUX :=
-	endif
+   V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard $(FOLDER)/*.v))
 endif
 
+$(info V_AUX=$(V_AUX))
 
 ############################
 # CFMLC_FLAGS stores flags for CFMLC characteristic formula generation
@@ -259,29 +268,6 @@ endif
 
 
 ##############################################################################
-# Folders
-
-# FOLDER is the folder where to look for .v and .ml files by default 
-GENERATOR := $(CFML)/generator
-LIBCOQ := $(CFML)/lib/coq
-STDLIB := $(CFML)/lib/stdlib
-LIBOCAML := $(CFML)/lib/ocaml
-EXAMPLES := $(CFML)/examples
-
-##############################################################################
-# COQLIBINCLUDE contains include use for compiling Coq files
-
-COQLIBINCLUDE := \
-  -Q $(TLC) TLC \
-  -Q $(LIBCOQ) CFML \
-  -R $(STDLIB) CFML.Stdlib
-
-COQINCLUDE := \
-  $(COQLIBINCLUDE) \
-  $(EXAMPLEINCLUDE)
-
-
-##############################################################################
 # Binaries.
 
 OCAMLDEP  := $(OCAMLBIN)ocamldep
@@ -308,8 +294,7 @@ OCAMLBUILD := \
 #################################
 # Files.
 
-DEPEND := .depend_ml .depend_v 
-# DEPRECATED .depend_libcoq
+DEPEND := .depend_lib .depend_ml .depend_v 
 
 GENERATOR_SRC := $(shell find $(GENERATOR) \( -name '*.ml' -o  -name '*.mli' \) !  -path '$(GENERATOR)/_build/*')
 
@@ -335,13 +320,11 @@ OTHERV := $(TLC_V) $(LIBCOQ_V) $(STDLIB)/Stdlib.v $(V_AUX)
 # PROOFV := $(STDLIB_PROOFV) $(EXAMPLE_PROOFV)
 
 # If in lib/coq or lib/stdlib folder, we don't want to necessary include all $(STDLIB_V) files
-# TODO
-# ifeq ($(DONT_INCLUDE_ALL_STDLIB_V),true)
-#    STDLIB_V_INCLUDE :=
-# else
-#    STDLIB_V_INCLUDE := $(STDLIB_V)
-# endif
-STDLIB_V_INCLUDE := $(STDLIB_V)
+ifeq ($(FOLDER),$(LIBCOQ))
+	STDLIB_V_INCLUDE :=
+else
+	STDLIB_V_INCLUDE := $(STDLIB_V)
+endif
 
 V := $(TLC_V) $(LIBCOQ_V) $(STDLIB_V_INCLUDE) $(EXAMPLE_V)
 
@@ -358,7 +341,7 @@ INTERMEDIATE=%_ml.v $(STDLIB)/%_ml.v
 .SECONDARY: $(INTERMEDIATE)
 .PRECIOUS: $(INTERMEDIATE)
 
-THISMAKEFILE := $(CFML)/lib/make/Makefile.dev
+THISMAKEFILE := $(CFML)/Makefile.dev
 
 .PHONY: all
 
@@ -411,7 +394,7 @@ endif
 
 # Make depend performs recursive calls to the present Makefile in order
 # to generate the dependency files: 
-# - .depend_libcoq: dependencies in TLC, lib/coq, and lib/stdlib
+# - .depend_lib: dependencies in TLC, lib/coq, and lib/stdlib
 # - .depend_ml: dependencies between targeted $(ML) files  
 # - .depend_v.: dependencies between targeted *_ml.v, *_proof.v, and $(V_AUX) files
 # These files must be generated in this specific order.
@@ -429,14 +412,26 @@ export CFMLC_FLAGS
 export ARG_V_AUX
 export ARG_ML
 export ARG_EXAMPLEINCLUDE
-export DONT_INCLUDE_ALL_STDLIB_V
+export FOLDER
+
+$(info FOLDER=$(FOLDER))
+$(info LIBCOQ=$(LIBCOQ))
+
+ifeq ($(FOLDER),$(LIBCOQ))
+$(info FOLDER is LIBCOQ)
 
 depend: _CoqProject
-	$(MAKE) -f $(THISMAKEFILE) .depend_libcoq
+	$(MAKE) -f $(THISMAKEFILE) .depend_lib
+
+else
+
+depend: _CoqProject
+	$(MAKE) -f $(THISMAKEFILE) .depend_lib
 	$(MAKE) -f $(THISMAKEFILE) .depend_ml
 	$(MAKE) -f $(THISMAKEFILE) mlv
 	$(MAKE) -f $(THISMAKEFILE) .depend_v
 
+endif
 
 
 ############################################################################
@@ -482,12 +477,11 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 
 
 ############################################################################
-# Rules for building .depend_libcoq and .depend_v
+# Rules for building .depend_lib and .depend_v
 
-# DEPRECATED
-#.depend_libcoq: $(LIBCOQ_V)
-#	@echo "Computing $@"
-#	$(COQDEP) $(COQINCLUDE) $^ > $@
+.depend_lib: $(LIBCOQ_V)
+	@echo "Computing $@"
+	$(COQDEP) $(COQINCLUDE) $^ > $@
 
 .depend_v: $(V)
 	@echo "Computing $@"
@@ -526,39 +520,46 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Include of generated dependency files
 
-AUXGOALS := ocaml generator dev clean cleangen cleancoq tests debug
-DEPENDGOALS := depend .depend_v .depend_ml
-# DEPRECATED: .depend_libcoq   LIBCOQGOALS := libcoq libcoqs libcoqk
+# If the Makefile target is one mentioned in the next two lines, 
+# we don't include dependency files
+AUXGOALS := ocaml generator dev clean cleangen cleancoq cleandev tests debug
+DEPENDGOALS := depend .depend_lib .depend_v .depend_ml
+# Beware that this approach is fragile if goals could be substrings of the goal above
 
-# DEPRECATED
-# ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) $(DEPENDGOALS) mlv),)
-#    ifeq ($(wildcard .depend_libcoq),)
-#      $(error Missing .depend_libcoq; try 'make depend' first.)
-#   endif
-#   include .depend_libcoq
-#endif
+$(info MAKECMDGOALS=$(MAKECMDGOALS))
 
 ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) $(DEPENDGOALS)),)
-   ifeq ($(wildcard .depend_ml),)
-      $(error Missing .depend_ml; try 'make depend' first.)
-   endif
-ifdef VERBOSE
-$(info include .depend_ml)
-endif
-include .depend_ml
-endif
 
-# DEPRECATED $(LIBCOQGOALS) 
-ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) $(DEPENDGOALS) mlv),)
-   ifeq ($(wildcard .depend_v),)
-      $(error Missing .depend_v; try 'make depend' first.)
-   endif
-ifdef VERBOSE
-$(info include .depend_v)
-endif
-include .depend_v
-endif
+   ifeq ($(FOLDER),$(LIBCOQ))
+      # Dependency files when building from LIBCOQ
+       ifeq ($(wildcard .depend_lib),)
+         $(error Missing .depend_lib; try 'make depend' first.)
+      endif
+      include .depend_lib
+      $(info include .depend_lib)
 
+   else
+      # Dependency files when building from other folders
+      ifeq ($(wildcard .depend_ml),)
+         $(error Missing .depend_ml; try 'make depend' first.)
+      endif
+      include .depend_ml
+      $(info include .depend_ml)
+
+      # The .depend_v should not be included if target is mlv
+      ifeq ($(findstring $(MAKECMDGOALS),mlv),)
+         ifeq ($(wildcard .depend_v),)
+            $(error Missing .depend_v; try 'make depend' first.)
+         endif
+         include .depend_v
+         $(info include .depend_v)
+      endif
+
+   endif
+
+else
+   $(info Skipping include dependency files)
+endif
 
 ##############################################################################
 # Rules for building the Stdlib files 

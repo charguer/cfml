@@ -1,7 +1,6 @@
 #!/bin/bash
 
-export ARG_EXAMPLEINCLUDE=EMPTY
-export DONT_INCLUDE_ALL_STDLIB_V=true
+export FOLDER=`pwd`
 
 ARGS="$@"
 if [ -z ${ARGS} ]; then

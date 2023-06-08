@@ -407,7 +407,7 @@ Lemma Repr_eq : forall q E,
   q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
 Proof using. auto. Qed.
 
-Lemma haffine_Tree : forall n p, 
+Lemma haffine_Tree : forall n p,
   haffine (p ~> Tree n).
 Proof using.
   intros n. induction n using node_induct.
@@ -453,7 +453,7 @@ Lemma Triple_create :
     PRE \[]
     POST (fun p => p ~> Heap \{}).
 Proof using.
-  xcf. xapp. xunfold Heap. unfold Contents. xsimpl*. 
+  xcf. xapp. xunfold Heap. unfold Contents. xsimpl*.
 Qed.
 
 Hint Extern 1 (RegisterSpec create) => Provide Triple_create.
@@ -480,7 +480,7 @@ Proof using.
   xchange (Tree_Node q2) ;=> l2.
   inverts I1 as Is1 Ks1. inverts I2 as Is2 Ks2.
   xif ;=> C.
-  { xapp. xchange <- (Tree_Node q2). xapp. 
+  { xapp. xchange <- (Tree_Node q2). xapp.
     xchange <- Tree_Node. xchange <- Repr_eq.
     applys* merge_lemma. xvals*. }
   { xapp. xchange <- (Tree_Node q1). xapp.
@@ -529,12 +529,12 @@ Lemma Triple_pop_min : forall p E,
     PRE (p ~> Heap E)
     POST (fun x => \exists E', \[min_of E x /\ E = \{x} \u E'] \* p ~> Heap E').
 Proof using.
-  introv HE. xcf. xchange Heap_eq ;=> c. xapp. 
-  destruct c as [|q]; simpl; xpull. 
+  introv HE. xcf. xchange Heap_eq ;=> c. xapp.
+  destruct c as [|q]; simpl; xpull.
   xchange Repr_eq ;=> [x hs] I. invert I ;=> ? ? ? ? Is Ks Eq -> -> ->.
   xchange Tree_Node ;=> l. xmatch. xapp. xapp. xapp.
   xseq (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC).
-  { xif ;=> C2. 
+  { xif ;=> C2.
     { subst. inverts Is. inverts Ks. rew_listx. xapp. xchanges* Heap_Empty. }
     { xapp. xapp* ;=> r. xapp. xchange Heap_Nonempty. xsimpl*. } }
   { xpull ;=> E' ->. xval. xsimpl. split~. { rewrite Eq. applys~ pop_min_lemma. } }

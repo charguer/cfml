@@ -1,6 +1,5 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
-From CFML Require Import Stdlib.
 
 Notation "'int'" := (Z%type).
 
@@ -313,110 +312,6 @@ Fixpoint record (L:list(field*val)) (r:loc) : hprop :=
   | (f,v)::L' => (r`.f ~~~> v) \* (r ~> record L')
   end.
 
-Axiom triple_record_init : forall fields values,
-  List.length fields = List.length values ->
-  triple (trm_apps (val_record_init fields) (trms_vals values)) \[] 
-    (fun (r:val) => \exists p, \[r = val_loc p] \* p ~> record (List.combine fields values)).
-
-(* TODO : relate to Pervasives_proof.ml *)
-
-Axiom triple_infix_plus__ : forall (n1 n2:int),
-  triple (infix_plus__ n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 + n2)]).
-
-Axiom triple_infix_amp_amp__ : forall (b1 b2:bool),
-  triple (infix_amp_amp__ b1 b2)
-    \[]
-    (fun r => \[r = val_bool (b1 && b2)]).
-
-Axiom triple_infix_bar_bar__ : forall (b1 b2:bool),
-  triple (infix_bar_bar__ b1 b2)
-    \[]
-    (fun r => \[r = val_bool (b1 || b2)]).
-
-
-Axiom triple_not : forall (b:bool),
-  triple (not b)
-    \[]
-    (fun r => \[r = val_bool (!b)]).
-
-Hint Resolve triple_not
- : triple_builtin.
-
-Axiom triple_infix_minus__ : forall (n1 n2:int),
-  triple (infix_minus__ n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 - n2)]).
-
-Axiom triple_ignore : forall (v:val),
-  triple (val_ignore v)
-    \[]
-    (fun r => \[r = val_unit]).
-
-Axiom triple_and : forall (b1 b2:bool),
-  triple (val_and b1 b2)
-    \[]
-    (fun r => \[r = (b1 && b2)]).
-
-Axiom triple_or : forall (b1 b2:bool),
-  triple (val_or b1 b2)
-    \[]
-    (fun r => \[r = (b1 || b2)]).
-
-Axiom triple_neg : forall (b1:bool),
-  triple (val_neg b1)
-    \[]
-    (fun r => \[r = (negb b1)]).
-
-(* TODO: use infix__ names? *)
-
-Axiom triple_infix_lt__ : forall (n1 n2:int),
-  triple (infix_lt__ n1 n2)
-    \[]
-    (fun b => \[b = isTrue (n1 < n2)]).
-
-Axiom triple_infix_lt_eq__ : forall (n1 n2:int),
-  triple (infix_lt_eq__ n1 n2)
-    \[]
-    (fun b => \[b = isTrue (n1 <= n2)]).
-
-Axiom triple_infix_gt__ : forall (n1 n2:int),
-  triple (infix_gt__ n1 n2)
-    \[]
-    (fun b => \[b = isTrue (n1 > n2)]).
-
-Axiom triple_infix_gt_eq__ : forall (n1 n2:int),
-  triple (infix_gt_eq__ n1 n2)
-    \[]
-    (fun b => \[b = isTrue (n1 >= n2)]).
-
-(* TODO: triples
-Definition val_abs : val :=
-  Fun 'x :=
-    If_ 'x '< 0 Then '- 'x Else 'x.
-
-Definition val_min : val :=
-  Fun 'x 'y :=
-    If_ 'x '< 'y Then 'x Else 'y.
-
-Definition val_max : val :=
-  Fun 'x 'y :=
-    If_ 'x '< 'y Then 'y Else 'x.
-*)
-
-Axiom triple_infix_eq__ : forall (n1 n2:int),
-  triple (infix_eq__ n1 n2)
-    \[]
-    (fun b => \[b = isTrue (n1 = n2)]).
-
-
-Hint Resolve
-  triple_infix_plus__ triple_infix_bar_bar__ triple_infix_amp_amp__
-  triple_infix_minus__ triple_ignore triple_and triple_or
-  triple_neg triple_infix_lt__ triple_infix_lt_eq__
-  triple_infix_gt__ triple_infix_gt_eq__
-  triple_infix_eq__ : triple_builtin.
 
 
 
@@ -653,9 +548,14 @@ Proof using. (* LATER: inline in other proof below? *)
   { auto. }
   { Transparent Record. simpl. asserts_rewrite (F = f'). { inverts* E1. }
     unfold Hfield. repeat rewrite repr_eq. rewrite dyn_to_val_dyn_make in E2.
-    asserts_rewrite (v = enc V). { inverts* E2. } xsimpl. 
+    asserts_rewrite (v = enc V). { inverts* E2. } xsimpl.
     applys* IHfields'. inverts* E1. inverts* E2. }
 Qed.
+
+Axiom triple_record_init : forall fields values,
+  List.length fields = List.length values ->
+  triple (trm_apps (val_record_init fields) (trms_vals values)) \[]
+    (fun (r:val) => \exists p, \[r = val_loc p] \* p ~> record (List.combine fields values)).
 
 Lemma Lifted_new : forall (Lup:Record_fields) (fields:fields) (values:vals),
   List.length fields = List.length Lup ->
@@ -668,7 +568,7 @@ Proof using.
   hnf. intros. unfold Wpgen_record_new, wpgen_app.
   applys Lifted_mkstruct. clears A. hnf. intros. rewrite <- triple_eq_himpl_wp.
   applys triple_conseq_frame. applys* triple_record_init. xsimpl.
-  xsimpl. intros r p ->. xchange* record_to_Record. 
+  xsimpl. intros r p ->. xchange* record_to_Record.
   xchange (qwand_specialize p). unfold Post, PostCast. xsimpl*.
 Qed.
 
@@ -1000,18 +900,18 @@ Proof using.
   destruct fields as [|f1 [|f2 []]]; simpls; tryfalse.
   destruct values as [|v1 [|v2 []]]; simpls; tryfalse.
   hnf. intros. unfold Wpgen_record_new, wpgen_app.
-  applys Lifted_mkstruct. clears A. hnf. intros. rewrite <- triple_eq_himpl_wp. 
-  unfold val_record_init. simpl. 
-  match goal with |- context [ trm_apps ?F _ ] => set (G := F) end. 
+  applys Lifted_mkstruct. clears A. hnf. intros. rewrite <- triple_eq_himpl_wp.
+  unfold val_record_init. simpl.
+  match goal with |- context [ trm_apps ?F _ ] => set (G := F) end.
   set (H0 :=((fun r : loc => r ~~~> (R1 :: R2 :: nil)) \--* PostCast loc Q)).
   set (vs := (v1 :: v2 :: nil)).
  applys triple_apps_funs vs H0 (Post Q). reflexivity.
   { applys var_funs_exec_eq. eapply (var_funs_exec_eq _ _). auto. auto. } (* todo: improve *)
   simpl. repeat case_if.
   applys triple_let. unfold val_record_alloc.
-  applys triple_alloc. 
+  applys triple_alloc.
 eapply triple_conseq_frame.
-  eapply  triple_apps_funs. 
+  eapply  triple_apps_funs.
   applys (>> triple_conseq_frame (fun r : loc => r ~~~> (R1 :: R2 :: nil))).
 Qed.
 *)
