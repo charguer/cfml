@@ -159,8 +159,7 @@ Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (front: int) (size: in
 		echunk_length : length L = size;
 		echunk_capa : length D = K;
 		echunk_front : 0 <= front < K;
-		echunk_size : 0 <= size <= K
-	}.
+		echunk_size : 0 <= size <= K }.
 
 Definition EChunk A {IA: Inhab A} {EA: Enc A} (L: list A) (c: echunk_ A) : hprop :=
   \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
@@ -257,8 +256,7 @@ Proof.
   { constructors*; subst*; intros.
     { false. math. }
     { rew_listp*. unfolds Wrap_up. case_if*. }
-    { rew_listp*. }
-	}
+    { rew_listp*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_create) => Provide echunk_create_spec.
@@ -290,56 +288,60 @@ Qed.
 
 Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
 
+Lemma plus_minus : forall a b c,
+	a + (b - c) = a + b - c.
+Proof using. math. Qed.
+
+(** [rew_maths] rewrite any lemma in the base [rew_maths].
+    The goal should not contain any evar, otherwise tactic might loop. *)
+
+#[global]
+Hint Rewrite plus_minus: rew_maths.
+
 Lemma echunk_peek_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil ->
   SPEC (echunk_peek_back c)
     PRE (\$2)
     INV (c ~> EChunk L)
     POST (fun x => \exists L', \[L = L' & x]).
-Proof.
+Proof.	
   introv HL.
   xcf*.
-	lets (x&q&->): list_neq_nil_inv_last L HL.
-	xopen* c; intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	lets (x & q & ->): list_neq_nil_inv_last L HL.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xpay. xappn*.
 	{ unfolds* Wrap_up. }
 	{ rew_list in *.
 		xsimpl.
 		{ fequals_rec.
 			forwards* E: Iin (size - 1).
-			rew_array in E. case_if; try math. rewrite <- E. fequals. fequals. math. }
+			rew_array in E. case_if; try math. rew_maths. auto. }
 		{ xclose* c.
-			xsimpl. }
-		
-		(* TODO: finir *)
-		
-	}
+			xsimpl. } }
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_peek) => Provide echunk_peek_spec.
+Hint Extern 1 (RegisterSpec echunk_peek_back) => Provide echunk_peek_back_spec.
 
-Lemma echunk_pop_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (L:list A) (c:echunk_ A),
+Lemma echunk_pop_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil -> 
-  SPEC (echunk_pop c)
-    PRE (\$3 \* c ~> EChunk L)
-    POST (fun x => \exists L', c ~> EChunk L' \* \[L = x::L']).
+  SPEC (echunk_pop_back c)
+    PRE (\$4 \* c ~> EChunk L)
+    POST (fun x => \exists L', c ~> EChunk L' \* \[L = L' & x]).
 Proof.
   introv HL.
-  xcf. xpay. xapp*; intros x L' HL'.
-  xopen c; intros t s d T Inv.
-  lets [Ifr Itl IL IC IS]: Inv.
-  rew_list in *.
-  xapp. xlets.
-  xappn*. 
-  rew_list* in *.
-  xclose* c L'.
-  { constructors*.
-    { (* clever T. *) intros i Hi.
-      forwards* E: Ifr i. list_cases* in *. list_cases*. rewrite* E. subst.
-      list_cases*. fequals*. }
-    { intros. list_cases*. }
-    { subst*. rew_list* in *. } }
-  { xvals*. }
+  xcf.
+	lets (x & q & ->): list_neq_nil_inv_last L HL.
+	xpay. xapp*. introv E. apply last_eq_last_inv in E as [E_q E_x]. rewrites <- E_x.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xapp*. xlets. xappn*.
+	{ unfolds* Wrap_up. }
+	{ rew_list in *.
+		xvals*. xclose* c q.
+		{ constructors*.
+			{ intros i Hi. applys_eq* Iin; list_cases*.
+				{ false.
+					unfold Wrap_up in C.
+					case_if* in C; case_if* in C. math  C. } } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_pop) => Provide echunk_pop_spec.

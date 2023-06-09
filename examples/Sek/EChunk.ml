@@ -25,10 +25,13 @@ let echunk_create d = {
   default = d
 }
 
-let echunk_is_empty c = (c.size = 0)
-let echunk_is_full c = (c.size = capacity)
+let echunk_is_empty c =
+  c.size = 0
+let echunk_is_full c =
+  c.size = capacity
 
-let wrap_up n = if n >= capacity then n - capacity else n
+let wrap_up n =
+  if n >= capacity then n - capacity else n
 
 let echunk_peek_back c =
   let back = wrap_up (c.front + c.size - 1) in
@@ -48,9 +51,11 @@ let echunk_push_back c x =
   let i = wrap_up (c.front + old_size) in
   c.data.(i) <- x
 
-let wrap_down n = if n < 0 then n + capacity else n
+let wrap_down n =
+  if n < 0 then n + capacity else n
 
-let echunk_peek_front c = c.data.(c.front)
+let echunk_peek_front c =
+  c.data.(c.front)
 
 let echunk_pop_front c =
   let x = echunk_peek_front c in
