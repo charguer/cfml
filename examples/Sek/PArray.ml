@@ -47,3 +47,15 @@ let rec parray_set pa i x =
     a.(i) <- x;
     new_ver
   | PArray_Diff _ -> { data = PArray_Diff { origin = pa; index = i; value = x }; length = pa.length }
+
+let rec parray_base_copy pa =
+  match pa.data with
+  | PArray_Base a -> Array.copy a
+  | PArray_Diff d ->
+    let c = parray_base_copy d.origin in
+    c.(d.index) <- d.value;
+    c
+
+let parray_copy pa =
+  (* parray_pull pa; -- considère-t-on qu'une copie nous met en version la plus récente utilisée, je dirais que non *)
+  { data = PArray_Base (parray_base_copy pa); length = pa.length }
