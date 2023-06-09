@@ -337,34 +337,44 @@ Proof.
 	{ unfolds* Wrap_up. }
 	{ rew_list in *.
 		xvals*. xclose* c q.
-		{ constructors*.
-			{ intros i Hi. applys_eq* Iin; list_cases*.
+		{ constructors*; intros i Hi.
+			{ applys_eq* Iin; list_cases*.
 				{ false.
 					unfold Wrap_up in C.
-					case_if* in C; case_if* in C. math  C. } } } }
+					case_if* in C; case_if* in C. rew_maths. math. }
+				{ unfolds* Wrap_up. } }
+			{ list_cases*.
+				{ applys_eq Iout.
+					unfold Wrap_up in C.
+					case_if* in C; case_if* in C. }
+				{ unfolds* Wrap_up. } } }
+		{ xsimpl*. } }
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_pop) => Provide echunk_pop_spec.
+Hint Extern 1 (RegisterSpec echunk_pop_back) => Provide echunk_pop_back_spec.
 
-Lemma echunk_push_spec : forall (A:Type) (IA:Inhab A) (EA:Enc A) (c:echunk_ A) (x:A) (L:list A),
+Lemma echunk_push_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (x: A) (L: list A),
   ~ (IsFull L) ->
-  SPEC (echunk_push c x)
-    PRE (\$1 \* c ~> EChunk L)
-    POSTUNIT (c ~> EChunk (x::L)).
+  SPEC (echunk_push_back c x)
+    PRE (\$2 \* c ~> EChunk L)
+    POSTUNIT (c ~> EChunk (L & x)).
 Proof.
   introv HL. unfolds IsFull.
-  xcf. xopen c. (* xopen_echunk c;*) intros t s d T Inv.
-  lets [Ifr Itl IL IC IS]: Inv.
-  xpay. xapp. xapp. xapp. auto. xapp. xapp. (* xappn*. *)
-  xclose* c (x::L). (*   xclose_echunk* c (x::L).*)
-  { constructors*.
-    { intros i Hi. (* clever T. *)
-      list_cases*. applys_eq* Ifr. fequals*. }
-    { intros i Hi. list_cases*. } }
-  { xsimpl. }
+  xcf.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+  xpay. xappn*.
+	{ unfolds* Wrap_up. }
+	{ xclose* c (L & x).
+		{ constructors*; intros i Hi.
+			{ list_cases*; unfolds* Wrap_up; false.
+				{ case_if* in C0; case_if* in C0; rew_maths. }
+				{ case_if* in C1; case_if* in C1; rew_maths. } }
+			{ list_cases*; unfolds* Wrap_up; false.
+				{ case_if* in C; case_if* in C; rew_maths. } } }
+		{ xsimpl*. } }
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_push) => Provide echunk_push_spec.
+Hint Extern 1 (RegisterSpec echunk_push_back) => Provide echunk_push_back_spec.
 
 Axiom Array_copy_spec : forall (A:Type) (EA:Enc A) (a:array A) (xs:list A),
   SPEC (Array_ml.copy a)
