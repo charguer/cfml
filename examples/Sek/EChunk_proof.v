@@ -255,6 +255,16 @@ Qed.
 
 Hint Extern 1 (RegisterSpec wrap_down) => Provide wrap_down_spec.
 
+Tactic Notation "unwrap_up" :=
+	unfold Wrap_up; repeat case_if*.
+Tactic Notation "unwrap_up" "in" hyp(H) :=
+	unfold Wrap_up in H; repeat case_if* in H.
+
+Tactic Notation "unwrap_down" :=
+	unfold Wrap_down; repeat case_if*.
+Tactic Notation "unwrap_down" "in" hyp(H) :=
+	unfold Wrap_down in H; repeat case_if* in H.
+
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (a: A),
   SPEC (echunk_create a)
     PRE (\$(K + 1))
@@ -265,7 +275,7 @@ Proof.
   xunfolds* EChunk.
   { constructors*; subst*; intros.
     { false. math. }
-    { rew_listp*. unfolds Wrap_up. case_if*. }
+    { rew_listp*. unwrap_up. }
     { rew_listp*. } }
 Qed.
 
@@ -313,11 +323,10 @@ Proof.
 	{ unfolds* Wrap_up. }
 	{ rew_list in *.
 		xsimpl.
-		{ fequals_rec.
-			forwards* E: Iin (size - 1).
-			rew_array in E. case_if; try math. rew_maths. auto. }
-		{ xclose* c.
-			xsimpl. } }
+		{ fequals. fequals.
+			forwards* E: Iin (size - 1). rew_array in E.
+			case_if; try math. rew_maths. auto. }
+		{ xclose* c. xsimpl. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_peek_back) => Provide echunk_peek_back_spec.
@@ -330,8 +339,7 @@ Lemma echunk_pop_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list
 Proof.
   introv HL.
   xcf.
-	lets (x & q & ->): list_neq_nil_inv_last L HL.
-	xpay. xapp*. introv E. apply last_eq_last_inv in E as [E_q E_x]. rewrites <- E_x.
+	xpay. xapp*. intros x q E. subst.
 	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xapp*. xlets. xappn*.
 	{ unfolds* Wrap_up. }
@@ -390,9 +398,39 @@ Proof.
 	xpay. xappn*. xclose* c (x :: q).
 	{ constructors*; auto. }
 	{ xsimpl*. fequals.
-		forwards* E: (Iin 0). rew_list in E. unfold Wrap_up in E. case_if* in E.
-		false. math. }
+		forwards* E: (Iin 0). rew_list in E. rewrite <- E.
+		fequals. unfold Wrap_up. case_if*. }
 Qed.
+
+Hint Extern 1 (RegisterSpec echunk_peek_front) => Provide echunk_peek_front_spec.
+
+Lemma echunk_pop_front_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (L: list A),
+	L <> nil ->
+	SPEC (echunk_pop_front c)
+		PRE (\$3 \* c ~> EChunk L)
+		POST (fun x => \exists L', c ~> EChunk L' \* \[L = x :: L']).
+Proof.
+	introv HL.
+	xcf*.
+	xpay. xapp*. intros x q E. subst.
+	xopen* c. intros data D front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xappn*. xval. xclose* c q.
+	{ rew_list in *. constructors*.
+		{ intros i Hi.
+			list_cases*.
+			{ false. unfold Wrap_up in C. case_if* in C; case_if* in C. math. }
+			{ applys_eq* (Iin (1 + i)).
+				{ fequals. unfold Wrap_up. case_if*; case_if*; case_if*. }
+				{ rewrite read_cons_pos.
+					{ fequals*. }
+					{ math. } } }
+			{ unfolds* Wrap_up. } }
+		{ intros i Hi.
+			list_cases*.
+			{ applys_eq* (Iout (1 + i)).
+				{ fequals. unfold Wrap_up. case_if*; case_if*; case_if*. }
+				{ unfold Wrap_up in C. case_if* in C; case_if* in C. } } } }
+	{ xsimpl*. }
 
 (* Axiom Array_copy_spec : forall (A:Type) (EA:Enc A) (a:array A) (xs:list A),
   SPEC (Array_ml.copy a)
