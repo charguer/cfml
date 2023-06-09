@@ -143,6 +143,16 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 
 
 
+(* Useful lemma *)
+Lemma plus_minus : forall a b c,
+	a + (b - c) = a + b - c.
+Proof using. math. Qed.
+
+#[global]
+Hint Rewrite plus_minus: rew_maths.
+
+
+
 
 (*************************************************)
 (** EChunks *)
@@ -288,16 +298,6 @@ Qed.
 
 Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
 
-Lemma plus_minus : forall a b c,
-	a + (b - c) = a + b - c.
-Proof using. math. Qed.
-
-(** [rew_maths] rewrite any lemma in the base [rew_maths].
-    The goal should not contain any evar, otherwise tactic might loop. *)
-
-#[global]
-Hint Rewrite plus_minus: rew_maths.
-
 Lemma echunk_peek_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil ->
   SPEC (echunk_peek_back c)
@@ -376,7 +376,25 @@ Qed.
 
 Hint Extern 1 (RegisterSpec echunk_push_back) => Provide echunk_push_back_spec.
 
-Axiom Array_copy_spec : forall (A:Type) (EA:Enc A) (a:array A) (xs:list A),
+Lemma echunk_peek_front_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (L: list A),
+	L <> nil ->
+	SPEC (echunk_peek_front c)
+		PRE (\$1)
+		INV (c ~> EChunk L)
+		POST (fun x => \exists L', \[L = x :: L']).
+Proof.
+	introv HL.
+	xcf*.
+	lets (x & q & ->): list_neq_nil_inv_cons L HL.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xpay. xappn*. xclose* c (x :: q).
+	{ constructors*; auto. }
+	{ xsimpl*. fequals.
+		forwards* E: (Iin 0). rew_list in E. unfold Wrap_up in E. case_if* in E.
+		false. math. }
+Qed.
+
+(* Axiom Array_copy_spec : forall (A:Type) (EA:Enc A) (a:array A) (xs:list A),
   SPEC (Array_ml.copy a)
     PRE (\$(length xs))
     INV (a ~> Array xs)
@@ -400,8 +418,9 @@ Proof.
   xsimpl*.
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_copy) => Provide echunk_copy_spec.
+Hint Extern 1 (RegisterSpec echunk_copy) => Provide echunk_copy_spec. *)
 
+(* À quoi sert ce truc ? *)
 Global Instance Heapdata_echunk : forall A {IA} {EA}, Heapdata (@EChunk A IA EA).
 Proof.
   intros.
@@ -411,8 +430,3 @@ Proof.
 Qed.
 
 Hint Resolve Heapdata_echunk : core.
-
-(*Ltac clever T :=
-  intros; match goal with
-    H: context [ T[_] ] |- context [ ?U[?i] ] => forwards: H i; try math end;
-  list_cases in *; rew_int in *; auto_star; try congruence.*)
