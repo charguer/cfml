@@ -320,12 +320,12 @@ Proof.
 	lets (x & q & ->): list_neq_nil_inv_last L HL.
 	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xpay. xappn*.
-	{ unfolds* Wrap_up. }
+	{ unwrap_up. }
 	{ rew_list in *.
 		xsimpl.
 		{ fequals. fequals.
 			forwards* E: Iin (size - 1). rew_array in E.
-			case_if; try math. rew_maths. auto. }
+			case_if*; [rew_maths; auto | math]. }
 		{ xclose* c. xsimpl. } }
 Qed.
 
@@ -338,24 +338,20 @@ Lemma echunk_pop_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list
     POST (fun x => \exists L', c ~> EChunk L' \* \[L = L' & x]).
 Proof.
   introv HL.
-  xcf.
+  xcf*.
 	xpay. xapp*. intros x q E. subst.
 	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xapp*. xlets. xappn*.
-	{ unfolds* Wrap_up. }
+	{ unwrap_up. }
 	{ rew_list in *.
 		xvals*. xclose* c q.
 		{ constructors*; intros i Hi.
 			{ applys_eq* Iin; list_cases*.
-				{ false.
-					unfold Wrap_up in C.
-					case_if* in C; case_if* in C. rew_maths. math. }
-				{ unfolds* Wrap_up. } }
+				{ false. unwrap_up in C. math. }
+				{ unwrap_up. } }
 			{ list_cases*.
-				{ applys_eq Iout.
-					unfold Wrap_up in C.
-					case_if* in C; case_if* in C. }
-				{ unfolds* Wrap_up. } } }
+				{ applys_eq Iout. unwrap_up in C. }
+				{ unwrap_up. } } }
 		{ xsimpl*. } }
 Qed.
 
@@ -368,17 +364,14 @@ Lemma echunk_push_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: ech
     POSTUNIT (c ~> EChunk (L & x)).
 Proof.
   introv HL. unfolds IsFull.
-  xcf.
+  xcf*.
 	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
   xpay. xappn*.
-	{ unfolds* Wrap_up. }
+	{ unwrap_up. }
 	{ xclose* c (L & x).
-		{ constructors*; intros i Hi.
-			{ list_cases*; unfolds* Wrap_up; false.
-				{ case_if* in C0; case_if* in C0; rew_maths. }
-				{ case_if* in C1; case_if* in C1; rew_maths. } }
-			{ list_cases*; unfolds* Wrap_up; false.
-				{ case_if* in C; case_if* in C; rew_maths. } } }
+		(* Je ne suis pas sur de comprendre comment Coq fait fonctionner la preuve qui suit
+			sans précisions supplémentaires, mais tant mieux *)
+		{ constructors*; intros i Hi; list_cases*; unfolds* Wrap_up; false; unwrap_up. }
 		{ xsimpl*. } }
 Qed.
 
@@ -399,7 +392,7 @@ Proof.
 	{ constructors*; auto. }
 	{ xsimpl*. fequals.
 		forwards* E: (Iin 0). rew_list in E. rewrite <- E.
-		fequals. unfold Wrap_up. case_if*. }
+		fequals. unwrap_up. }
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_peek_front) => Provide echunk_peek_front_spec.
@@ -418,19 +411,55 @@ Proof.
 	{ rew_list in *. constructors*.
 		{ intros i Hi.
 			list_cases*.
-			{ false. unfold Wrap_up in C. case_if* in C; case_if* in C. math. }
+			{ false. unwrap_up in C. math. }
 			{ applys_eq* (Iin (1 + i)).
-				{ fequals. unfold Wrap_up. case_if*; case_if*; case_if*. }
+				{ fequals. unwrap_up. }
 				{ rewrite read_cons_pos.
 					{ fequals*. }
 					{ math. } } }
-			{ unfolds* Wrap_up. } }
+			{ unwrap_up. } }
 		{ intros i Hi.
 			list_cases*.
 			{ applys_eq* (Iout (1 + i)).
-				{ fequals. unfold Wrap_up. case_if*; case_if*; case_if*. }
-				{ unfold Wrap_up in C. case_if* in C; case_if* in C. } } } }
+				{ fequals. unwrap_up. }
+				{ unwrap_up in C. } } 
+			{	unwrap_up. } }
+		{ unwrap_up. } }
 	{ xsimpl*. }
+Qed.
+
+Hint Extern 1 (RegisterSpec echunk_pop_front) => Provide echunk_pop_front_spec.
+
+Lemma echunp_push_front_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (x: A) (L: list A),
+	~(IsFull L) ->
+	SPEC (echunk_push_front c x)
+		PRE (\$2 \* c ~> EChunk L)
+		POSTUNIT (c ~> EChunk (x :: L)).
+Proof.
+	introv HL. unfolds IsFull.
+	xcf*.
+	xopen* c. intros data D front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xpay. xappn*.
+	{ unwrap_down. }
+	{ xclose* c (x :: L).
+		{ constructors*.
+			{ intros i Hi.
+				list_cases*. (* Factorisable ? *)
+				{ false. unwrap_down in C0; unwrap_up in C0. }
+				{ unwrap_down; unwrap_up. }
+				{ false. unwrap_down in C0; unwrap_up in C0. }
+				{ applys_eq* (Iin (i - 1)).
+					fequals. unwrap_down; unwrap_up. }
+				{ unwrap_down; unwrap_up. } }
+			{ intros i Hi.
+				list_cases*.
+				{ false. unwrap_down in C; unwrap_up in C. }
+				{ applys_eq* (Iout (i - 1)).
+					fequals. unwrap_down; unwrap_up. }
+				{ unwrap_down; unwrap_up. } }
+			{ unwrap_down. } }
+		{ xsimpl*. } }
+Qed.
 
 (* Axiom Array_copy_spec : forall (A:Type) (EA:Enc A) (a:array A) (xs:list A),
   SPEC (Array_ml.copy a)
