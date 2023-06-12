@@ -3,7 +3,7 @@
 *)
 type 'a parray = {
   mutable data : 'a _parray;
-  length : int
+  size : int
 } and 'a _parray =
 | PArray_Base of 'a array
 | PArray_Diff of 'a parray_diff
@@ -14,48 +14,35 @@ and 'a parray_diff = {
 }
 
 let parray_create size a =
-  { data = PArray_Base (Array.make size a); length = size }
+  { data = PArray_Base (Array.make size a); size = size }
 
 let parray_length a =
-  a.length
+  a.size
 
-(* On ramène le tableau de base à la version actuelle. *)
-let rec parray_pull pa =
-  match pa.data with
-  | PArray_Base _ -> ()
-  | PArray_Diff d ->
-    parray_pull d.origin;
-    match d.origin.data with
-    | PArray_Base a ->
-      d.origin.data <- PArray_Diff { origin = pa; index = d.index; value = a.(d.index) };
-      a.(d.index) <- d.value;
-      pa.data <- PArray_Base a
-    | PArray_Diff _ -> ()
-
-let rec parray_get pa i =
-  parray_pull pa;
-  match pa.data with
-  | PArray_Base a -> a.(i)
-  | PArray_Diff d -> if d.index = i then d.value else parray_get d.origin i
-
-let rec parray_set pa i x =
-  parray_pull pa;
-  match pa.data with
-  | PArray_Base a ->
-    let new_ver = { data = PArray_Base a; length = pa.length } in
-    pa.data <- PArray_Diff { origin = new_ver; index = i; value = a.(i) };
-    a.(i) <- x;
-    new_ver
-  | PArray_Diff _ -> { data = PArray_Diff { origin = pa; index = i; value = x }; length = pa.length }
-
+(* On coupe la chaîne avec un nouveau tableau contenant toutes les modifications de la version. *)
 let rec parray_base_copy pa =
   match pa.data with
-  | PArray_Base a -> Array.copy a
+  | PArray_Base a -> (Array.copy a)
   | PArray_Diff d ->
-    let c = parray_base_copy d.origin in
-    c.(d.index) <- d.value;
-    c
+    let new_base = parray_base_copy d.origin in
+    new_base.(d.index) <- d.value;
+    new_base
 
-let parray_copy pa =
-  (* parray_pull pa; -- considère-t-on qu'une copie nous met en version la plus récente utilisée, je dirais que non *)
-  { data = PArray_Base (parray_base_copy pa); length = pa.length }
+let parray_get pa i =
+  let base = match pa.data with
+  | PArray_Base a -> a
+  | PArray_Diff _ -> parray_base_copy pa
+  in
+  pa.data <- PArray_Base base;
+  base.(i)
+
+let parray_set pa i x =
+  let base = match pa.data with
+  | PArray_Base a -> a
+  | PArray_Diff _ -> parray_base_copy pa
+  in
+  pa.data <- PArray_Base base;
+  base.(i) <- x
+
+(* Pour la copie : on peut juste renvoyer le même parray, puisqu'il pointera toujours sur la même version ? *)
+let parray_copy pa = pa
