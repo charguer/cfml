@@ -2,16 +2,11 @@
   Type pour un tableau persistant
 *)
 type 'a parray = {
-  mutable data : 'a _parray;
+  mutable data : 'a parray_desc;
   size : int
-} and 'a _parray =
+} and 'a parray_desc =
 | PArray_Base of 'a array
-| PArray_Diff of 'a parray_diff
-and 'a parray_diff = {
-  origin : 'a parray;
-  index : int;
-  value : 'a
-}
+| PArray_Diff of 'a parray * int * 'a
 
 let parray_create size a =
   { data = PArray_Base (Array.make size a); size = size }
@@ -23,15 +18,15 @@ let parray_length a =
 let rec parray_base_copy pa =
   match pa.data with
   | PArray_Base a -> (Array.copy a)
-  | PArray_Diff d ->
-    let new_base = parray_base_copy d.origin in
-    new_base.(d.index) <- d.value;
+  | PArray_Diff (origin, index, value) ->
+    let new_base = parray_base_copy origin in
+    new_base.(index) <- value;
     new_base
 
 let parray_get pa i =
   let base = match pa.data with
   | PArray_Base a -> a
-  | PArray_Diff _ -> parray_base_copy pa
+  | PArray_Diff (_, _, _) -> parray_base_copy pa
   in
   pa.data <- PArray_Base base;
   base.(i)
@@ -39,10 +34,12 @@ let parray_get pa i =
 let parray_set pa i x =
   let base = match pa.data with
   | PArray_Base a -> a
-  | PArray_Diff _ -> parray_base_copy pa
+  | PArray_Diff (_, _, _) -> parray_base_copy pa
   in
-  pa.data <- PArray_Base base;
-  base.(i) <- x
+  let new_version = { data = PArray_Base base; size = pa.size } in
+  pa.data <- PArray_Diff (new_version, i, base.(i));
+  base.(i) <- x;
+  new_version
 
 (* Pour la copie : on peut juste renvoyer le même parray, puisqu'il pointera toujours sur la même version ? *)
 let parray_copy pa = pa
