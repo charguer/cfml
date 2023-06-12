@@ -1,6 +1,6 @@
 Set Implicit Arguments.
 
-From CFML Require Import Semantics LibSepFmap.
+From CFML Require Import Semantics LibSepFmap OmnibigMeta.
 Import LibListNotation.
 
 From compcert Require Integers.
@@ -601,6 +601,7 @@ Section Semantics.
                          /\ Q v)) ->
       cfml_omnibig_lvalue G s e Q.
 
+
   (** eval a list of expressions to a list of postconditions *)
   Inductive cfml_omnibig_expr_list (G : val_env) (s : state) :
     list trm -> list val_pc -> Prop :=
@@ -616,22 +617,15 @@ Section Semantics.
     length Qs = length vs /\
     fold_right (fun '(Q, v) p => p /\ Q v) True (combine Qs vs).
 
-  (* (** ** Eventually judgment for exprs *) *)
 
-  (* Reserved Notation "G '/' t '/' s '-->e⋄' P" (at level 40, t, s at level 30). *)
 
-  (* Inductive eventually_expr : val_env -> state -> trm -> postcond -> Prop := *)
-  (* | eventually_expr_here : forall s G t P, *)
-  (*     P s G t -> *)
-  (*     G / t / s -->e⋄ P *)
-  (* | eventually_expr_step : forall G s t P1 P, *)
-  (*     G / t / s -->e P1 -> *)
-  (*     (forall s' G' t', P1 s' G' t' -> *)
-  (*                  G' / t' / s' -->e⋄ P) -> *)
-  (*     G / t / s -->e⋄ P *)
 
-  (* where "G '/' t '/' s '-->e⋄' P" := (eventually_expr G s t P). *)
-
+  Lemma omnibig_expr_pc_not_empty : forall G s e Q,
+      G / s / e ⇓ Q -> exists v, Q v.
+  Proof.
+    intros. induction H; eauto.
+    inversion H; subst; firstorder.
+  Qed.
 
 
   (** *** Bind contexts where arguments are restricted to pure expressions *)
@@ -893,8 +887,8 @@ Section Semantics.
       Fmap.indom s l ->
       l <> null ->
       cfml_omnibig_expr G s e Qe ->
-      (forall v, Qe v ->
-            exists l', v = val_loc l' /\
+      (forall v, Qe v -> exists l', v = val_loc l') ->
+      (forall (l': loc), Qe (val_loc l') ->
                     F / (f, G, Fmap.update s l (val_loc l'), t, k) ==> Qb) ->
       F / (f, G, s, trm_let (binding_var (x, Some i) ty heap) e t, k) ==> Qb
 
@@ -961,6 +955,131 @@ Section Semantics.
 
   where "F / c ==> Q" := (cfml_omnibig_stmt F c Q).
 
+
+
+
+  (* Ind principle *)
+
+(*
+  Fixpoint cfml_omnibig_stmt_induct
+    (F : fundef_env) (P : config -> big_pc -> Prop)
+  (f : forall (C : trm -> trm) (f : fundef) G s t k Qb1 Qb,
+       eval_trm_ctx C ->
+       ~ trm_is_val t ->
+       F / (f, G, s, t, k) ==> Qb1 ->
+       P (f, G, s, t, k) Qb1 ->
+       (forall c1 : final_config, Qb1 c1 -> F / apply_ctx_cfg C c1 ==> Qb) ->
+       (forall c1 : final_config, Qb1 c1 -> P (apply_ctx_cfg C c1) Qb) ->
+       P (f, G, s, C t, k) Qb)
+  (f0 : forall (f0 f' : fundef) (xf : var) (i_f : positive) G s,
+        var ->
+        forall (ty : type) (es : list trm) (Qs : list val_pc)
+          (prms : list (AST.ident * type)) k Qb1,
+        big_pc ->
+        F ! i_f = Some f0 ->
+        R_params (params f0) prms ->
+        ty = rettype f0 ->
+        cfml_omnibig_expr_list G s es Qs ->
+        (forall (vs : list val) G',
+         val_list_sat_pc_list Qs vs ->
+         G' =
+         fold_right (fun '(i, ty0, v) G0 => PTree.set i (v, const, ty0) G0) G
+           (combine prms vs) -> F / (f0, G', s, body f0, Ccall f' G k) ==> Qb1) ->
+        (forall (vs : list val) G',
+         val_list_sat_pc_list Qs vs ->
+         G' =
+         fold_right (fun '(i, ty0, v) G0 => PTree.set i (v, const, ty0) G0) G
+           (combine prms vs) -> P (f0, G', s, body f0, Ccall f' G k) Qb1) ->
+        P (f', G, s, trm_apps (trm_var (xf, Some i_f)) es, k) Qb1)
+  (f1 : forall (f1 : fundef) G s x (ty : type) t k Qb,
+        F / (f1, G, s, t, k) ==> Qb ->
+        P (f1, G, s, t, k) Qb ->
+        P (f1, G, s, <{ let (x : ty#stack) = val_uninitialized in
+                        t }>, k) Qb)
+  (f2 : forall (f2 : fundef) G s x (i : positive) (ty : type)
+          l (e t : trm) k (Qe : val_pc) Qb,
+        G ! i = Some (val_loc l, heap, ty) ->
+        Fmap.indom s l ->
+        l <> null ->
+        G / s / e ⇓ Qe ->
+        (forall v, Qe v -> exists l', v = l'
+                           /\ F / (f2, G, Fmap.update s l l', t, k) ==> Qb
+        (* /\ P (f2, G, Fmap.update s l l', t, k) Qb *)
+        ) ->
+        (forall (l' : loc), Qe (val_loc l') ->
+                       P (f2, G, Fmap.update s l l', t, k) Qb) ->
+        P (f2, G, s, <{ let ({(x, Some i)} : ty#heap) = e in
+                        t }>, k) Qb)
+  (f3 : forall (f3 : fundef) G s x (i : positive) (ty : type) v t k Qb,
+        v <> val_uninitialized ->
+        (forall l, v <> l) ->
+        F / (f3, PTree.set i (v, const, ty) G, s, t, k) ==> Qb ->
+        P (f3, PTree.set i (v, const, ty) G, s, t, k) Qb ->
+        P (f3, G, s, <{ let ({(x, Some i)} : ty#const) = v in
+                        t }>, k) Qb)
+  (f4 : var ->
+        forall (f4 : fundef) G s (e : trm) k (Qe : val_pc) Qb,
+        is_expr e ->
+        G / s / e ⇓ Qe ->
+        (forall v, Qe v -> Qb (f4, G, s, v, k)) -> P (f4, G, s, e, k) Qb)
+  (f5 : forall (f5 : fundef) G v1 t2 s k Qb,
+        F / (f5, G, s, t2, k) ==> Qb ->
+        P (f5, G, s, t2, k) Qb -> P (f5, G, s, <{ v1;
+                                                  t2 }>, k) Qb)
+  (f6 : forall (f6 : fundef) G s (e e' : trm) (Qe Qe' : val_pc) k Qb,
+      cfml_omnibig_lvalue G s e Qe ->
+      G / s / e' ⇓ Qe' ->
+      (forall v v',
+          Qe v ->
+          Qe' v' ->
+          exists l, v = l /\
+                 Fmap.indom s l /\
+                 Qb (f6, G, Fmap.update s l v', (), k)) ->
+      P (f6, G, s, <{ val_set(e, e') }>, k) Qb)
+  (f7 : forall (f7 : fundef) G (n : int) (sa : Fmap.fmap nat val) k Qb (ty : type),
+      (forall l (i : nat) (sb : Fmap.fmap nat val),
+          sb = Fmap.conseq (make i val_uninitialized) l ->
+          n = i ->
+          l <> null ->
+          Fmap.disjoint sa sb -> Qb (f7, G, sb \+ sa, val_loc l, k)) ->
+      (exists l (i : nat) (sb : Fmap.fmap nat val),
+          sb = Fmap.conseq (make i val_uninitialized) l /\
+            n = i /\ l <> null /\ Fmap.disjoint sa sb) ->
+      P (f7, G, sa, <{ (alloc ty)(n) }>, k) Qb)
+  (f8 : forall (f8 : fundef) G (n : int) s l k Qb (ty : type),
+        (forall (vs : list val) (sa sb : fmap loc val),
+         s = sb \+ sa ->
+         sb = Fmap.conseq vs l ->
+         n = length vs -> Fmap.disjoint sa sb -> Qb (f8, G, sa, (), k)) ->
+        (exists (vs : list val) (sa sb : fmap loc val),
+           s = sb \+ sa /\
+           sb = Fmap.conseq vs l /\ n = length vs /\ Fmap.disjoint sa sb) ->
+        P (f8, G, s, <{ (dealloc ty)(n,l) }>, k) Qb)
+  (f9 : forall (f9 : fundef) G (e : trm),
+        int ->
+        forall t1 t2 s k (Qe : val_pc) Qb,
+        G / s / e ⇓ Qe ->
+        (forall n0 : int,
+         Qe (val_int n0) ->
+         F / (f9, G, s, if (n0 =? 0)%Z then t2 else t1, k) ==> Qb) ->
+        (forall n0 : int,
+         Qe (val_int n0) -> P (f9, G, s, if (n0 =? 0)%Z then t2 else t1, k) Qb) ->
+        P (f9, G, s, <{ if e then t1 else t2 }>, k) Qb)
+  (f10 : forall (f10 : fundef) G (e t : trm) s k Qb,
+         F / (f10, G, s, <{ if e then t; while e do t done else () }>, k) ==> Qb ->
+         P (f10, G, s, <{ if e then t; while e do t done else () }>, k) Qb ->
+         P (f10, G, s, <{ while e do t done }>, k) Qb)
+  (c : config)
+  (Qb : big_pc)
+  (Hbig : F / c ==> Qb) : P c Qb.
+  Proof.
+    intros. induction Hbig; eauto.
+    eapply f2; eauto.
+    intros. forwards *: H3 v H4. destruct H5 as (l' & Hl' & Hred).
+    exists l'. splits; eauto. eapply cfml_omnibig_stmt_induct; eauto.
+  Defined.
+
+ *)
 
 End Semantics.
 

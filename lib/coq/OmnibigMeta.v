@@ -13,11 +13,6 @@ Section Omni_and_big_correction.
 
   Definition pc : Type := sVal -> Prop. (* postconditions *)
 
-  Variable compile : sTrm -> tTrm.
-
-  Variable R : sTrm -> tTrm -> Prop.
-
-  Variable Rval : sVal -> tVal -> Prop.
 
   (* Variable comp_values : sVal -> tVal. *)
   (* Variable comp_values_inv : tVal -> sVal. *)
@@ -34,6 +29,18 @@ Section Omni_and_big_correction.
   Definition terminates {trm : Type} {val : Type} {exec : bigstep trm val}
     (t : trm) : Prop :=
     exists (v : val), exec t v.
+
+
+  Definition post_not_empty : Prop :=
+    forall (s : sTrm) (Q : pc),
+      sOmniBig s Q ->
+      exists v, Q v.
+
+  Variable compile : sTrm -> tTrm.
+
+  Variable R : sTrm -> tTrm -> Prop.
+
+  Variable Rval : sVal -> tVal -> Prop.
 
   Definition lift_R (R : sVal -> tVal -> Prop) : ((sVal -> Prop) -> tVal -> Prop) :=
     fun P vt => exists vs, P vs /\ R vs vt.

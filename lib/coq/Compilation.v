@@ -6,7 +6,8 @@ From CFML Require OmnibigMeta.
 From CFML Require Import Semantics LibSepFmap CFML_C ClightInterface.
 Import LibListNotation.
 
-From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Clight ClightBigstep.
+From compcert Require Coqlib Maps Integers Floats Values AST Ctypes Ctyping
+  Clight ClightBigstep.
 From compcert Require Import Maps Errors SimplExpr Globalenvs.
 
 (* utility for var-ident translation *)
@@ -363,6 +364,13 @@ Module cc_types.
 
   Notation ptr_ofs := Integers.Ptrofs.int.
 
+
+  Notation sizeof ty := (Clight.Esizeof ty (Ctyping.size_t)).
+
+
+  (* Lemma all_access_by_value : *)
+  (*   forall (ty : CFML_C.type), Ctypes.access_mode ty =  *)
+
 End cc_types.
 
 
@@ -379,6 +387,8 @@ Section Compil.
     Integers.Ptrofs.to_int64 (Integers.Ptrofs.repr n).
 
 
+
+  Notation e_mult e1 e2 ty := (Clight.Ebinop Cop.Omul e1 e2 ty).
 
 
 
@@ -535,25 +545,20 @@ Section Compil.
     (*      to a temp *)
     | trm_let (binding_var x ty const)
         (trm_apps (val_alloc ty') [tn] ) tk =>
-        if CFML_C.eq_type_dec ty ty' then
+        if CFML_C.eq_type_dec ty (type_ref ty') then
           do i <- get_ident x;
           do en <- auxe tn;
           do stk <- aux tk;
           OK ([| Clight.Sbuiltin (Some i) AST.EF_malloc
-                   ([[tr_types ty]])
-                   (en :: nil) ;;
+                   ([[Ctyping.size_t]])
+                   ((e_mult en (sizeof ty') Ctyping.size_t) :: nil) ;;
                  stk |])
         else Error (msg "tr_trm_stmt: type mismatch in alloc")
 
     (* [let x = e in tk] *)
-    | trm_let (binding_var x ty d) (val_uninitialized) tk =>
-        match d with
-        | stack =>
+    | trm_let (binding_var x ty stack) (val_uninitialized) tk =>
             do stk <- aux tk;
             OK stk
-        | _ =>
-            Error (msg "tr_trm_stmt: only stack variabels can be declared as uninitialised")
-        end
 
     | trm_let (binding_var x ty d) t tk =>
         do i <- get_ident x;
@@ -852,14 +857,15 @@ rel_state -> fresh l g -> fresh l s
         (*                     f (l, n) = (b, ofsl, ofsh) -> *)
         (*                     Pos.to_nat n = ofsh - ofsl + 1 :> int) -> *)
 
-        (forall l n (n' : nat) (l' : loc) b ofsl vt ty, List.In (l, n, ty) ll ->
+        (forall l n (n' : nat) (l' : loc) b ofsl ty, List.In (l, n, ty) ll ->
                   (n' < Pos.to_nat n)%nat ->
                   (l' : nat) = (l : nat) + n' :> int ->
                   f l = (b, ofsl) ->
                   let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in
+                  exists vt,
                   Fmap.indom s l'
-                  /\ Memory.Mem.valid_access m chunk b (ofsl+n') Memtype.Writable
-                  /\ (Memory.Mem.load chunk m b (ofsl + n') = Some vt)
+                  /\ Memory.Mem.valid_access m chunk b n' Memtype.Writable
+                  /\ (Memory.Mem.load chunk m b n' = Some vt)
                   /\ match_values (Fmap.read s l') vt) ->
 
         (* env and memory ok *)
@@ -902,15 +908,15 @@ rel_state -> fresh l g -> fresh l s
         (*                     f (l, ty) = (b, ofsl, ofsh) -> *)
         (*                     Pos.to_nat n = ofsh - ofsl + 1 :> int) -> *)
 
-        (forall l n (n' : nat) ty (l' : loc) b ofsl vt, List.In (l, n, ty) ll ->
+        (forall l n (n' : nat) ty (l' : loc) b ofsl, List.In (l, n, ty) ll ->
                   (n' < Pos.to_nat n)%nat ->
                   (l' : nat) = (l : nat) + n' :> int ->
                   f l = (b, ofsl) ->
                   let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in
+                  exists vt,
                   Fmap.indom s l'
-                  /\ Memory.Mem.valid_access m chunk b (ofsl+n') Memtype.Writable
-                  /\ Memory.Mem.load chunk
-                      m b (ofsl + n') = Some vt
+                  /\ Memory.Mem.valid_access m chunk b n' Memtype.Writable
+                  /\ Memory.Mem.load chunk m b n' = Some vt
                   /\ match_values (Fmap.read s l') vt) ->
 
         (* env and memory ok *)
@@ -947,10 +953,10 @@ rel_state -> fresh l g -> fresh l s
 
         (* match_final_env G te *)
 
-        (forall (i : AST.ident) (vs : val) (ty : type) (vt : Values.val),
-            G ! i = Some (vs, const, ty) ->
-            match_values vs vt ->
-            te ! i = Some vt) ->
+        (forall i v ty,
+            PTree.get i G = Some (v, const, ty) ->
+            (exists vt, PTree.get i te = Some vt /\ match_values v vt)
+        ) ->
 
         (* /\ match_memories s m *)
 
@@ -961,15 +967,15 @@ rel_state -> fresh l g -> fresh l s
         (*                     f (l, n) = (b, ofsl, ofsh) -> *)
         (*                     Pos.to_nat n = ofsh - ofsl + 1 :> int) -> *)
 
-        (forall l n (n' : nat) ty (l' : loc) b ofsl vt, List.In (l, n, ty) ll ->
+        (forall l n (n' : nat) ty (l' : loc) b ofsl, List.In (l, n, ty) ll ->
                   (n' < Pos.to_nat n)%nat ->
                   (l' : nat) = (l : nat) + n' :> int ->
                   f l = (b, ofsl) ->
                   let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in
+                  exists vt,
                   Fmap.indom s l'
-                  /\ Memory.Mem.valid_access m chunk b (ofsl+n') Memtype.Writable
-                  /\ Memory.Mem.load chunk
-                      m b (ofsl + n') = Some vt
+                  /\ Memory.Mem.valid_access m chunk b n' Memtype.Writable
+                  /\ Memory.Mem.load chunk m b n' = Some vt
                   /\ match_values (Fmap.read s l') vt) ->
 
         match_outs v out ->
@@ -982,7 +988,8 @@ rel_state -> fresh l g -> fresh l s
     forall '(f, G, s, te, k) env le m a Q,
       match_config_expr E (f, G, s, te, k) (env, le, m, a) ->
       cfml_omnibig_expr G s te Q ->
-      exists v, Clight.eval_expr ge env le m a v.
+      exists v, Clight.eval_expr ge env le m a v /\
+             (exists vs, Q vs /\ match_values vs v).
   Proof.
   Admitted.
 
@@ -993,9 +1000,10 @@ rel_state -> fresh l g -> fresh l s
       omni_exec_stmt ge cc (fun ft => exists fs, Q fs /\ match_final_states FT E fs ft).
   Proof.
     introv H Hred. generalize dependent cc.
-    induction Hred; introv HR; inversion HR as [? ? ? ? ? ? ? ? ? ? ? fmem
-                                                  Hcomp Htenv Henv
-                                                  Hfmem Hmemvals Hmemenv]; subst.
+    induction Hred; introv HR;
+      inversion HR as [? ? ? ? ? ? ? ? ? ? ? fmem
+                         Hcomp Htenv Henv
+                         Hfmem Hmemvals Hmemenv]; subst.
     (* bind rule *)
     - admit.
     (* funcall *)
@@ -1003,70 +1011,80 @@ rel_state -> fresh l g -> fresh l s
     (* let x (stack) = val_uninit in t *)
     - cbn in Hcomp. monadInv Hcomp. forwards*: IHHred. constructors *.
     (* let p (heap) = e in t *)
-    - cbn in Hcomp. destruct e; try solve [inversion Hcomp].
-      + destruct v; try solve [inversion Hcomp].
-        inversion H2. forwards *: evalctx_expr_not_val C t0 (val_int z).
-        forwards *: H3 (val_int z) H5. destruct H7 as (l'&[=]&_).
-      + rename v into x'. monadInv Hcomp. destruct ty; inversion EQ2.
-        set (Q1 := (fun fc => ClightInterface.exec_stmt'
-                             ge (e0, te, m,
-                               (Clight.Sassign (Clight.Evar i (pointer ty)) x0))
-                             fc)).
-        (* set (Q1 := (fun '(le', m', out) => *)
-        (*              let a1 := Clight.Evar i (pointer ty) in *)
-        (*              let a2 := x0 in *)
-        (*              forall loc ofs bf v0 v2, *)
-        (*                Clight.eval_lvalue ge e0 te m a1 loc ofs bf -> *)
-        (*                Clight.eval_expr ge e0 te m a2 v2 -> *)
-        (*                Cop.sem_cast v2 (Clight.typeof a2) (Clight.typeof a1) m = Some v0 -> *)
-        (*                Clight.assign_loc (Clight.genv_cenv ge) (Clight.typeof a1) m loc ofs bf v0 m' *)
-        (*                /\ le' = te *)
-        (*                /\ out = ClightBigstep.Out_normal *)
-        (*           )). *)
-        applys * (>> omni_exec_Sseq_1 Q1).
+    - cbn in Hcomp. monadInv Hcomp.
+      (* (* destruct (omnibig_expr_pc_not_empty H2) as (ve&HveQe). *) *)
+      (* destruct e; try solve [inversion Hcomp]. *)
+      (* + destruct v; try solve [inversion Hcomp]. *)
+      (*   inversion H2; subst. forwards *: evalctx_expr_not_val C t0 (val_int z). *)
+      (*   forwards *: H3 (val_int z) H7. destruct H6 as (l'&[=]). *)
+      destruct ty; inversion EQ2.
+      set (Qi1 := (fun '(f', G', s', v', k') =>
+                    f' = f
+                    /\ k' = k
+                    /\ G' = G
+                    /\ v' = val_unit
+                    /\ (exists l', Qe l' -> s' = Fmap.update s l l'))).
+      set (Q1 := (fun ft => exists fs, Qi1 fs /\ match_final_states FT E fs ft)).
+
+
+
+
+      (* set (Q1 := (fun fc => ClightInterface.exec_stmt' *)
+      (*                      ge (e0, te, m, *)
+      (*                        (Clight.Sassign (Clight.Evar i (pointer ty)) x0)) *)
+      (*                      fc)). *)
+        forwards * : (>> omni_exec_Sseq_1 Q1).
         * forwards *Hi_in_e: Henv i l (type_ref ty) heap H.
-          destruct (Hi_in_e) as (b & n & ofsl & ofsh & Hi_fmem & Hi).
-          forwards *Htr_expr: forward_expr E ge (f, G, s, trm_var x', k) e0 te.
-          { constructors *.  } destruct Htr_expr as (v & Hevalx0).
-          constructors *.
-          ** constructor. eapply Hi. (* lvalue *)
-          ** admit.              (* sem_cast *)
-          ** cbn.                (* assign_loc *)
-             (* apply Hmemdom in H0. destruct H0 as [n Hln]. *)
-             forwards *: Hmemvals. eapply Pos2Nat.is_pos.
-             apply Zplus_0_r_reverse. destruct H4 as (_ & Hperm & Hload & Hmatch).
-             eapply Clight.assign_loc_value. reflexivity.
-             cbn. forwards *: Memory.Mem.valid_access_store Hperm.
-          ** cbn. auto. constructors *. constructor. eapply Hi.
+          destruct (Hi_in_e) as (b & n & ofsl & Hiinll & Hi_fmem & Hi).
+          forwards *Htr_expr: forward_expr E ge (f, G, s, e, k) e0 te.
+          { constructors *. } destruct Htr_expr as (v & Hevalx0 & Hmatchv).
+          forwards *: Hmemvals.
+          { eapply Pos2Nat.is_pos. }
+          { apply Zplus_0_r_reverse. }
+          destruct H6 as (vt & _ & Hperm & Hload & Hmatch).
+          forwards *: Memory.Mem.valid_access_store Hperm.
+          destruct H6 as (m2 & Hstore).
+          constructors*.
+          ** constructors*.
+          ** cuts *Hsemcast:(Cop.sem_cast v (Clight.typeof x0)
+                      (Clight.typeof (Clight.Evar i (pointer ty))) m = Some v).
+              admit.
+          ** cbn. eapply Clight.assign_loc_value. reflexivity.
+              cbn. apply Hstore.
+          ** destruct Hmatchv as (ve & HveQe & Hmatchve).
+             destruct (H3 ve HveQe) as (lve & ?); subst.
+             unfold Q1, Qi1.
+             exists (f, G, Fmap.update s l lve, (), k).
+             splits*.
+             { constructors*.
+               - intros. forwards *: Hmemvals.
+                 destruct H10 as (?&?&?&?&?).
+                 setoid_rewrite Fmap.update_eq_union_single.
+                 case (Pos.eq_dec b b0); case (Nat.eq_dec n' 0); intros; subst;
+                 [exists v | exists x2 | exists x2 | exists x2]; splits.
+                 + rewrite Fmap.indom_union_eq. right. auto.
+                 + eapply Memory.Mem.store_valid_access_1.
+                   eapply Hstore. eapply H11.
+                 + forwards *: Memory.Mem.load_store_same.
+                   rewrite Values.Val.load_result_same in H14.
+                   eapply H14.
+             }
+
+        (* * intros. inverts keep H6; subst. *)
+        (*   destruct (omnibig_expr_pc_not_empty H2) as (ve&HveQe). *)
+        (*   destruct (H3 ve HveQe) as (lve & ?); subst. *)
+        (*   forwards *:H5. *)
+        (*   constructors*. *)
+        (*   ** intros. *)
+        (*      inverts keep H10. 2:{skip.} *)
+        (*      case (Nat.eq_dec l0 l); case (Nat.eq_dec n' 0); intros; subst. *)
+        (*      *** setoid_rewrite Fmap.update_eq_union_single. *)
+        (*          splits*; forwards* :Hmemvals; inversion H16; inversion H14; subst. *)
+        (*          { rewrite Fmap.indom_union_eq. left. apply Fmap.indom_single. } *)
+        (*          { eapply Memory.Mem.store_valid_access_1. eapply H17. eapply H13. } *)
+        (*          {  *)
 
 
-
-  (* Lemma forward (F : CFML_C.fundef_env) (FT : funtypes_env) (E : env_var) (ge : Clight.genv) : forall (c : CFML_C.config) (cc : ClightInterface.config) (Q : big_pc), *)
-  (*     compile_config FT E c = OK cc -> *)
-  (*     cfml_omnibig_stmt F c Q -> *)
-  (*     ClightInterface.terminates ge cc *)
-  (*     /\ (forall fc, ClightInterface.exec_stmt' ge cc fc -> *)
-  (*              lift_R (match_final_states FT E) Q fc). *)
-  (* Proof. *)
-  (*   introv Hcomp Hred. generalize dependent cc. *)
-  (*   induction Hred; introv Hcomp. *)
-  (*   - admit.                    (* MDR les contextes on verra plus tard *) *)
-  (*   - admit.                    (* idem pour les apps *) *)
-  (*   - forwards*: IHHred. simpl in Hcomp. simpl. *)
-  (*     monadInv Hcomp. monadInv EQ0. rewrite EQ, EQ1, EQ2. auto. *)
-  (*   - destruct d; simpl in Hcomp. *)
-  (*     + destruct v; try contradiction; cbn in *; monadInv Hcomp. *)
-  (*       monadInv EQ0. *)
-  (*       rewrites * (>> tr_env_set_stack_or_heap x0 x1) in IHHred. *)
-
-
-
-
-  (*       set (cc' := (do (e, te) <- tr_env (PTree.set i (val_int z, stack, ty) G); *)
-  (*                    do m <- compile_init_mem s; do stmt <- tr_trm_stmt E FT t; OK (e, te, m, stmt))%error_scope). *)
-  (*       rewrite (tr_env_set_stack_or_heap G i) in cc'. *)
-  (*       rewrite EQ1 in cc'. EQ2 in cc'. *)
-  (*       forwards*: IHHred cc'.  *)
 
   (** ** Correctness of statement translation *)
   (* Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop := *)
