@@ -2814,7 +2814,13 @@ Ltac xpay_pre_nosimpl_core tt :=
 Tactic Notation "xpay_pre_nosimpl" :=
   xpay_pre_nosimpl_core tt.
 
+(* Only for devlopment *)
+Axiom xpay_lemma_skip : forall H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay F1) Q.
 
+Tactic Notation "xpay_skip" :=
+  apply xpay_lemma_skip.
 
 (* BONUS
 Lemma xpay_lemma_post_evar : forall H F1 A (EA:Enc A) (Q1:A->hprop),
