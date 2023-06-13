@@ -2,17 +2,18 @@
   Type pour un tableau persistant
 *)
 type 'a parray = {
-  mutable data : 'a parray_desc;
-  size : int
+  mutable data : 'a parray_desc
 } and 'a parray_desc =
 | PArray_Base of 'a array
 | PArray_Diff of 'a parray * int * 'a
 
 let parray_create size a =
-  { data = PArray_Base (Array.make size a); size = size }
+  { data = PArray_Base (Array.make size a) }
 
-let parray_length a =
-  a.size
+let rec parray_length pa =
+  match pa.data with
+  | PArray_Base a -> Array.length a
+  | PArray_Diff (origin, _, _) -> parray_length origin
 
 (* On coupe la chaîne avec un nouveau tableau contenant toutes les modifications de la version. *)
 let rec parray_base_copy pa =
@@ -36,7 +37,7 @@ let parray_set pa i x =
   | PArray_Base a -> a
   | PArray_Diff (_, _, _) -> parray_base_copy pa
   in
-  let new_version = { data = PArray_Base base; size = pa.size } in
+  let new_version = { data = PArray_Base base } in
   pa.data <- PArray_Diff (new_version, i, base.(i));
   base.(i) <- x;
   new_version
