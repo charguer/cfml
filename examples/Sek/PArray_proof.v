@@ -195,12 +195,15 @@ Proof using.
 	{ xsimpl*; intros H; injection H as E1 E2 E3; subst; auto. }
 Qed.
 
-Hint Extern 1 (RegisterOpen PArray_Desc) => Provide PArray_Desc_eq_Base PArray_Desc_eq_Diff PArray_Desc_eq.
+Hint Extern 1 (RegisterOpen PArray_Desc) => Provide PArray_Desc_eq.
+
+
+
 
 Definition PArray A {EA: Enc A} (D: Desc A) (pa: parray_ A) : hprop :=
 	\exists d, pa ~~~> `{ data' := d } \* d ~> PArray_Desc D.
 
-Lemma PArray_eq : forall A (EA: Enc A) (D: Desc A) (pa: parray_ A),
+Lemma PArray_eq : forall A (pa: parray_ A) (EA: Enc A) (D: Desc A),
 	pa ~> PArray D =
 	\exists d, pa ~~~> `{ data' := d } \* d ~> PArray_Desc D.
 Proof using. auto. Qed.
@@ -219,7 +222,7 @@ Qed.
 Hint Resolve Heapdata_PArray.
 
 
-Definition Memory A : Type := map (parray_ A) (Desc A).
+Notation "'Memory' A" := (map (parray_ A) (Desc A)) (at level 69).
 
 Record Inv A {IA: Inhab A} {EA: Enc A} (M: Memory A) : Prop := {
 	Inv_closure : forall p,
@@ -272,17 +275,30 @@ Proof using.
   skip.
 Qed.
 
+#[global]
+Hint Rewrite @LibMap.dom_update : rew_map.
+
+Hint Extern 1 (dom _ \c dom _) => rew_map; set_prove.
+Hint Extern 1 (_ \in dom _) => rew_map; set_prove.
+Hint Extern 1 (?x <> ?y :> loc) => 
+  match goal with 
+  | H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false 
+  | H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false 
+  end.
+
+
+
 Lemma Extend_add_binding : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (D: Desc A),
 	~(pa \indom M) ->
 		Extend M (M[pa := D]).
 Proof using.
 	introv H. unfold Extend. split.
-	{ rew_set. (* TODO : AC *) skip. }
+	{ auto. (* rew_map. set_prove. *) }
 	{ intros L p Rp. induction Rp.
 		{ apply IsPArray_Base.
-			{ false. skip. }
-			{ skip. } }
-		{ skip. } }
+			{ auto. (* rew_map. set_prove. *) }
+			{ rew_map*. (* intros ->. false*. *) } }
+		{ applys* IsPArray_Diff. rew_map*. } }
 Qed.
 
 Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz: int) (d: A),
@@ -297,7 +313,7 @@ Proof using.
 	xapp*. intros a L E. subst.
 	xapp*. intros pa.
 
-	xchange* <- PArray_Desc_eq_Base. (* TODO : faire fonctionner xclose ? *)
+	xchange* <- PArray_Desc_eq_Base. 
 	xchange* <- PArray_eq.
 	unfold Shared.
 	xchange* (>> Group_add_fresh pa).
@@ -312,10 +328,8 @@ Proof using.
 				rewrites* read_update in H. case_if* in H.
 				forwards* Clos: Inv_closure H.
 				{ forwards* [|]: indom_update_inv Hindom; tryfalse. }
-				{ rewrites* (>> indom_update_eq M). } } }
-		{ apply IsPArray_Base.
-			{ apply* indom_update_same. }
-			{ rewrite* read_update_same. } } }
+				(*{ rewrites* (>> indom_update_eq M). }*) } }
+		{ applys* IsPArray_Base. rew_map*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_create) => Provide parray_create_spec.

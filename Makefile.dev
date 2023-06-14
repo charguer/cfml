@@ -88,6 +88,10 @@ EXAMPLES := $(CFML)/examples
 
 # FOLDER is the folder where to look for .v and .ml files by default 
 
+ifeq ($(FOLDER),)
+	$(error Variable FOLDER has not been set)
+endif
+
 
 ############################
 # COQBIN denotes the path to the Coq binaries (final slash is added if necessary)
@@ -181,6 +185,12 @@ ifeq ($(FOLDER),$(LIBCOQ))
    COQINCLUDE := $(COQLIBINCLUDE_COMMON) 
 else ifeq ($(FOLDER),$(STDLIB))
    COQINCLUDE := $(COQLIBINCLUDE_COMMON) $(COQLIBINCLUDE_STDLIB)
+else ifeq ($(FOLDER),$(CFML))
+	# probably trying to call "make ide" or "make fix",
+	# we set the folder name to the one in .coqerror
+	EXAMPLEFOLDER := cat .coq_error | tail -n 1 | sed 's/Compiling \([^"]*\)$$/\1/' | xargs dirname
+   COQINCLUDE := $(COQLIBINCLUDE_COMMON) $(COQLIBINCLUDE_STDLIB) -R `$(EXAMPLEFOLDER)` EXAMPLES
+
 else
 # Generate case for compiling case studies
    ifdef ARG_EXAMPLEINCLUDE
@@ -623,11 +633,13 @@ _CoqProject: .FORCE
 ##############################################################################
 # Rule for loading CoqIDE conveniently on the right files: `make ide` and `make fix`
 
+# use 'make ide' to work on files from lib/coq or lib/stdlib
 ide:
 	$(COQIDE) $(COQIDEOPTIONS) $(COQINCLUDE) $(COQPROJECTDEVEXTRA) $(OPENINIDE)
 
 COQERRORGET := cat .coq_error | tail -n 1 | sed 's/Compiling \([^"]*\)$$/\1/'
 
+# use 'make fix' to open the last file that was compiled in an example folder
 fix:
 	$(COQIDE) $(COQIDEOPTIONS) $(COQINCLUDE) $(COQPROJECTDEVEXTRA) `$(COQERRORGET)`
 
