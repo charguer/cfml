@@ -41,9 +41,10 @@ let parray_get pa i =
 
 let parray_set pa i x =
   let a = parray_rebase_and_get_array pa in
-  let pb = { data = PArray_Base a } in
-  pa.data <- PArray_Diff (pb, i, a.(i));
+  let v = a.(i) in
   a.(i) <- x;
+  let pb = { data = PArray_Base a } in
+  pa.data <- PArray_Diff (pb, i, v);
   pb
 
 let parray_copy pa =
