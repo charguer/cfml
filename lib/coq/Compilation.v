@@ -405,71 +405,6 @@ Section Compil.
 
   Local Open Scope error_monad_scope.
 
-  (* FIXME: not as easy to relate CFML locations and CompCert blocks *)
-  (** translate values (mostly for temporary environments) *)
-  (* Definition tr_val (v : val) : Values.val := *)
-  (*   match v with *)
-  (*   | val_uninitialized => Values.Vundef *)
-  (*   | val_loc O => Values.Vundef *)
-  (*   | val_loc l => Values.Vptr (Pos.of_nat l) Integers.Ptrofs.zero *)
-  (*   | val_int i => Values.Vlong i *)
-  (*   | val_unit => Values.Vlong 0 *)
-  (*   | val_prim _ => Values.Vundef *)
-  (*   end. *)
-
-  (* Definition R_env (G : val_env) *)
-  (*   (c_e : Clight.env) (c_te : Clight.temp_env) : Prop := *)
-  (*   forall (i : AST.ident), exists v d ty, *)
-  (*     PTree.get i G = Some (v, d, ty) -> *)
-  (*     match d with *)
-  (*     | heap *)
-  (*     | stack => *)
-  (*         exists (b : Values.block), *)
-  (*         PTree.get i c_e = Some (b, tr_types ty) *)
-  (*         /\ tr_val v = Values.Vptr b Integers.Ptrofs.zero *)
-  (*     | const => PTree.get i c_te = Some (tr_val v) *)
-  (*     end. *)
-
-
-  (* Definition tr_env (G : val_env) : res (Clight.env * Clight.temp_env) := *)
-  (*   PTree.fold (fun res i '(v, d, ty) => *)
-  (*                 match res with *)
-  (*                 | OK (e, ge) => *)
-  (*                     match d with *)
-  (*                     | stack *)
-  (*                     | heap => *)
-  (*                         match tr_val v with *)
-  (*                         | Values.Vptr b ofs => *)
-  (*                             OK ((PTree.set i (b, tr_types ty) e), ge) *)
-  (*                         | _ => Error (msg "tr_env: ill defined values") *)
-  (*                         end *)
-  (*                     | const => OK (e, PTree.set i (tr_val v) ge) *)
-  (*                     end *)
-  (*                 | Error msg => Error msg *)
-  (*                 end) G (OK (PTree.empty (Values.block * Ctypes.type), PTree.empty Values.val)). *)
-
-
-  (* (* FIXME *) *)
-  (* Lemma tr_env_set_stack_or_heap : *)
-  (*   forall (G : val_env) (i : AST.ident) (v : val) (ty : type) (d : var_descr) *)
-  (*     (e : Clight.env) (te : Clight.temp_env) (b : Values.block) ofs, *)
-  (*     (d = stack \/ d = heap) -> *)
-  (*     tr_env G = OK (e, te) -> *)
-  (*     tr_val v = Values.Vptr b ofs -> *)
-  (*     tr_env (PTree.set i (v, d, ty) G) = OK (PTree.set i (b, tr_types ty) e, te). *)
-  (* Admitted. *)
-
-  (* Lemma tr_env_set_const : *)
-  (*   forall (G : val_env) (i : AST.ident) (v : val) (ty : type) *)
-  (*     (e : Clight.env) (te : Clight.temp_env), *)
-  (*     tr_env G = OK (e, te) -> *)
-  (*     tr_env (PTree.set i (v, const, ty) G) = OK (e, PTree.set i (tr_val v) te). *)
-  (* Admitted. *)
-
-  Definition compile_init_mem (s : CFML_C.state) : res Memory.mem.
-    Admitted.
-
-  Parameter R_mem : CFML_C.state -> Memory.mem -> Prop.
 
   (** ** Compiles pure expressions  *)
 
@@ -648,16 +583,6 @@ Section Compil.
 
 
 
-  (* Definition compile_config (FT : CFML_C.funtypes_env) (E : env_var) *)
-  (*   (c : CFML_C.config) : res ClightInterface.config := *)
-  (*   let '(f, G, s, t, k) := c in *)
-  (*   do (e, te) <- tr_env G; *)
-  (*   do m <- compile_init_mem s; *)
-  (*   do stmt <- tr_trm_stmt E FT t; *)
-  (*   OK (e, te, m, stmt). *)
-
-
-
   Definition tr_program (p : program) : res Clight.program.
   Admitted.
 
@@ -746,57 +671,10 @@ Section Compil_correct.
   Variable ge : Clight.genv.
 
   Coercion Integers.Ptrofs.intval : Integers.Ptrofs.int >-> Z.
-(* rel_state : cfml.state -> clight.state -> Prop
-
-   tr_correct : forall t s g P,
-               t / s --> P ->
-               rel_state s g ->
-               (tr_trm E t) / g -->+
-                       (fun c' g' => exists t' s',
-                                     P t' s' /\
-                                     rel_state s' g')
 
 
 
-      G / t / s --> P
-       -> si t := let x = t1 in t2
-                 (x,v1)::G / t2 / s' --> P
-
-G := env * temp_env
-
-rel_state G env s g :=
-        g = g1 \+ g2,
-        forall l, v ∈ s, (l, tr v) ∈ G
-        forall x,v ∈ G,
-               ∃ l, env!x = Some l, g2 l = Some tr v
-
-Props:
-rel_state -> dom s c dom g
-rel_state -> fresh l g -> fresh l s
-
-(define eventually omni small for clight :
- soit par dessus la small, soit directement ->
- puis prouver equiv avec small sous hyp que les fonctions externes sont deter
-)
-
-
-   OU : arriver dans un small traditionel : soit en partant d'un omni-small, soit d'un smallstep traditionel.
-
-   tr_subst_com
-
-
-   tr_expr : forall t,
-             is_expr t ->
-             eval_expr (tr_trm E t) G g (tr_val (subst G t))
-
- *)
-
-
-  (* How to make it an obligation for every match part ? *)
-
-
-
-  (* WIP *)
+  (* WIP verif type obligs *)
   Variant match_values
     (M : map_loc) :
     CFML_C.type -> CFML_C.val -> Values.val -> Prop :=
@@ -884,55 +762,6 @@ ptree_relate P R (add x p1) p2'
 
         match_config_expr E M (f', G, s, t, k) (e, te, m, a).
 
-        (* match_env G e te -> *)
-        (* (forall i v ty, *)
-        (*     PTree.get i G = Some (v, const, ty) -> *)
-        (*     (exists vt, PTree.get i te = Some vt /\ match_values v vt) *)
-        (* ) -> *)
-        (* (forall i l ty d, *)
-        (*     d = stack \/ d = heap -> *)
-        (*     PTree.get i G = Some (val_loc l, d, ty) -> *)
-        (*     (exists b n ofsl, List.In (l, n, ty) ll *)
-        (*                       /\ f l = (b, ofsl) *)
-        (*                       /\ PTree.get i e = Some (b, tr_types ty)) *)
-        (* ) -> *)
-
-        (* match_memories s m -> *)
-
-        (* (forall l n1 n2 ty1 ty2, *)
-        (*     List.In (l, n1, ty1) ll -> *)
-        (*     List.In (l, n2, ty2) ll -> *)
-        (*     n1 = n2 /\ ty1 = ty2 *)
-        (* ) -> *)
-
-        (* (forall b ofs1 ofs2, *)
-        (*     List.In (b, ofs1) lb -> *)
-        (*     List.In (b, ofs2) lb -> *)
-        (*     ofs1 = ofs2 *)
-        (* ) -> *)
-
-        (* (forall l, (exists n, List.In (l, n) ll) <-> Fmap.indom s l) -> *)
-
-        (* (forall l n b ofsl ofsh, List.In (l, n) ll -> *)
-        (*                     f (l, n) = (b, ofsl, ofsh) -> *)
-        (*                     Pos.to_nat n = ofsh - ofsl + 1 :> int) -> *)
-
-        (* (forall l n (n' : nat) (l' : loc) b ofsl ty, List.In (l, n, ty) ll -> *)
-        (*           (n' < Pos.to_nat n)%nat -> *)
-        (*           (l' : nat) = (l : nat) + n' :> int -> *)
-        (*           f l = (b, ofsl) -> *)
-        (*           let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in *)
-        (*           exists vt, *)
-        (*           Fmap.indom s l' *)
-        (*           /\ Memory.Mem.valid_access m chunk b n' Memtype.Writable *)
-        (*           /\ (Memory.Mem.load chunk m b n' = Some vt) *)
-        (*           /\ match_values (Fmap.read s l') vt) -> *)
-
-        (* env and memory ok *)
-
-        (* (forall l d ty, (exists i, PTree.get i G = Some (val_loc l, d, ty)) -> *)
-        (*                 d = heap \/ d = stack -> *)
-        (*                 Fmap.indom s l) -> *)
 
 
   Variant match_config (FT : CFML_C.funtypes_env) (E : env_var) :
@@ -952,60 +781,9 @@ ptree_relate P R (add x p1) p2'
 
         match_config FT E (f', G, s, t, k) (e, te, m, st).
 
-        (* match_env G e te -> *)
-        (* (forall i v ty, *)
-        (*     PTree.get i G = Some (v, const, ty) -> *)
-        (*     (exists vt, PTree.get i te = Some vt /\ match_values v vt) *)
-        (* ) -> *)
-        (* (forall i l ty d, *)
-        (*     d = stack \/ d = heap -> *)
-        (*     PTree.get i G = Some (val_loc l, d, ty) -> *)
-        (*     (exists b n ofs, List.In (l, n, ty) ll *)
-        (*               /\ f l = (b, ofs) *)
-        (*               /\ e ! i = Some (b, tr_types ty)) *)
-        (* ) -> *)
-
-        (* match_memories s m -> *)
-
-        (* (forall l n1 n2 ty1 ty2, *)
-        (*     List.In (l, n1, ty1) ll -> *)
-        (*     List.In (l, n2, ty2) ll -> *)
-        (*     n1 = n2 /\ ty1 = ty2 *)
-        (* ) -> *)
-
-        (* (forall b ofs1 ofs2, *)
-        (*     List.In (b, ofs1) lb -> *)
-        (*     List.In (b, ofs2) lb -> *)
-        (*     ofs1 = ofs2 *)
-        (* ) -> *)
 
 
-        (* (forall l, (exists n, List.In (l, n) ll) <-> Fmap.indom s l) -> *)
 
-        (* (forall l n b ofsl ofsh, List.In (l, n) ll -> *)
-
-        (*                     f (l, ty) = (b, ofsl, ofsh) -> *)
-        (*                     Pos.to_nat n = ofsh - ofsl + 1 :> int) -> *)
-
-        (* (forall l n (n' : nat) ty (l' : loc) b ofsl, List.In (l, n, ty) ll -> *)
-        (*           (n' < Pos.to_nat n)%nat -> *)
-        (*           (l' : nat) = (l : nat) + n' :> int -> *)
-        (*           f l = (b, ofsl) -> *)
-        (*           let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in *)
-        (*           exists vt, *)
-        (*           Fmap.indom s l' *)
-        (*           /\ Memory.Mem.valid_access m chunk b n' Memtype.Writable *)
-        (*           /\ Memory.Mem.load chunk m b n' = Some vt *)
-        (*           /\ match_values (Fmap.read s l') vt) -> *)
-
-        (* env and memory ok *)
-
-        (* (forall l d ty, (exists i, PTree.get i G = Some (val_loc l, d, ty)) -> *)
-        (*                 d = heap \/ d = stack -> *)
-        (*                 Fmap.indom s l) -> *)
-
-
-  (** TODO : type *)
   Variant match_outs (M : map_loc)
     : CFML_C.val -> ClightBigstep.outcome -> Prop :=
     | match_outs_normal :
@@ -1014,7 +792,6 @@ ptree_relate P R (add x p1) p2'
       match_outs M val_unit (ClightBigstep.Out_return None)
     | match_outs_ret_val : forall vs ty vt,
         match_values M ty vs vt ->
-        (* add type obl *)
         match_outs M vs (ClightBigstep.Out_return (Some (vt, tr_types ty))).
 
 
@@ -1051,7 +828,7 @@ ptree_relate P R (add x p1) p2'
   Proof.
   Admitted.
 
-
+  (** ** Correctness of statement translation *)
 
   Lemma assign_correct : forall s s' m m' l b ofs M vs vt ty bf,
       wf_map_loc M ->
@@ -1190,37 +967,6 @@ ptree_relate P R (add x p1) p2'
         forwards * : Hmemenv l0 d ty0 H7 H8.
         unfold Fmap.update. applys* Fmap.indom_union_r.
 
-        (* * intros. inverts keep H6; subst. *)
-        (*   destruct (omnibig_expr_pc_not_empty H2) as (ve&HveQe). *)
-        (*   destruct (H3 ve HveQe) as (lve & ?); subst. *)
-        (*   forwards *:H5. *)
-        (*   constructors*. *)
-        (*   ** intros. *)
-        (*      inverts keep H10. 2:{skip.} *)
-        (*      case (Nat.eq_dec l0 l); case (Nat.eq_dec n' 0); intros; subst. *)
-        (*      *** setoid_rewrite Fmap.update_eq_union_single. *)
-        (*          splits*; forwards* :Hmemvals; inversion H16; inversion H14; subst. *)
-        (*          { rewrite Fmap.indom_union_eq. left. apply Fmap.indom_single. } *)
-        (*          { eapply Memory.Mem.store_valid_access_1. eapply H17. eapply H13. } *)
-        (*          {  *)
-
-
-
-  (** ** Correctness of statement translation *)
-  (* Definition stmt_pc_final (P : CFML_C.stmt_pc) : Prop := *)
-  (*   forall c, P c -> config_final c. *)
-
-
-  (* Lemma tr_stmt_correct : forall (c : CFML_C.config) (P : CFML_C.stmt_pc) (E : env_var) *)
-  (*                           (F : fundef_env) (FT : PTree.t (list type * type)) *)
-  (*                           (ge : Clight.genv) (st : Clight.state), *)
-  (*     R FT E c st -> *)
-  (*     cfml_omnistep F c P -> *)
-  (*     Clight_omni.eventually' ge st *)
-  (*       (fun st' => exists c', P c' /\ R FT E c' st'). *)
-  (* Proof. *)
-  (*   introv HR Hred. unfold config in *. generalize dependent c. *)
-  (*   destruct c as [f G s t cs]. *)
 
 
 End Compil_correct.
