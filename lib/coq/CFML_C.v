@@ -158,6 +158,7 @@ Inductive val : Type :=
 | val_uninitialized : val
 | val_unit : val
 | val_int : int -> val
+| val_double : Floats.float -> val
 | val_loc : loc -> val
 | val_prim : prim -> val
 
