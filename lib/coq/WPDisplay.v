@@ -1,8 +1,76 @@
 Set Implicit Arguments.
-From CFML Require Import LibSepGroup WPLibCredits.
+From CFML Require Export WPHeader WPTactics WPBuiltin.
+
 
 Declare Scope cf_scope.
 Declare Custom Entry cf.
+Open Scope cf_scope.
+
+
+(* ********************************************************************** *)
+(** * Additional notation for more concise Specifications at scale. *)
+
+
+(************************************************************)
+(** Additional notation for heap predicates *)
+
+(** The following notation is only used for parsing. *)
+
+(** [\[= v]] is short for [fun x => \[x = v]].
+    It typically appears in a postcondition, after then [POST] keyword. *)
+
+Notation "\[= v ]" := (fun x => \[x = v])
+  (at level 0, only parsing) : triple_scope.
+
+(** [H1 ==+> H2] is short for [H1 ==> (H1 \* H2)].
+    Typical usage is for extracting a pure fact from a heap predicate. *)
+
+Notation "H1 ==+> H2" := (himpl H1 (hstar H1 H2))
+  (at level 55, only parsing) : triple_scope.
+
+
+(************************************************************)
+(** Additional notation for triples *)
+
+Notation "'SPEC' t 'INV' H 'POST' Q" :=
+  (Triple t H (Q \*+ H))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'INV'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+Notation "'SPEC' t 'PRE' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'PRE'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+
+Notation "'SPEC' t 'INV' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H2 \* H1))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'INV'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+
+Notation "'SPEC' t 'PRE' H1 'INV' H2 'POST' Q" :=
+  (Triple t (H1 \* H2) (Q \*+ H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POST'  Q ']'") : triple_scope.
+
+Notation "'SPEC' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
+  (Triple t (H1 \* H2) (fun (_:unit) => H3 \* H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POSTUNIT'  H3 ']'") : triple_scope.
+
+Notation "'SPEC_PURE' t 'POST' Q" :=
+  (Triple t \[] Q)
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC_PURE'  t  '/'  'POST'  Q ']'") : triple_scope.
+
+(* DEPRECATED
+
+Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
+  (Triple t H Q)
+  (at level 39, t at level 0,
+  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+*)
+
 
 
 (* ********************************************************************** *)
@@ -25,32 +93,32 @@ Notation "( x )" :=
 Notation "'SPEC' t 'INV' H 'POST' Q" :=
   (Triple t H (Q \*+ H))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'INV'  H  '/' 'POST'  Q ']'") : cf_scope.
+  format "'[v' 'SPEC'  t  '/' 'INV'  H  '/' 'POST'  Q ']'") : triple_scope.
 
 Notation "'SPEC' t 'PRE' H1 'POSTUNIT' H2" :=
   (Triple t H1 (fun (_:unit) => H2))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'PRE'  H1  '/' 'POSTUNIT'  H2 ']'") : cf_scope.
+  format "'[v' 'SPEC'  t  '/' 'PRE'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
 
 Notation "'SPEC' t 'INV' H1 'POSTUNIT' H2" :=
   (Triple t H1 (fun (_:unit) => H2 \* H1))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'INV'  H1  '/' 'POSTUNIT'  H2 ']'") : cf_scope.
+  format "'[v' 'SPEC'  t  '/' 'INV'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
 
 Notation "'SPEC' t 'PRE' H1 'INV' H2 'POST' Q" :=
   (Triple t (H1 \* H2) (Q \*+ H2))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POST'  Q ']'") : cf_scope.
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POST'  Q ']'") : triple_scope.
 
 Notation "'SPEC' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
   (Triple t (H1 \* H2) (fun (_:unit) => H3 \* H2))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POSTUNIT'  H3 ']'") : cf_scope.
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POSTUNIT'  H3 ']'") : triple_scope.
 
 Notation "'SPEC_PURE' t 'POST' Q" :=
   (Triple t \[] Q)
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC_PURE'  t  '/'  'POST'  Q ']'") : cf_scope.
+  format "'[v' 'SPEC_PURE'  t  '/'  'POST'  Q ']'") : triple_scope.
 
 
 (* ********************************************************************** *)
@@ -68,17 +136,17 @@ Definition TripleMon (B:Type) {MB:MonType B} (A:Type) {EA:Enc A} (t:trm) (M:B) (
 Notation "'SPEC' t 'MONO' M 'PRE' H 'POST' Q" :=
   (TripleMon t M H Q)
   (at level 39, M at level 0, t custom Trm_apps at level 0,
-   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'POST'  Q ']'") : cf_scope.
+   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
 
 Notation "'SPEC' t 'MONO' M 'PRE' H 'INV' I 'POST' Q" :=
   (TripleMon t M (H \* I) (fun M' => Q M' \*+ I))
   (at level 39, M at level 0, t custom Trm_apps at level 0,
-   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'INV'  I '/' 'POST'  Q ']'") : cf_scope.
+   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'INV'  I '/' 'POST'  Q ']'") : triple_scope.
 
 Notation "'SPEC' t 'MONO' M 'PRE' H 'POSTUNIT' Q" :=
   (TripleMon t M H (fun M' (_:unit) => Q M'))
   (at level 39, M at level 0, t custom Trm_apps at level 0,
-   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'POSTUNIT'  Q ']'") : cf_scope.
+   format "'[v' 'SPEC'  t  '/' 'MONO'  M '/' 'PRE'  H  '/' 'POSTUNIT'  Q ']'") : triple_scope.
 
 Global Instance MonType_prod (B C:Type) (MB:MonType B) (MC:MonType C) : MonType (B * C) :=
   make_MonType

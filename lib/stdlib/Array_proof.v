@@ -1,5 +1,6 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
+From CFML Require Import WPDisplay WPRecord.
 From TLC Require Import LibListZ LibListSub.
 Require Sys_ml.
 Require Array_ml.

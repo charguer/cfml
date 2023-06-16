@@ -1,5 +1,7 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
+From CFML Require Import WPDisplay WPRecord.  
+
 Require Import Sys_ml.
 
 Parameter word_size_spec :

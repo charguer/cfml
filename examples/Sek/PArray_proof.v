@@ -1,5 +1,9 @@
 Set Implicit Arguments.
-From CFML Require Import LibSepGroup WPLibCredits Stdlib Array_proof.
+From CFML Require Import LibSepGroup WPLibCredits Stdlib.
+From CFML Require Import WPDisplay WPRecord.
+Open Scope cf_scope.
+Open Scope record_scope.
+
 From TLC Require Import LibListZ LibMap.
 
 From CFML Require Import LibSepTLCbuffer.
@@ -9,7 +13,6 @@ Require Import ListMisc.
 
 Require Import PArray_ml.
 
-Require Import WPDisplay.
 
 (*************************************************)
 (** CFML additions *)
@@ -327,10 +330,6 @@ Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
 
 (*************************************************)
 (** Specifications *)
-
-Close Scope wp_scope.
-Open Scope cf_scope.
-Print Visibility.
 
 (* Laisser tel quel *)
 

@@ -16,9 +16,9 @@ From CFML Require Export WPTactics.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.
-Open Scope val_scope.
-Open Scope pat_scope.
-Open Scope trm_scope.
+Local Open Scope val_scope.
+Local Open Scope pat_scope.
+Local Open Scope trm_scope.
 
 
 (* ********************************************************************** *)
@@ -261,7 +261,7 @@ Proof using. intros. subst~. Qed.
 
 Ltac xrecord_eq_core tt :=
   repeat (apply eq_Record_fields); try reflexivity.
-  
+
 Tactic Notation "xrecord_eq" :=
   xrecord_eq_core tt.
 

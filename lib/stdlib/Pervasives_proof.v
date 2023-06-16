@@ -1,5 +1,8 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
+From CFML Require WPDisplay WPRecord.
+Open Scope record_scope.
+
 Generalizable Variable A.
 
 Require Import Pervasives_ml.
