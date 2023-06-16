@@ -10,6 +10,7 @@ From CFML Require Import LibSepTLCbuffer.
 Import IndexHints.
 
 Require Import ListMisc.
+Require Import Mono.
 
 Require Import PArray_ml.
 
@@ -145,7 +146,6 @@ Lemma PArray_Base_close : forall A (EA: Enc A) (pa: parray_ A) (a: array A) (L: 
 	pa ~~~> `{ data' := PArray_Base a } \* a ~> Array L ==> pa ~> PArray (Desc_Base L).
 Proof using. intros. xchange* <- PArray_Desc_eq_Base. xchange* <- PArray_eq. Qed.
 
-
 Hint Extern 1 (RegisterOpen PArray) => Provide PArray_eq.
 
 Global Instance Heapdata_PArray : forall A (EA: Enc A),
@@ -179,7 +179,13 @@ Lemma IsPArray_inv_indom : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa:
 	pa \indom M.
 Proof using. intros. inverts* H. Qed.
 
-Hint Resolve IsPArray_inv_indom.
+Lemma IsPArray_inv_eq : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L L': list A),
+	IsPArray M L pa ->
+	IsPArray M L' pa ->
+	L = L'.
+Admitted.
+
+Hint Resolve IsPArray_inv_indom IsPArray_inv_eq.
 
 Section IsPArray_sized.
 
@@ -211,28 +217,65 @@ End IsPArray_sized.
 Hint Resolve IsPArray_unsized_of_sized.
 
 
-Record Inv A {IA: Inhab A} {EA: Enc A} (M: Memory A) : Prop := {
-	Inv_closure : forall p i v q,
-		p \indom M ->
-		M[p] = Desc_Diff q i v ->
-		q \indom M
-}.
+Lemma indom_of_union_single_neq : forall A (IA: Inhab A) (EA: Enc A) (p q: parray_ A) (M: Memory A),
+	p \in (dom M : set loc) \u '{q} ->
+	q <> p ->
+	p \in (dom M : set loc).
+Admitted.
 
-Definition Points_into {A} {IA: Inhab A} {EA: Enc A} (M: Memory A) (D: Desc A) : Prop :=
+Lemma dom_of_union_single_eq : forall A (IA: Inhab A) (EA: Enc A) (p: parray_ A) (M: Memory A),
+	p \in (dom M : set loc) -> dom M = dom M \u '{p}.
+Proof.
+	intros. rewrite set_ext_eq. intros q. split.
+	{ set_prove. }
+	{ intros* [qdom | ->]; auto. }
+Qed.
+
+Hint Resolve indom_of_union_single_neq.
+#[global]
+Hint Rewrite dom_of_union_single_eq : rew_set.
+
+
+Definition Points_into {A} {IA: Inhab A} {EA: Enc A} (R: set (parray_ A)) (D: Desc A) : Prop :=
 	match D with
 	|	Desc_Base _ => True
-	|	Desc_Diff q _ _ => q \indom M
+	|	Desc_Diff q _ _ => q \in R
 	end.
 
-Lemma Points_into_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (L: list A),
-	Points_into M (Desc_Base L).
+Lemma Points_into_Base : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (L: list A),
+	Points_into R (Desc_Base L).
 Proof using. unfold Points_into. auto. Qed.
 
-Lemma Points_into_eq_Diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) q i x,
-	Points_into M (Desc_Diff q i x) = q \indom M.
+Lemma Points_into_eq_Diff : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) q i x,
+	Points_into R (Desc_Diff q i x) = q \in R.
 Proof using. unfold Points_into. auto. Qed.
 
 Hint Resolve Points_into_Base Points_into_eq_Diff.
+
+Definition Points_into_forall A {IA: Inhab A} {EA: Enc A} (R: set (parray_ A)) (M: Memory A) : Prop :=
+	forall p, p \indom M -> Points_into R (M[p]).
+
+Lemma Points_into_forall_eq : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (M: Memory A),
+	Points_into_forall R M = forall p, p \indom M -> Points_into R (M[p]).
+Proof using. auto. Qed.
+
+Lemma Points_into_forall_update :
+	forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (M: Memory A) (pa: parray_ A) (D: Desc A),
+		Points_into_forall R M ->
+		Points_into R D ->
+		Points_into_forall R (M[pa := D]).
+Proof using.
+	introv Hforall H. rewrite Points_into_forall_eq. intros p Hp.
+	rew_map in *. rewrites* read_update.
+	case_if*. applys* Hforall. applys* indom_of_union_single_neq.
+Qed.
+
+Hint Resolve Points_into_forall_eq Points_into_forall_update.
+
+
+Record Inv A {IA: Inhab A} {EA: Enc A} (M: Memory A) : Prop := {
+	Inv_closure : Points_into_forall (dom M) M
+}.
 
 
 Definition Shared {A} {IA: Inhab A} {EA: Enc A} (M: Memory A) : hprop :=
@@ -253,14 +296,6 @@ Ltac saturate_indom_step :=
 Ltac saturate_indom ::=
 	repeat saturate_indom_step.
 
-Lemma indom_of_union_single_neq : forall A (IA: Inhab A) (EA: Enc A) (p q: parray_ A) (M: Memory A),
-	p \in (dom M : set loc) \u '{q} ->
-	q <> p ->
-	p \in (dom M: set loc).
-Admitted.
-
-Hint Resolve indom_of_union_single_neq.
-
 Lemma Shared_inv_focus : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
 	Shared M ==>
@@ -268,21 +303,16 @@ Lemma Shared_inv_focus : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 		pa ~> PArray (M[pa]) \*
 		\forall D,
 			pa ~> PArray D \-*
-			\[Points_into M D] \-*
+			\[Points_into (dom M) D] \-*
 			Shared (M[pa := D]).
 Proof using.
 	intros. unfold Shared. xchange* (>> Group_focus pa).
+	forwards* Dpa: IsPArray_inv_indom.
 	intros Inv. xsimpl*; intros D.
-	{ destruct D; intros C; constructors*; intros p i v q Hdom E.
-		{ rewrites* read_update in E. case_if*.
-			rew_map in *.
-			assert (Hp: p \indom M). { applys* indom_of_union_single_neq. }
-			saturate_indom; set_prove. }
-		{ rewrites* read_update in E. case_if*.
-			{ inverts* E. }
-			{ rew_map in *.
-				assert (Hp: p \indom M). { applys* indom_of_union_single_neq. }
-				saturate_indom; set_prove. } } }
+	{ constructors*. rewrites* Points_into_forall_eq. intros p Hdom.
+		rew_map in *. rewrites* <- dom_of_union_single_eq in *.
+		rewrites* read_update. case_if*.
+		applys* (Inv_closure Inv0). }
 	{ xchange* (>> hforall_specialize D). }
 Qed.
 
@@ -320,10 +350,22 @@ Proof using.
 	{ applys* IsPArray_Diff. rew_map*. }
 Qed.
 
-Lemma Extend_contract : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
+Lemma Extend_update_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
 	Extend M (M[pa := Desc_Base L]).
-Admitted.
+Proof using.
+	introv Rpa. unfold Extend.
+	split*. intros Lq q Rq. induction Rq.
+	{ applys* IsPArray_Base. rewrites* read_update. case_if*.
+		rewrite <- C in *.
+		inverts* Rpa; tryfalse. rewrites* H0 in H2.  }
+	{ tests : (pa0 = pa).
+		{	applys* IsPArray_Base. rew_map*.
+			forwards* Rpa': IsPArray_Diff pa' pa.
+			fequals*. }
+		{ applys* IsPArray_Diff. rew_map*. } }
+Qed.
+
 
 Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
 	MonType (Memory A) :=	make_MonType (Shared) (Extend).
@@ -332,7 +374,6 @@ Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
 (** Specifications *)
 
 (* Laisser tel quel *)
-
 Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz: int) (d: A),
 	sz >= 0 ->
 	SPEC (parray_create sz d)
@@ -365,7 +406,7 @@ Lemma parray_base_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (
 		INV (Shared M)
 		POST (fun a => a ~> Array L).
 Proof using.
-	introv Rpa. lets (n&Rpas): IsPArray_sized_of_unsized Rpa.
+	introv Rpa. lets (n & Rpas): IsPArray_sized_of_unsized Rpa.
 	gen pa L. induction_wf IH: wf_lt n.
 	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_inv_focus. intros Inv.
@@ -385,6 +426,7 @@ Proof using.
 		xchange* hforall_specialize.
 		rewrites* E. rewrites* Points_into_eq_Diff.
 		xchange* hwand_hpure_l.
+		{ applys* IsPArray_inv_indom. }
 		{ rewrites* <- E. rew_map*.
 			xapp* IH; try math. intros a. xapp*. xval*. xsimpl*. } }
 Qed.
@@ -396,11 +438,10 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: 
 	SPEC (parray_rebase_and_get_array pa)
 		PRE (Shared M)
 		POST (fun a =>
+			pa ~~~> `{ data' := PArray_Base a } \*
 			a ~> Array L \*
-			\forall L', a ~> Array L' \-* (
-				let M' := M[pa := Desc_Base L'] in
-				Shared (M') \*
-				\[IsPArray M' L' pa])).
+			Group (PArray (A := A)) (M \-- a) \*
+			\[Points_into_forall (dom M) (M \-- a)]).
 Proof using.
 	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_inv_focus. intros Inv.
@@ -418,14 +459,9 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		POST (fun M' x => \[x = L[i]]).
 Proof using.
 	introv Rpa Hind. xcf*. simpl. xpay_skip.
-	xapp*. intros a. xapp*.
-	xchange hforall_specialize. intros Rpa'. xsimpl*.
-	unfold Extend. split*.
-	intros L' p Rp.
-
-	constructors*.
-	rew_map in *. left. applys* IsPArray_inv_indom.
-	rewrites* read_update. case_if*.
+	xapp*. intros a. skip.
+	(* xapp*.
+	xchange* (>> hforall_specialize L). intros Rpa'. xsimpl*. applys* Extend_update_Base. *)
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -438,8 +474,16 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		PRE \[]
 		POST (fun M' q => \[IsPArray M' (L[i := x]) q]).
 Proof using.
-	introv Harr Hind. xcf*. simpl. xpay_skip.
-	skip.
+	introv Rpa Hind. xcf*. simpl. xpay_skip.
+	xapp*. intros a. xapp*. xapp*.
+	xapp*. intros pb.
+	xapp*. xval*.
+	xchange* PArray_Diff_close. xchange* PArray_Base_close.
+	xchange* (heapdata pa pb). intros Diff.
+	xsimpl* (M[pb := Desc_Base (L[i := x])][pa := Desc_Diff pb i L[i]]).
+	{ skip. }
+	{ applys* IsPArray_Base. rewrites* read_update_neq. rew_map*. }
+	{ xchange* hforall_specialize. xsimpl*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
