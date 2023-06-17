@@ -369,8 +369,12 @@ Module cc_types.
   Notation sizeof ty := (Clight.Esizeof ty (Ctyping.size_t)).
 
 
-  (* Lemma all_access_by_value : *)
-  (*   forall (ty : CFML_C.type), Ctypes.access_mode ty =  *)
+  Lemma all_access_by_value :
+    forall (ty : CFML_C.type), exists x, Ctypes.access_mode ty = Ctypes.By_value x.
+  Proof using.
+    intros. induction ty; cbn; eauto.
+  Qed.
+  
 
 End cc_types.
 
@@ -839,63 +843,85 @@ ptree_relate P R (add x p1) p2'
       Clight.assign_loc (Clight.genv_cenv ge) ty m b ofs bf vt m' ->
       match_mem_vals s' m' M.
   Proof using.
-    Admitted.
+    intros.
+    unfold match_mem_vals in H0.
+    constructors*.
+    forwards *(vt0 & Hdoml0&Haccess&Hload&Hvalues):H0 l0 b0 ty0 ofs0.
+    splits*.
+    - rewrites H3. unfold Fmap.update. applys* Fmap.indom_union_r.
+    - forwards *(mode&Hbyvalue):all_access_by_value ty. inverts* H4;
+        try solve [rewrite Hbyvalue in *; discriminate].
+      + eapply Memory.Mem.store_valid_access_1.
+        cbn in H8. eapply H8. eapply Haccess.
+      + inversion H7. subst. cbn in H13.
+        eapply Memory.Mem.store_valid_access_1.
+        eapply H13. eapply Haccess.
+    - forwards *(mode&Hbyvalue):all_access_by_value ty. inverts* H4;
+        try solve [rewrite Hbyvalue in *; discriminate].
+      + eapply Hload.
 
 
-        (* * forwards *Hi_in_e: Henv i l (type_ref ty) heap H. *)
-        (*   destruct (Hi_in_e) as (b & n & ofsl & Hiinll & Hi_fmem & Hi). *)
-        (*   forwards *Htr_expr: forward_expr E ge (f, G, s, e, k) e0 te. *)
-        (*   { constructors *. } destruct Htr_expr as (v & Hevalx0 & Hmatchv). *)
-        (*   forwards *: Hmemvals. *)
-        (*   { eapply Pos2Nat.is_pos. } *)
-        (*   { apply Zplus_0_r_reverse. } *)
-        (*   destruct H6 as (vt & _ & Hperm & Hload & Hmatch). *)
-        (*   forwards *: Memory.Mem.valid_access_store Hperm. *)
-        (*   destruct H6 as (m2 & Hstore). *)
-        (*   constructors*. *)
-        (*   ** constructors*. *)
-        (*   ** cuts *Hsemcast:(Cop.sem_cast v (Clight.typeof x0) *)
-        (*               (Clight.typeof (Clight.Evar i (pointer ty))) m = Some v). *)
-        (*       admit. *)
-        (*   ** cbn. eapply Clight.assign_loc_value. reflexivity. *)
-        (*       cbn. apply Hstore. *)
-        (*   ** destruct Hmatchv as (ve & HveQe & Hmatchve). *)
-        (*      destruct (H3 ve HveQe) as (lve & ?); subst. *)
-        (*      unfold Q1, Qi1. *)
-        (*      exists (f, G, Fmap.update s l lve, (), k). *)
-        (*      splits*. *)
-        (*      { constructors*. *)
-        (*        - intros. forwards *: Hmemvals. *)
-        (*          destruct H10 as (?&?&?&?&?). *)
-        (*          setoid_rewrite Fmap.update_eq_union_single. *)
-        (*          case (Pos.eq_dec b b0); case (Nat.eq_dec n' 0); intros; subst; *)
-        (*          [exists v | exists x2 | exists x2 | exists x2]; splits. *)
-        (*          + rewrite Fmap.indom_union_eq. right. auto. *)
-        (*          + eapply Memory.Mem.store_valid_access_1. *)
-        (*            eapply Hstore. eapply H11. *)
-        (*          + forwards *: Memory.Mem.load_store_same. *)
-        (*            rewrite Values.Val.load_result_same in H14. *)
-        (*            assert (l0 = l). *)
-        (*            { *)
-        (*              forwards *: Hnoduplb b0 ofsl ofsl0. *)
-        (*              rewrite <- Hi_fmem. *)
-        (*              change (fmem l) with ((fun '(l1, _, _) => fmem l1) *)
-        (*                                       (l, n, type_ref ty)). *)
-        (*              applys* List.in_map. *)
-        (*              rewrite <- H9. *)
-        (*              change (fmem l0) with ((fun '(l1, _, _) => fmem l1) *)
-        (*                                       (l0, n0, ty0)). *)
-        (*              applys* List.in_map. *)
-        (*              subst. *)
-        (*              forwards *: Hinj l l0. congruence. *)
-        (*            } *)
-        (*            subst. *)
-        (*            forwards *(?&?): Hnodupll l n n0 (type_ref ty) ty0. subst. *)
-        (*            eapply H14. *)
-        (*            change (Ctypes.typ_of_type (type_ref ty)) with *)
-        (*              (AST.type_of_chunk) *)
-        (*            apply Memory.Mem.load_type. *)
-        (*      } *)
+
+
+        * forwards *Hi_in_e: Henv i l (type_ref ty) heap H.
+          destruct (Hi_in_e) as (b & n & ofsl & Hiinll & Hi_fmem & Hi).
+          forwards *Htr_expr: forward_expr E ge (f, G, s, e, k) e0 te.
+          { constructors *. } destruct Htr_expr as (v & Hevalx0 & Hmatchv).
+          forwards *: Hmemvals.
+          { eapply Pos2Nat.is_pos. }
+          { apply Zplus_0_r_reverse. }
+          destruct H6 as (vt & _ & Hperm & Hload & Hmatch).
+          forwards *: Memory.Mem.valid_access_store Hperm.
+          destruct H6 as (m2 & Hstore).
+          constructors*.
+          ** constructors*.
+          ** cuts *Hsemcast:(Cop.sem_cast v (Clight.typeof x0)
+                      (Clight.typeof (Clight.Evar i (pointer ty))) m = Some v).
+              admit.
+          ** cbn. eapply Clight.assign_loc_value. reflexivity.
+              cbn. apply Hstore.
+          ** destruct Hmatchv as (ve & HveQe & Hmatchve).
+             destruct (H3 ve HveQe) as (lve & ?); subst.
+             unfold Q1, Qi1.
+             exists (f, G, Fmap.update s l lve, (), k).
+             splits*.
+             { constructors*.
+               - intros. forwards *: Hmemvals.
+                 destruct H10 as (?&?&?&?&?).
+                 setoid_rewrite Fmap.update_eq_union_single.
+                 case (Pos.eq_dec b b0); case (Nat.eq_dec n' 0); intros; subst;
+                 [exists v | exists x2 | exists x2 | exists x2]; splits.
+                 + rewrite Fmap.indom_union_eq. right. auto.
+                 + eapply Memory.Mem.store_valid_access_1.
+                   eapply Hstore. eapply H11.
+                 + forwards *: Memory.Mem.load_store_same.
+                   rewrite Values.Val.load_result_same in H14.
+                   assert (l0 = l).
+                   {
+                     forwards *: Hnoduplb b0 ofsl ofsl0.
+                     rewrite <- Hi_fmem.
+                     change (fmem l) with ((fun '(l1, _, _) => fmem l1)
+                                              (l, n, type_ref ty)).
+                     applys* List.in_map.
+                     rewrite <- H9.
+                     change (fmem l0) with ((fun '(l1, _, _) => fmem l1)
+                                              (l0, n0, ty0)).
+                     applys* List.in_map.
+                     subst.
+                     forwards *: Hinj l l0. congruence.
+                   }
+                   subst.
+                   forwards *(?&?): Hnodupll l n n0 (type_ref ty) ty0. subst.
+                   eapply H14.
+                   change (Ctypes.typ_of_type (type_ref ty)) with
+                     (AST.type_of_chunk)
+                   apply Memory.Mem.load_type.
+             }
+
+
+
+
+
 
 
   Lemma forward (F : CFML_C.fundef_env) (FT : funtypes_env) (E : env_var) :
