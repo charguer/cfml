@@ -15,6 +15,136 @@ Require Import Mono.
 Require Import PArray_ml.
 
 
+(* Copy-paste of earlier definitions to work around a notation bug in Coq *)
+
+(* Notation "<[ e ]>" :=
+ e
+ (at level 0, e custom wp at level 99) : wp_scope.
+
+Notation "'Pay' F" :=
+ ((*Wptag*) (Wpgen_pay F))
+ (in custom wp at level 69, F at level 0) : wp_scope.
+
+Notation "'Fail'" :=
+ ((*Wptag*) (Wpgen_fail))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Done'" :=
+ ((*Wptag*) (Wpgen_done))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Match' V F1" :=
+ ((*Wptag*) (Wpgen_match V F1))
+ (in custom wp at level 69,
+  V custom wp at level 0,
+  F1 custom wp at level 69,
+  format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : wp_scope.
+
+Notation "'Assert' F" :=
+ ((*Wptag*) (Wpgen_assert F))
+ (in custom wp at level 69,
+  F custom wp at level 99) : wp_scope.
+
+Notation "'Val' v" :=
+ ((*Wptag*) (Wpgen_val v))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Let' x ':=' F1 'in' F2" :=
+ ((*Wptag*) (Wpgen_let_trm F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetVal' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_val V (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Alias' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_alias (Wpgen_let_val V (fun x => F1))))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Alias'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ; F2" :=
+ ((*Wptag*) (Wpgen_seq F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f x1 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) .. (cons (Dyn xn) nil) ..)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+(* TODO: why need both? *)
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_app _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+Notation "'If_' v 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_if v F1 F2))
+ (in custom wp at level 69,
+  v constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'If_'  v  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'While' F1 'Do' F2 'Done'" :=
+ ((*Wptag*) (Wpgen_while F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  format "'[v' '[' 'While'  F1  'Do'  ']' '/' '['   F2 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'To'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_downto_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'Downto'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope. *)
+
 (*************************************************)
 (** CFML additions *)
 
@@ -145,6 +275,10 @@ Proof using. auto. Qed.
 Lemma PArray_Base_close : forall A (EA: Enc A) (pa: parray_ A) (a: array A) (L: list A),
 	pa ~~~> `{ data' := PArray_Base a } \* a ~> Array L ==> pa ~> PArray (Desc_Base L).
 Proof using. intros. xchange* <- PArray_Desc_eq_Base. xchange* <- PArray_eq. Qed.
+
+Lemma PArray_Diff_close : forall A (EA: Enc A) (pa: parray_ A) q i x,
+	pa ~~~> `{ data' := PArray_Diff q i x } ==> pa ~> PArray (Desc_Diff q i x).
+Proof using. intros. xchange* <- (>> PArray_Desc_eq_Diff q i x). xchange* <- PArray_eq. Qed.
 
 Hint Extern 1 (RegisterOpen PArray) => Provide PArray_eq.
 
@@ -281,6 +415,10 @@ Record Inv A {IA: Inhab A} {EA: Enc A} (M: Memory A) : Prop := {
 Definition Shared {A} {IA: Inhab A} {EA: Enc A} (M: Memory A) : hprop :=
 	Group (PArray (A := A)) M \* \[Inv M].
 
+Lemma Shared_eq : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A),
+	Shared M = Group (PArray (A := A)) M \* \[Inv M].
+Proof using. auto. Qed.
+
 Lemma Shared_inv_Inv : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A),
 	Shared M ==+> \[Inv M].
 Proof using. unfold Shared. xsimpl*. Qed.
@@ -327,6 +465,12 @@ Lemma Shared_add_fresh_Diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (
 Proof using.
 	skip.
 Qed.
+
+Lemma Shared_heapdata_single : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (D: Desc A),
+	Shared M \* pa ~> PArray D ==+> \[pa \notindom M].
+Proof using. unfold Shared. xchange* Group_heapdata_single. xsimpl*. Qed.
+
+Hint Resolve Shared_inv_Inv Shared_add_fresh_Base Shared_add_fresh_Diff Shared_heapdata_single.
 
 
 Definition Extend {A} {IA: Inhab A} {EA: Enc A} (M M': Memory A) : Prop :=
@@ -428,7 +572,7 @@ Proof using.
 		xchange* hwand_hpure_l.
 		{ applys* IsPArray_inv_indom. }
 		{ rewrites* <- E. rew_map*.
-			xapp* IH; try math. intros a. xapp*. xval*. xsimpl*. } }
+			xapp* IH; try math. intros a. xapp*. xvals*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
@@ -438,10 +582,10 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: 
 	SPEC (parray_rebase_and_get_array pa)
 		PRE (Shared M)
 		POST (fun a =>
-			pa ~~~> `{ data' := PArray_Base a } \*
+			pa ~~~> `{ data' := (PArray_Base (B_ := A)) a } \*
 			a ~> Array L \*
-			Group (PArray (A := A)) (M \-- a) \*
-			\[Points_into_forall (dom M) (M \-- a)]).
+			Group (PArray (A := A)) (M \-- pa) \*
+			\[Points_into_forall (dom M) M]).
 Proof using.
 	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_inv_focus. intros Inv.
@@ -459,9 +603,12 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		POST (fun M' x => \[x = L[i]]).
 Proof using.
 	introv Rpa Hind. xcf*. simpl. xpay_skip.
-	xapp*. intros a. skip.
-	(* xapp*.
-	xchange* (>> hforall_specialize L). intros Rpa'. xsimpl*. applys* Extend_update_Base. *)
+	xapp*. intros a Points. xapp*.
+	xchange* PArray_Base_close.
+	xchange* Group_add_again.
+	xchanges* <- Shared_eq.
+	{ skip. }
+	{ applys* Extend_update_Base. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -475,15 +622,20 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		POST (fun M' q => \[IsPArray M' (L[i := x]) q]).
 Proof using.
 	introv Rpa Hind. xcf*. simpl. xpay_skip.
-	xapp*. intros a. xapp*. xapp*.
+	xapp*. intros a Points. xapp*. xapp*.
 	xapp*. intros pb.
 	xapp*. xval*.
 	xchange* PArray_Diff_close. xchange* PArray_Base_close.
 	xchange* (heapdata pa pb). intros Diff.
+	xchange* Group_add_fresh. intros Hpb.
+	rewrite update_remove_one_neq.
+	xchange* (>> Group_add_again pa). skip.
+	xchange* <- Shared_eq. skip.
+	xsimpl*.
 	xsimpl* (M[pb := Desc_Base (L[i := x])][pa := Desc_Diff pb i L[i]]).
-	{ skip. }
+	{ skip. (* Transitivité + ajouter un lemme update_diff avec bonnes hypothèses *) }
 	{ applys* IsPArray_Base. rewrites* read_update_neq. rew_map*. }
-	{ xchange* hforall_specialize. xsimpl*. }
+	{ unfold Shared. (* Pas très bien, mais on voit qu'on devrait s'en sortir... *) xsimpl*; skip. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
@@ -492,8 +644,17 @@ Lemma parray_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 	IsPArray M L pa ->
 	SPEC (parray_copy pa)
 		MONO M
-		PRE (\$1)
+		PRE \[]
 		POST (fun M' q => \[IsPArray M' L q]).
-Admitted.
+Proof using.
+	introv Rpa. xcf*. simpl. xpay_skip.
+	xapp*. intros a. xapp*. intros q.
+	xchange* PArray_Base_close.
+	xchange* Shared_heapdata_single. intros Hdom.
+	xsimpl* (M[q := Desc_Base L]).
+	{ applys* Extend_add_fresh. }
+	{ applys* IsPArray_Base. rew_map*. }
+	{ xchange* Shared_add_fresh_Base. xsimpl*. }
+Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.
