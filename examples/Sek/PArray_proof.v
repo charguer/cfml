@@ -168,11 +168,11 @@ Hint Extern 1 (RegisterOpen PArray_Desc) => Provide PArray_Desc_eq.
 
 Lemma haffine_PArray_Desc : forall A (IA: Inhab A) (EA: Enc A) (D: Desc A) (d: parray_desc_ A),
     haffine (d ~> PArray_Desc D).
-Proof. intros. destruct D; destruct d; rewrite PArray_Desc_eq; xaffine. Qed.
+Proof using. intros. destruct D; destruct d; rewrite PArray_Desc_eq; xaffine. Qed.
 
 Lemma haffine_repr_PArray_Desc : forall A (IA: Inhab A) (EA: Enc A),
     haffine_repr (@PArray_Desc A IA EA).
-Proof. intros. intros ? ?. apply haffine_PArray_Desc. Qed.
+Proof using. intros. intros ? ?. apply haffine_PArray_Desc. Qed.
 
 Hint Resolve haffine_PArray_Desc haffine_repr_PArray_Desc : haffine.
 
@@ -207,16 +207,26 @@ Hint Resolve Heapdata_PArray.
 
 Lemma haffine_PArray : forall A (IA: Inhab A) (EA: Enc A) (D: Desc A) (pa: parray_ A),
     haffine (pa ~> PArray D).
-Proof. intros. rewrite PArray_eq. xaffine. Qed.
+Proof using. intros. rewrite PArray_eq. xaffine. Qed.
 
 Lemma haffine_repr_PArray : forall A (IA: Inhab A) (EA: Enc A),
     haffine_repr (@PArray A IA EA).
-Proof. intros. intros ? ?. apply haffine_PArray. Qed.
+Proof using. intros. intros ? ?. apply haffine_PArray. Qed.
 
 Hint Resolve haffine_PArray haffine_repr_PArray : haffine.
 
 
 Notation "'Memory' A" := (map (parray_ A) (Desc A)) (at level 69).
+
+Lemma Memory_eq_inv_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L L': list A),
+	M[pa] = Desc_Base L -> M[pa] = Desc_Base L' -> L = L'.
+Proof using. introv EA E E'. rewrites* E in E'. inverts* E'. Qed.
+
+Lemma Memory_eq_inv_Desc : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) q i x r j y,
+	M[pa] = Desc_Diff q i x -> M[pa] = Desc_Diff r j y -> (q, i, x) = (r, j, y).
+Proof using. introv EA E E'. rewrites* E in E'. inverts* E'. Qed.
+
+Hint Resolve Memory_eq_inv_Base Memory_eq_inv_Desc.
 
 Inductive IsPArray A {IA: Inhab A} {EA: Enc A} (M: Memory A) : list A -> parray_ A -> Prop :=
 	|	IsPArray_Base : forall pa L,
@@ -242,7 +252,13 @@ Lemma IsPArray_inv_eq : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 	IsPArray M L pa ->
 	IsPArray M L' pa ->
 	L = L'.
-Admitted.
+Proof using.
+	introv Rpa. gen L'.
+	induction Rpa as [pa L H E | q pa i x L Lq Hq E Rq IH Hi EL]; intros L' Rpa'; inverts* Rpa' as; tryifalse.
+	{ intros q' Hpa E' Rq' Hi0.
+		forwards* Ediff: Memory_eq_inv_Desc pa E E'. inverts* Ediff.
+		forwards*: IH. }
+Qed.
 
 Hint Resolve IsPArray_inv_eq.
 
@@ -289,11 +305,11 @@ Lemma indom_of_union_single_neq : forall A (IA: Inhab A) (EA: Enc A) (p q: parra
 	p \in (dom M : set loc) \u '{q} ->
 	q <> p ->
 	p \in (dom M : set loc).
-Admitted.
+Proof using. introv IA EA [ans | contra] Hneq; [auto | tryfalse]. Qed.
 
 Lemma dom_of_union_single_eq : forall A (IA: Inhab A) (EA: Enc A) (p: parray_ A) (M: Memory A),
 	p \in (dom M : set loc) -> dom M = dom M \u '{p}.
-Proof.
+Proof using.
 	intros. rewrite set_ext_eq. intros q. split.
 	{ set_prove. }
 	{ intros* [qdom | ->]; auto. }
@@ -398,10 +414,11 @@ Proof using.
 	intros. unfold Shared. xchange* Group_focus pa.
 	forwards* Dpa: IsPArray_inv_indom.
 	intros I. xsimpl*; intros D.
-	{ constructors*. rewrites* Points_into_forall_eq. intros p Hdom.
-		rew_map in *. rewrites* <- dom_of_union_single_eq in *.
-		rewrites* read_update. case_if*.
-		applys* Inv_closure I. }
+	{ constructors*.
+		{ rewrites* Points_into_forall_eq. intros p Hdom.
+			rew_map in *. rewrites* <- dom_of_union_single_eq in *.
+			rewrites* read_update. case_if*.
+			applys* Inv_closure I. } }
 	{ xchange* hforall_specialize D. }
 Qed.
 
@@ -409,17 +426,14 @@ Lemma Shared_add_fresh_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (
   pa ~> PArray (Desc_Base L) \* Shared M 
   ==> Shared (M[pa := Desc_Base L]) \* \[pa \notindom M].
 Proof using.
-	skip.
+	intros. unfold Shared. xchanges* Group_add_fresh.
+	intros I Hpa. constructors*.
+	{ applys* Points_into_forall_update.
+		applys* Points_into_forall_subset (dom M).
+		applys* Inv_closure. }
 Qed.
 
-Lemma Shared_add_fresh_Diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) q i x,
-  pa ~> PArray (Desc_Diff q i x) \* \[q \indom M] \* Shared M 
-  ==> Shared (M[pa := Desc_Diff q i x]) \* \[pa \notindom M].
-Proof using.
-	skip.
-Qed.
-
-Hint Resolve Shared_inv_Inv Shared_add_fresh_Base Shared_add_fresh_Diff.
+Hint Resolve Shared_inv_Inv Shared_add_fresh_Base.
 
 
 Definition Extend {A} {IA: Inhab A} {EA: Enc A} (M M': Memory A) : Prop :=
@@ -592,8 +606,8 @@ Proof using.
 	xchange* Group_add_again.
 	xchanges* <- Shared_eq.
 	constructors*.
-	rew_map*. rewrites* <- dom_of_union_single_eq.
-	applys* Points_into_forall_update. applys* Inv_closure.
+	{ rew_map*. rewrites* <- dom_of_union_single_eq.
+		applys* Points_into_forall_update. applys* Inv_closure. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -623,14 +637,14 @@ Proof using.
 			intros* [|]; auto.
 			rewrites* dom_remove in Hpb. }
 		xchanges* <- Shared_eq.
-		{ constructors*. rew_map*.
-			applys* Points_into_forall_update.
-			{ applys* Points_into_forall_update.
-				applys* Points_into_forall_subset (dom M).
-				{ rew_set. intros. rew_set. auto. (* automatisable ? *) }
-				{ applys* Inv_closure. } }
-			{ rewrites* Points_into_eq_Diff.
-				rew_set. auto. (* rew_set* ? *) } }
+		{ constructors*.
+			{ rew_map*. applys* Points_into_forall_update.
+				{ applys* Points_into_forall_update.
+					applys* Points_into_forall_subset (dom M).
+					{ rew_set. intros. rew_set. auto. (* automatisable ? *) }
+					{ applys* Inv_closure. } }
+				{ rewrites* Points_into_eq_Diff.
+					rew_set. auto. (* rew_set* ? *) } } }
 		{ applys* Extend_trans.
 			applys* Extend_update_Diff pa (L[i := x]).
 				{ applys* index_update. }
