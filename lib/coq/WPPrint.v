@@ -1,3 +1,5 @@
+(*DEPRECATED
+
 From TLC Require Export LibTactics LibCore LibListZ LibInt LibSet LibMap.
 From CFML Require Export WPHeader WPTactics WPBuiltin WPArray.
 From CFML Require Export WPRecord. (* needs to be last *)
@@ -700,3 +702,5 @@ Notation "'Case' v 'is' p { x1 x2 x3 x4 x5 } 'Then' F1 'Else' F2" :=
 (* TODO: do not attempt to currify the assumption associated with the when clause?
     this could simplify the tactic that handles the case *)
 
+
+*)

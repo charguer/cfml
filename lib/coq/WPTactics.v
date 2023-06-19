@@ -10,7 +10,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From CFML Require Export WPLifted WPHeader WPBuiltin.
+From CFML Require Export WPLifted WPHeader WPBuiltin WPDisplay.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A B.

@@ -1,6 +1,6 @@
 Set Implicit Arguments.
-From CFML Require Export WPHeader WPTactics WPBuiltin.
-
+From CFML Require Export WPHeader. (* WPTactics WPBuiltin.*)
+From CFML Require Import WPBuiltin SepBase SepLifted WPLifted.
 
 Declare Scope cf_scope.
 Declare Custom Entry cf.
@@ -170,12 +170,12 @@ Notation "F" :=
   ((Wptag F%cf))
   (at level 69, only printing, F custom cf at level 100) : cf_scope.
 
-Notation "'PRE_' H 'CODE' F 'POST' Q" := (H ==> (@Wptag F) _ _ Q)
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (@Wptag F) _ _ Q)
   (at level 8,
    H at level 0,
    F custom cf at level 0,
    Q at level 0,
-   format "'[v' 'PRE_'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : cf_scope.
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : cf_scope.
 
 (*
 Notation "<[ e ]>" :=

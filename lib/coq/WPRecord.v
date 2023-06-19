@@ -989,94 +989,96 @@ Ltac check_is_Wpgen_record_alloc F ::=
 
 Notation "'New' Vs 'as' r" :=
   ((Wpgen_record_new (fun r => Vs)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    Vs constr at level 69)
-  : wp_scope.
+  : cf_scope.
 
 Notation "'New' Vs" :=
   ((Wpgen_record_new (fun _ => Vs)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    Vs constr at level 69)
-  : wp_scope.
+  : cf_scope.
 
 Notation "'New' v 'With' Vs" :=
   ((Wpgen_record_with v Vs _))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    v constr at level 69,
    Vs constr at level 69)
-  : wp_scope.
+  : cf_scope.
 
 
 (*
 Notation "'App' r '.' f" :=
   (Wpgen_app _ (val_get_field f) ((Dyn r)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    f constr at level 0,
-   format "'App'  r '.' f") : wp_scope.
+   format "'App'  r '.' f") : cf_scope.
 
 Notation "'App' r '.' f <- v" :=
   (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    f constr at level 0,
    v constr at level 69,
-   format "'App'  r '.' f  <-  v") : wp_scope.
+   format "'App'  r '.' f  <-  v") : cf_scope.
 
 *)
 
 Notation "r '.' f" :=
   (Wpgen_app _ (val_get_field f) ((Dyn r)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    f constr at level 0,
-   format "r '.' f") : wp_scope.
+   format "r '.' f") : cf_scope.
 
 Notation "r '.' f <- v" :=
   (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    f constr at level 0,
    v constr at level 69,
-   format "r '.' f  <-  v") : wp_scope.
+   format "r '.' f  <-  v") : cf_scope.
 
-(** Same with tag *)
+(** Same with tag 
+DEPRECATED
 
 
 Notation "'New' Vs 'as' r" :=
   (Wptag (Wpgen_record_new (fun r => Vs)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    Vs constr at level 69)
-  : wp_scope.
+  : cf_scope.
 
 Notation "'New' Vs" :=
   (Wptag (Wpgen_record_new (fun _ => Vs)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    Vs constr at level 69)
-  : wp_scope.
+  : cf_scope.
 
 Notation "r '.' f" :=
   (Wptag (Wpgen_app _ (val_get_field f) ((Dyn r)::nil)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    no associativity,
    r constr at level 0,
    f constr at level 0,
-   format "r '.' f") : wp_scope.
+   format "r '.' f") : cf_scope.
 
 Notation "r '.' f <- v" :=
   (Wptag (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    no associativity,
    r constr at level 0,
    f constr at level 0,
    v constr at level 69,
-   format "r '.' f  <-  v") : wp_scope.
+   format "r '.' f  <-  v") : cf_scope.
+*)
