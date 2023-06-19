@@ -316,6 +316,7 @@ STDLIB_ML := $(wildcard $(STDLIB)/*.ml)
 STDLIB_CMJ := $(patsubst %.ml,%.cmj,$(STDLIB_ML))
 STDLIB_MLV := $(patsubst %.ml,%_ml.v,$(STDLIB_ML))
 STDLIBMAIN := $(STDLIB)/Stdlib.v
+STDLIB_PROOFV := $(patsubst %.ml,%_proof.v,$(STDLIB_ML))
 STDLIB_V := $(STDLIB_MLV) $(STDLIB_PROOFV) $(STDLIBMAIN)
 
 EXAMPLE_MLV := $(patsubst %.ml,%_ml.v,$(ML))
@@ -326,10 +327,6 @@ EXAMPLE_MLD := $(patsubst %.ml,%.ml.d,$(ML))
 
 MLV := $(STDLIB_MLV) $(EXAMPLE_MLV)
 OTHERV := $(TLC_V) $(LIBCOQ_V) $(STDLIB)/Stdlib.v $(V_AUX) 
-
-# DEPRECATED
-# STDLIB_PROOFV := $(patsubst %.ml,%_proof.v,$(STDLIB_ML))
-# PROOFV := $(STDLIB_PROOFV) $(EXAMPLE_PROOFV)
 
 # If in lib/coq or lib/stdlib folder, we don't want to necessary include all $(STDLIB_V) files
 ifeq ($(FOLDER),$(LIBCOQ))

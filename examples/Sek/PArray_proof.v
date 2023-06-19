@@ -148,22 +148,132 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 (*************************************************)
 (** CFML additions *)
 
+
+Tactic Notation "xchange" constr(E1) constr(E2) :=
+  xchange (>> E1 E2).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) :=
+  xchange~ (>> E1 E2).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) :=
+  xchange* (>> E1 E2).
+
+Tactic Notation "xchange" constr(E1) constr(E2) constr(E3) :=
+  xchange (>> E1 E2 E3).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) constr(E3) :=
+  xchange~ (>> E1 E2 E3).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) constr(E3) :=
+  xchange* (>> E1 E2 E3).
+
+Tactic Notation "xchange" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange~ (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange* (>> E1 E2 E3 E4).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) :=
+  xchange <- (>> E1 E2).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) :=
+  xchange~ <- (>> E1 E2).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) :=
+  xchange* <- (>> E1 E2).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange <- (>> E1 E2 E3).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange~ <- (>> E1 E2 E3).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange* <- (>> E1 E2 E3).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange <- (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange~ <- (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange* <- (>> E1 E2 E3 E4).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) :=
+  xchanges (>> E1 E2).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) :=
+  xchanges~ (>> E1 E2).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) :=
+  xchanges* (>> E1 E2).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) constr(E3) :=
+  xchanges (>> E1 E2 E3).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) constr(E3) :=
+  xchanges~ (>> E1 E2 E3).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) constr(E3) :=
+  xchanges* (>> E1 E2 E3).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges~ (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges* (>> E1 E2 E3 E4).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) :=
+  xchanges <- (>> E1 E2).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) :=
+  xchanges~ <- (>> E1 E2).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) :=
+  xchanges* <- (>> E1 E2).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges <- (>> E1 E2 E3).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges~ <- (>> E1 E2 E3).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges* <- (>> E1 E2 E3).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges <- (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges~ <- (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges* <- (>> E1 E2 E3 E4).
+
+
+
+
+
 Ltac xcf_pre tt ::=
 	intros; match goal with |- TripleMon _ _ _ _ => unfold TripleMon | _ => idtac end.
 
 #[global]
 Hint Rewrite @LibMap.dom_update : rew_map.
 
-Ltac saturate_indom :=
+
+
+Ltac set_prove_setup_custom tt :=
 	idtac.
 
+Ltac set_prove_setup use_classic ::=
+  intros;
+  rew_set_tactic tt;
+  try set_specialize use_classic;
+  rew_set_tactic tt;
+  set_prove_setup_custom tt.
+
+
+
+
 Hint Extern 1 (dom _ \c dom _) => rew_map; set_prove.
+(*
 Hint Extern 1 (_ \in dom _) => rew_map; saturate_indom; set_prove.
+*)
+(* match  (?x \indom ?E) *)
+Hint Extern 1 (@is_in _ (set _) (in_inst _) ?x (@dom (map _ _) (set _) (dom_inst _ _) ?E)) =>
+ rew_map; set_prove.
+
 Hint Extern 1 (?x <> ?y :> loc) => 
 	match goal with 
 	| H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false 
 	| H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false 
 	end.
+
+Import HintArith.
+
 
 Lemma xsimpl_l_false : forall Nc Hla Hlw Hlt HR,
   Xsimpl (Nc, Hla, Hlw, (\[False] \* Hlt)) HR.
@@ -278,7 +388,7 @@ Proof using. intros. xchange* <- PArray_Desc_eq_Base. xchange* <- PArray_eq. Qed
 
 Lemma PArray_Diff_close : forall A (EA: Enc A) (pa: parray_ A) q i x,
 	pa ~~~> `{ data' := PArray_Diff q i x } ==> pa ~> PArray (Desc_Diff q i x).
-Proof using. intros. xchange* <- (>> PArray_Desc_eq_Diff q i x). xchange* <- PArray_eq. Qed.
+Proof using. intros. xchange* <- PArray_Desc_eq_Diff q i x. xchange* <- PArray_eq. Qed.
 
 Hint Extern 1 (RegisterOpen PArray) => Provide PArray_eq.
 
@@ -423,16 +533,24 @@ Lemma Shared_inv_Inv : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A),
 	Shared M ==+> \[Inv M].
 Proof using. unfold Shared. xsimpl*. Qed.
 
-Ltac saturate_indom_step :=
+(* [saturate_indom tt] finds all hypotheses of the form [M[p] = Desc_Diff q i v]
+   where [Inv M] is in the context, and produces [q \indom M].
+   It leaves [p \indom M] as side-condition, which is expected to be provable. *)
+
+Ltac saturate_indom_step tt :=
 	match goal with I: Inv ?M, H: ?M[?p] = Desc_Diff ?q ?i ?v |- _ =>
 		let Hp := fresh in
 		try (assert (Hp: p \indom M);
-		[| generalize (@Inv_closure _ _ _ M I p i v q Hp H); intro]);
-		clear H
+		[ clear H (* important to clear to avoid auto to loop *)
+    | generalize (@Inv_closure _ _ _ M I p i v q Hp H); intro]);
+		clear H (* hypothesis [q \indom M] now part of the context *)
 	end.
 
-Ltac saturate_indom ::=
-	repeat saturate_indom_step.
+Ltac saturate_indom tt :=
+	repeat (saturate_indom_step tt).
+
+(*Ltac set_prove_setup_custom tt ::=
+	saturate_indom tt.*)
 
 Lemma Shared_inv_focus : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
@@ -444,24 +562,26 @@ Lemma Shared_inv_focus : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 			\[Points_into (dom M) D] \-*
 			Shared (M[pa := D]).
 Proof using.
-	intros. unfold Shared. xchange* (>> Group_focus pa).
+	intros. unfold Shared. xchange* Group_focus pa.
 	forwards* Dpa: IsPArray_inv_indom.
-	intros Inv. xsimpl*; intros D.
+	intros I. xsimpl*; intros D.
 	{ constructors*. rewrites* Points_into_forall_eq. intros p Hdom.
 		rew_map in *. rewrites* <- dom_of_union_single_eq in *.
 		rewrites* read_update. case_if*.
-		applys* (Inv_closure Inv0). }
-	{ xchange* (>> hforall_specialize D). }
+		applys* Inv_closure I. }
+	{ xchange* hforall_specialize D. }
 Qed.
 
 Lemma Shared_add_fresh_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
-	pa ~> PArray (Desc_Base L) \* Shared M ==> Shared (M[pa := Desc_Base L]) \* \[pa \notindom M].
+	    pa ~> PArray (Desc_Base L) \* Shared M 
+  ==> Shared (M[pa := Desc_Base L]) \* \[pa \notindom M].
 Proof using.
 	skip.
 Qed.
 
 Lemma Shared_add_fresh_Diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) q i x,
-	pa ~> PArray (Desc_Diff q i x) \* \[q \indom M] \* Shared M ==> Shared (M[pa := Desc_Diff q i x]) \* \[pa \notindom M].
+	    pa ~> PArray (Desc_Diff q i x) \* \[q \indom M] \* Shared M 
+  ==> Shared (M[pa := Desc_Diff q i x]) \* \[pa \notindom M].
 Proof using.
 	skip.
 Qed.
@@ -543,6 +663,8 @@ Hint Extern 1 (RegisterSpec parray_create) => Provide parray_create_spec.
 		INV (Shared M)
 		POST (fun sz => \[sz = length L]).
 Admitted. *)
+
+Hint Rewrite update_same : rew_map.
 
 Lemma parray_base_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
@@ -632,10 +754,11 @@ Proof using.
 	xchange* (>> Group_add_again pa). skip.
 	xchange* <- Shared_eq. skip.
 	xsimpl*.
-	xsimpl* (M[pb := Desc_Base (L[i := x])][pa := Desc_Diff pb i L[i]]).
+(*
+	xsimpl* (M[pb := Desc_Base (L[i := x])][pa := Desc_Diff pb i L[i]]).*)
 	{ skip. (* Transitivité + ajouter un lemme update_diff avec bonnes hypothèses *) }
 	{ applys* IsPArray_Base. rewrites* read_update_neq. rew_map*. }
-	{ unfold Shared. (* Pas très bien, mais on voit qu'on devrait s'en sortir... *) xsimpl*; skip. }
+	{ unfold Shared. (* Pas très bien, mais on voit qu'on devrait s'en sortir... *) skip. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.

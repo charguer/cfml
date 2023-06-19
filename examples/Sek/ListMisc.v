@@ -22,7 +22,9 @@ Ltac auto_star ::=
              try math_only_if_arith;
              try typeclass_only_if_class tt; jauto].
 
+Module Import HintArith.
 Hint Extern 1 => (try math_only_if_arith).
+End HintArith.
 
 (*******************************************)
 (** About lists *)
