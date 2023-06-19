@@ -374,7 +374,15 @@ Module cc_types.
   Proof using.
     intros. induction ty; cbn; eauto.
   Qed.
-  
+
+  Definition chunk_of_type (ty : Ctypes.type) :=
+    (AST.chunk_of_type (Ctypes.typ_of_type ty)).
+
+  Lemma access_mode_is_chunk_of_type : forall (ty : CFML_C.type),
+      Ctypes.access_mode ty = Ctypes.By_value (chunk_of_type ty).
+  Proof using.
+    induction ty; unfold chunk_of_type; cbn; eauto.
+  Qed.
 
 End cc_types.
 
@@ -662,19 +670,22 @@ Section Compil_correct.
 
   Definition map_loc := map loc map_loc_out_type.
 
+  Coercion Integers.Ptrofs.intval : Integers.Ptrofs.int >-> Z.
+
   Definition wf_map_loc (M : map_loc) :=
-    forall l l' ty ty' b b' ofs ofs',
+    forall l l' (ty ty' : type) (b b' : Values.block) (ofs ofs' : ptr_ofs),
       l \indom M ->
       l' \indom M ->
       l <> l' ->
       M [l] = (ty, b, ofs) ->
       M [l'] = (ty', b', ofs') ->
-      (b, ofs) <> (b', ofs').
+      b <> b'
+      \/ ofs + (Memdata.size_chunk (cc_types.chunk_of_type (tr_types ty))) <= ofs'
+      \/ ofs' + (Memdata.size_chunk (cc_types.chunk_of_type (tr_types ty'))) <= ofs.
 
 
   Variable ge : Clight.genv.
 
-  Coercion Integers.Ptrofs.intval : Integers.Ptrofs.int >-> Z.
 
 
 
@@ -690,7 +701,18 @@ Section Compil_correct.
                            (b : Values.block) (ofs : ptr_ofs),
         l \indom M ->
         M [l] = (ty, b, ofs) ->
-        match_values M ty (val_loc l) (Values.Vptr b ofs).
+        match_values M (type_ref ty) (val_loc l) (Values.Vptr b ofs).
+
+
+  Lemma match_val_has_type : forall M ty vs vt,
+      wf_map_loc M ->
+      match_values M ty vs vt ->
+      Values.Val.has_type vt (Ctypes.typ_of_type ty).
+  Proof using.
+    induction ty; intros; cbn; inversion H0; cbn; eauto.
+    unfold AST.Tptr. destruct Archi.ptr64; eauto.
+  Qed.
+
 
 
   Definition match_temp_env (G : val_env) (te : Clight.temp_env)
@@ -726,7 +748,7 @@ ptree_relate P R (add x p1) p2'
       (exists b,
           (* l \indom M -> *)
           (* M [l] = (ty, b, Integers.Ptrofs.zero) *)
-          match_values M ty l (Values.Vptr b (Integers.Ptrofs.zero))
+          match_values M (type_ref ty) l (Values.Vptr b (Integers.Ptrofs.zero))
           /\ PTree.get i e = Some (b, tr_types ty)).
 
 
@@ -735,12 +757,11 @@ ptree_relate P R (add x p1) p2'
     forall l b (ty : CFML_C.type) (ofs : ptr_ofs),
       l \indom M ->
       M [l] = (ty, b, ofs) ->
-      exists vt,
-        let chunk := (AST.chunk_of_type (Ctypes.typ_of_type ty)) in
-        Fmap.indom s l
-        /\ Memory.Mem.valid_access m chunk b ofs Memtype.Freeable
-        /\ Memory.Mem.load chunk m b ofs = Some vt
-        /\ match_values M ty (Fmap.read s l) vt.
+      let chunk := cc_types.chunk_of_type ty in
+      Fmap.indom s l
+      /\ Memory.Mem.valid_access m chunk b ofs Memtype.Freeable
+      /\ (exists vt, Memory.Mem.load chunk m b ofs = Some vt
+               /\ match_values M ty (Fmap.read s l) vt).
 
   Definition wf_env_and_mem (G : val_env) (s : CFML_C.state) : Prop :=
     forall l d ty i,
@@ -834,92 +855,49 @@ ptree_relate P R (add x p1) p2'
 
   (** ** Correctness of statement translation *)
 
-  Lemma assign_correct : forall s s' m m' l b ofs M vs vt ty bf,
+  Lemma assign_correct : forall s s' m m' l b ofs M vs vt ty chunk,
       wf_map_loc M ->
       match_mem_vals s m M ->
-      match_values M ty (val_loc l) (Values.Vptr b ofs) ->
+      match_values M (type_ref ty) (val_loc l) (Values.Vptr b ofs) ->
       match_values M ty vs vt ->
       s' = Fmap.update s l vs ->
-      Clight.assign_loc (Clight.genv_cenv ge) ty m b ofs bf vt m' ->
+      Ctypes.access_mode ty = Ctypes.By_value chunk ->
+      Memory.Mem.storev chunk m (Values.Vptr b ofs) vt = Some m' ->
+
+      (* Clight.assign_loc (Clight.genv_cenv ge) ty m b ofs bf vt m' -> *)
       match_mem_vals s' m' M.
   Proof using.
     intros.
     unfold match_mem_vals in H0.
-    constructors*.
-    forwards *(vt0 & Hdoml0&Haccess&Hload&Hvalues):H0 l0 b0 ty0 ofs0.
+    constructors*;
+    forwards *(Hdoml0&Haccess& vt0 & Hload&Hvalues):H0 l0 b0 ty0 ofs0.
+    rewrites H3. unfold Fmap.update. applys* Fmap.indom_union_r.
     splits*.
-    - rewrites H3. unfold Fmap.update. applys* Fmap.indom_union_r.
-    - forwards *(mode&Hbyvalue):all_access_by_value ty. inverts* H4;
-        try solve [rewrite Hbyvalue in *; discriminate].
-      + eapply Memory.Mem.store_valid_access_1.
-        cbn in H8. eapply H8. eapply Haccess.
-      + inversion H7. subst. cbn in H13.
-        eapply Memory.Mem.store_valid_access_1.
-        eapply H13. eapply Haccess.
-    - forwards *(mode&Hbyvalue):all_access_by_value ty. inverts* H4;
-        try solve [rewrite Hbyvalue in *; discriminate].
-      + eapply Hload.
-
-
-
-
-        * forwards *Hi_in_e: Henv i l (type_ref ty) heap H.
-          destruct (Hi_in_e) as (b & n & ofsl & Hiinll & Hi_fmem & Hi).
-          forwards *Htr_expr: forward_expr E ge (f, G, s, e, k) e0 te.
-          { constructors *. } destruct Htr_expr as (v & Hevalx0 & Hmatchv).
-          forwards *: Hmemvals.
-          { eapply Pos2Nat.is_pos. }
-          { apply Zplus_0_r_reverse. }
-          destruct H6 as (vt & _ & Hperm & Hload & Hmatch).
-          forwards *: Memory.Mem.valid_access_store Hperm.
-          destruct H6 as (m2 & Hstore).
-          constructors*.
-          ** constructors*.
-          ** cuts *Hsemcast:(Cop.sem_cast v (Clight.typeof x0)
-                      (Clight.typeof (Clight.Evar i (pointer ty))) m = Some v).
-              admit.
-          ** cbn. eapply Clight.assign_loc_value. reflexivity.
-              cbn. apply Hstore.
-          ** destruct Hmatchv as (ve & HveQe & Hmatchve).
-             destruct (H3 ve HveQe) as (lve & ?); subst.
-             unfold Q1, Qi1.
-             exists (f, G, Fmap.update s l lve, (), k).
-             splits*.
-             { constructors*.
-               - intros. forwards *: Hmemvals.
-                 destruct H10 as (?&?&?&?&?).
-                 setoid_rewrite Fmap.update_eq_union_single.
-                 case (Pos.eq_dec b b0); case (Nat.eq_dec n' 0); intros; subst;
-                 [exists v | exists x2 | exists x2 | exists x2]; splits.
-                 + rewrite Fmap.indom_union_eq. right. auto.
-                 + eapply Memory.Mem.store_valid_access_1.
-                   eapply Hstore. eapply H11.
-                 + forwards *: Memory.Mem.load_store_same.
-                   rewrite Values.Val.load_result_same in H14.
-                   assert (l0 = l).
-                   {
-                     forwards *: Hnoduplb b0 ofsl ofsl0.
-                     rewrite <- Hi_fmem.
-                     change (fmem l) with ((fun '(l1, _, _) => fmem l1)
-                                              (l, n, type_ref ty)).
-                     applys* List.in_map.
-                     rewrite <- H9.
-                     change (fmem l0) with ((fun '(l1, _, _) => fmem l1)
-                                              (l0, n0, ty0)).
-                     applys* List.in_map.
-                     subst.
-                     forwards *: Hinj l l0. congruence.
-                   }
-                   subst.
-                   forwards *(?&?): Hnodupll l n n0 (type_ref ty) ty0. subst.
-                   eapply H14.
-                   change (Ctypes.typ_of_type (type_ref ty)) with
-                     (AST.type_of_chunk)
-                   apply Memory.Mem.load_type.
-             }
-
-
-
+    - eapply Memory.Mem.store_valid_access_1.
+      cbn in H5. eapply H5. eapply Haccess.
+    - inversion H1. subst.
+        ecase (Nat.eq_dec l l0); intros.
+        * subst. rewrite H7 in H13. inversion H13; subst.
+          eexists. split.
+          applys* Memory.Mem.load_store_same.
+          cbn in H5. forwards *Hchunk: cc_types.access_mode_is_chunk_of_type ty.
+          rewrite Hchunk in H4. inversion H4. subst.
+          eapply H5. setoid_rewrite Fmap.read_union_l.
+          setoid_rewrite Fmap.read_single.
+          unfold chunk_of_type.
+          rewrites* Values.Val.load_result_same.
+          applys * match_val_has_type. apply Fmap.indom_single.
+        * forwards *: H l l0. forwards *: Memory.Mem.load_store_other b b0.
+          {
+            branches * H3.
+            forwards *Hchunk: cc_types.access_mode_is_chunk_of_type ty.
+            rewrite Hchunk in H4. inversion H4. subst.
+            eauto.
+          }
+          eexists. rewrites* H8. rewrite Hload.
+          splits *. setoid_rewrite Fmap.read_union_r. eauto.
+          rewrites * (Fmap.indom_single_eq l l0 vs).
+  Qed.
 
 
 
@@ -962,12 +940,15 @@ ptree_relate P R (add x p1) p2'
       forwards *(vt & Heval_e & vs & HQevs & Hmatchvsvt):
         forward_expr E M (f, G, s, e, k) e0 te. constructors*.
       inverts keep Hmatch.
-      forwards *(v & Hldom & Hperm & Hload & Hmatchvals): Hmemvals l.
+      forwards *(Hldom & Hperm & v & Hload & Hmatchvals): Hmemvals l b.
       forwards *(m2 & Hstore):Memory.Mem.valid_access_store.
       { applys Memory.Mem.valid_access_implies. apply Hperm. constructor. }
       asserts *Hsemcast:(Cop.sem_cast vt (Clight.typeof x0)
                         (Clight.typeof (Clight.Evar i (pointer ty))) m = Some vt).
-      admit.
+      { rewrite Htyx0. simpl. eapply Cop.cast_val_casted.
+        inverts * Hmatchvsvt.
+        applys * Cop.val_casted_ptr_ptr.
+      }
       forwards * : (>> omni_exec_Sseq_1 Q1).
       constructors*.
       + constructors*.
@@ -979,8 +960,7 @@ ptree_relate P R (add x p1) p2'
         constructors*.
         eapply assign_correct. eauto.
         eauto. apply Hmatch. eapply Hmatchvsvt. congruence.
-        cbn. eapply Clight.assign_loc_value. reflexivity.
-        cbn. eapply Hstore.
+        cbn. eauto. eauto.
         constructors*.
       + intros. (* destruct (H3 vs HQevs) as (lve & ?); subst. *)
         inversion H6 as (?&?&?). destruct x2 as ((((f'&G')&s')&t')&k').
