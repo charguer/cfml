@@ -376,11 +376,7 @@ Proof using.
 	skip.
 Qed.
 
-Lemma Shared_heapdata_single : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (D: Desc A),
-	Shared M \* pa ~> PArray D ==+> \[pa \notindom M].
-Proof using. unfold Shared. xchange* Group_heapdata_single. xsimpl*. Qed.
-
-Hint Resolve Shared_inv_Inv Shared_add_fresh_Base Shared_add_fresh_Diff Shared_heapdata_single.
+Hint Resolve Shared_inv_Inv Shared_add_fresh_Base Shared_add_fresh_Diff.
 
 
 Definition Extend {A} {IA: Inhab A} {EA: Enc A} (M M': Memory A) : Prop :=
@@ -497,7 +493,7 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: 
 			pa ~~~> `{ data' := (PArray_Base (B_ := A)) a } \*
 			a ~> Array L \*
 			Group (PArray (A := A)) (M \-- pa) \*
-			\[Points_into_forall (dom M) M]).
+			\[Inv M]).
 Proof using.
 	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_inv_focus. intros Inv.
@@ -519,7 +515,9 @@ Proof using.
 	xchange* PArray_Base_close.
 	xchange* Group_add_again.
 	xchanges* <- Shared_eq.
-	{ skip. }
+	{ constructors*.
+		rew_map*. rewrites* <- dom_of_union_single_eq.
+		applys* Points_into_forall_update. applys* Inv_closure. }
 	{ applys* Extend_update_Base. }
 Qed.
 
@@ -540,15 +538,13 @@ Proof using.
 	xchange* PArray_Diff_close. xchange* PArray_Base_close.
 	xchange* (heapdata pa pb). intros Diff.
 	xchange* Group_add_fresh. intros Hpb.
-	rewrite update_remove_one_neq.
-	xchange* (>> Group_add_again pa). skip.
-	xchange* <- Shared_eq. skip.
-	xsimpl*.
-(*
-	xsimpl* (M[pb := Desc_Base (L[i := x])][pa := Desc_Diff pb i L[i]]).*)
-	{ skip. (* Transitivité + ajouter un lemme update_diff avec bonnes hypothèses *) }
-	{ applys* IsPArray_Base. rewrites* read_update_neq. rew_map*. }
-	{ unfold Shared. (* Pas très bien, mais on voit qu'on devrait s'en sortir... *) skip. }
+	rewrites* update_remove_one_neq.
+	xchange* (>> Group_add_again pa).
+	{ forwards*: IsPArray_inv_indom. }
+	{ xchanges* <- Shared_eq.
+		{ skip. (* Transitivité + ajouter un lemme update_diff avec bonnes hypothèses *) }
+		{ skip. }
+		{ applys* IsPArray_Base. rewrites* read_update_neq. rew_map*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
@@ -563,11 +559,9 @@ Proof using.
 	introv Rpa. xcf*. simpl. xpay_skip.
 	xapp*. intros a. xapp*. intros q.
 	xchange* PArray_Base_close.
-	xchange* Shared_heapdata_single. intros Hdom.
-	xsimpl* (M[q := Desc_Base L]).
+	xchanges* Shared_add_fresh_Base; intros Hdom.
 	{ applys* Extend_add_fresh. }
 	{ applys* IsPArray_Base. rew_map*. }
-	{ xchange* Shared_add_fresh_Base. xsimpl*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.
