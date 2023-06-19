@@ -260,6 +260,34 @@ Fixpoint is_expr (t : trm) : bool :=
   | _ => false
   end.
 
+Open Scope error_monad_scope.
+
+Fixpoint typeof_expr (E : env_var) (e : trm) : res type :=
+  match e with
+  | trm_val (val_int _) => OK type_long
+  | trm_val (val_double _) => OK type_double
+  | trm_var x =>
+    do i <- get_ident x;
+      match E ! i with
+      | Some (d, ty) =>
+          match d with
+          | stack => OK (type_ref ty)
+          | heap | const => OK ty
+          end
+      | None => Error (msg "typeof_expr : not a valid expression")
+      end
+  | trm_apps val_get [e'] =>
+      match typeof_expr E e' with
+      | OK (type_ref ty) => OK ty
+      | _ => Error (msg "typeof_expr : not a valid expression")
+      end
+  | trm_apps (val_prim (val_add ty)) _ => OK ty
+  | trm_apps (val_prim (val_ptr_add ty)) _ => OK ty
+  | trm_apps (val_prim (val_lt ty)) _ => OK ty
+  | _ => Error (msg "typeof_expr : not a valid expression")
+  end.
+
+Close Scope error_monad_scope.
 
 
 Section Trm_induct.
@@ -849,6 +877,7 @@ Section Semantics.
 
 
   Reserved Notation "F '/' c '==>' Q" (at level 40, c at level 30).
+  Variable E : env_var.
 
   Inductive cfml_omnibig_stmt (F : fundef_env) :
     config -> big_pc -> Prop :=
@@ -887,6 +916,7 @@ Section Semantics.
       G ! i = Some (val_loc l, heap, ty) ->
       Fmap.indom s l ->
       l <> null ->
+      typeof_expr E e = OK ty ->
       cfml_omnibig_expr G s e Qe ->
       (forall v, Qe v -> exists l', v = val_loc l') ->
       (forall (l': loc), Qe (val_loc l') ->

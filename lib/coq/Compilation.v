@@ -462,6 +462,41 @@ Section Compil.
     | _ => Error (msg "tr_trm_expr: not a translatable expr")
     end.
 
+  Lemma expr_compil_preserves_type : forall E te e ty,
+      tr_trm_expr E te = OK e ->
+      CFML_C.typeof_expr E te = OK ty ->
+      Clight.typeof e = tr_types ty.
+  Proof using.
+    induction te using trm_induct; intros.
+    - inversion H. destruct v; monadInv H2. cbn in H0 |- *. monadInv H0. eauto.
+    - inversion H. monadInv H2. monadInv H0.
+      rewrite EQ in EQ1. monadInv EQ1.
+      destruct (E ! x0); try discriminate.
+      destruct p. destruct v0; try monadInv EQ0.
+      + monadInv EQ2. eauto.
+      + destruct t; monadInv EQ0. monadInv EQ2. eauto.
+      + cbn. monadInv EQ2. eauto.
+    - inversion H.
+    - inversion H.
+    - cbn in H1.
+      destruct te; inverts H1.
+      destruct v; inverts H3.
+      destruct p; try monadInv H2; inversion H0;
+        destruct l; inverts H2;
+        destruct l; inverts H3;
+        try solve [destruct l; monadInv H2; eauto].
+      2:{ destruct t; destruct l; inverts H2. }
+      destruct t; monadInv H2.
+      destruct (E ! x) eqn:He; try monadInv EQ0.
+        destruct p. destruct v0; try monadInv EQ0.
+      * inversion H4. rewrite EQ in H2. cbn in H2. rewrite He in H2. cbn.
+        monadInv H2. eauto.
+      * destruct t; monadInv EQ0.
+        inversion H4. rewrite EQ in H2. cbn in H2. rewrite He in H2. cbn.
+        monadInv H2. eauto.
+    - inversion H.
+  Qed.
+  
 
   (** ** Compiles statements *)
 
@@ -905,7 +940,7 @@ ptree_relate P R (add x p1) p2'
   Lemma forward (F : CFML_C.fundef_env) (FT : funtypes_env) (E : env_var) :
     forall (c : CFML_C.config) e te m st (Q : big_pc),
       match_config FT E c (e, te, m, st) ->
-      cfml_omnibig_stmt F c Q ->
+      cfml_omnibig_stmt E F c Q ->
       omni_exec_stmt ge (e, te, m, st)
         (fun ft => exists fs, Q fs /\ match_final_states FT E e fs ft).
   Proof.
@@ -924,8 +959,7 @@ ptree_relate P R (add x p1) p2'
     - cbn in Hcomp. monadInv Hcomp.
       destruct ty; inversion EQ2.
 
-      asserts Htyx0: (Clight.typeof x0 = tr_types (type_ref ty)).
-      admit.
+      forwards *Htyx0: expr_compil_preserves_type.
 
       set (Qi1 := (fun '(f', G', s', v', k') =>
                     f' = f
@@ -954,7 +988,7 @@ ptree_relate P R (add x p1) p2'
       + constructors*.
       + cbn. eapply Clight.assign_loc_value. reflexivity.
         cbn. eapply Hstore.
-      + unfold Q1, Qi1. forwards *(lvs&Hlvs): H3 vs.
+      + unfold Q1, Qi1. forwards *(lvs&Hlvs): H4 vs.
         exists (f, G, Fmap.update s l lvs, (), k).
         splits*. splits*. exists lvs; intuition congruence.
         constructors*.
@@ -963,14 +997,14 @@ ptree_relate P R (add x p1) p2'
         cbn. eauto. eauto.
         constructors*.
       + intros. (* destruct (H3 vs HQevs) as (lve & ?); subst. *)
-        inversion H6 as (?&?&?). destruct x2 as ((((f'&G')&s')&t')&k').
-        unfold Qi1 in H8. destruct H8 as (?&?&?&?&?); subst.
-        destruct H15 as (lv'&HQelv'&Hs').
-        apply H5 with lv'; eauto.
-        inversion H9. subst. constructors*.
+        inversion H7 as (?&?&?). destruct x2 as ((((f'&G')&s')&t')&k').
+        unfold Qi1 in H9. destruct H9 as (?&?&?&?&?); subst.
+        destruct H16 as (lv'&HQelv'&Hs').
+        apply H6 with lv'; eauto.
+        inversion H10. subst. constructors*.
         unfold wf_env_and_mem. intros.
         unfold wf_env_and_mem in Hmemenv.
-        forwards * : Hmemenv l0 d ty0 H7 H8.
+        forwards * : Hmemenv l0 d ty0 H8 H9.
         unfold Fmap.update. applys* Fmap.indom_union_r.
 
 
