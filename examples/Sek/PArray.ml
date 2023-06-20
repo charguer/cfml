@@ -2,8 +2,9 @@
   Type pour un tableau persistant
 *)
 type 'a parray = {
-  mutable data : 'a parray_desc
-   } 
+  mutable data : 'a parray_desc;
+  mutable maxdist : int
+  }
  
  and 'a parray_desc =
 | PArray_Base of 'a array
@@ -11,7 +12,7 @@ type 'a parray = {
 
 let parray_create size d =
   let a = Array.make size d in
-  { data = PArray_Base a }
+  { data = PArray_Base a; maxdist = 0 }
 
 (* let rec parray_length pa =
   match pa.data with
@@ -30,7 +31,7 @@ let rec parray_base_copy pa =
 let parray_rebase_and_get_array pa =
   match pa.data with
   | PArray_Base a -> a
-  | PArray_Diff (_, _, _) ->
+  | PArray_Diff (origin, _, _) ->
     let a = parray_base_copy pa in
     pa.data <- PArray_Base a;
     a
@@ -41,12 +42,20 @@ let parray_get pa i =
 
 let parray_set pa i x =
   let a = parray_rebase_and_get_array pa in
-  let v = a.(i) in
-  a.(i) <- x;
-  let pb = { data = PArray_Base a } in
-  pa.data <- PArray_Diff (pb, i, v);
-  pb
+  let cond = (pa.maxdist = Array.length a) in
+  if cond then begin
+    let b = Array.copy a in
+    b.(i) <- x;
+    { data = PArray_Base b; maxdist = 0 }
+  end else begin
+    let v = a.(i) in
+    a.(i) <- x;
+    let pb = { data = PArray_Base a; maxdist = pa.maxdist + 1 } in
+    pa.data <- PArray_Diff (pb, i, v);
+    pb
+  end
+  
 
 let parray_copy pa =
   let a = parray_base_copy pa in
-  { data = PArray_Base a }
+  { data = PArray_Base a; maxdist = 0 }
