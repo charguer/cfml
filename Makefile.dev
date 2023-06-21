@@ -1,5 +1,5 @@
 
-VERBOSE:=1
+# VERBOSE:=1
 
 
 # This Makefile is intented for developer use. 
