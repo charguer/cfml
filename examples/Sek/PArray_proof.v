@@ -132,6 +132,10 @@ Hint Extern 1 (RegisterSpec Array_ml.copy) => Provide copy_spec.
 
 Implicit Types p q: loc.
 
+
+Definition bound A (L: list A) := length L.
+
+
 (* parray_desc *)
 Inductive Desc A :=
   |	Desc_Base : list A -> Desc A 
@@ -187,7 +191,7 @@ Proof using. intros. intros ? ?. apply haffine_PArray_Desc. Qed.
 Hint Resolve haffine_PArray_Desc haffine_repr_PArray_Desc : haffine.
 
 
-Record PArray_Rec A : Type := {
+Record PArray_Rec A : Type := make_pa_rec {
 	desc : Desc A;
 	maxdist : int }.
 
@@ -209,7 +213,7 @@ Lemma PArray_Rec_eq_maxdist : forall A (D: Desc A) (md: int),
 Proof using. auto. Qed.
 
 Hint Rewrite PArray_Rec_eq_desc PArray_Rec_eq_maxdist.
-Hint Extern 1 (maxdist {| desc := _; maxdist := _ |} <= _) => simpl.
+Hint Extern 1 (maxdist (make_pa_rec _ _) <= _) => simpl.
 
 Definition PArray A {IA: Inhab A} {EA: Enc A} (rec: PArray_Rec A) (pa: parray_ A) : hprop :=
 	\exists d, pa ~~~> `{ data' := d ; maxdist' := maxdist rec } \* d ~> PArray_Desc (desc rec).
@@ -274,7 +278,7 @@ Inductive IsPArray A {IA: Inhab A} {EA: Enc A} (M: Memory A) : list A -> parray_
 	|	IsPArray_Base : forall pa L,
 			pa \indom M ->
 			desc (M[pa]) = Desc_Base L ->
-			maxdist (M[pa]) <= length L ->
+			maxdist (M[pa]) <= bound L ->
 			IsPArray M L pa
 	|	IsPArray_Diff : forall pa' pa i x L' L,
 			pa \indom M ->
@@ -317,7 +321,7 @@ Hint Resolve IsPArray_inv_neq.
 
 Lemma IsPArray_inv_maxdist : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
-	maxdist (M[pa]) <= length L.
+	maxdist (M[pa]) <= bound L.
 Proof using.
 	introv Rpa. induction Rpa as [| q pa i x L' L Hpa E Rq IH Hi EL Hdist]; auto.
 	forwards* Elen: length_update L' i x. subst. rew_list in *. (* ARTHUR *) transitivity (maxdist M[q]); auto.
@@ -331,7 +335,7 @@ Inductive IsPArray_sized A {IA: Inhab A} {EA: Enc A} (M: Memory A) : list A -> p
 	|	IsPArray_Base_sized : forall pa L,
 			pa \indom M ->
 			desc (M[pa]) = Desc_Base L ->
-			maxdist (M[pa]) <= length L ->
+			maxdist (M[pa]) <= bound L ->
 			IsPArray_sized M L pa 0
 	|	IsPArray_Diff_sized : forall pa' pa i x L' L n,
 			pa \indom M ->
@@ -536,7 +540,7 @@ Lemma Extend_update_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa:
 	IsPArray M L pa ->
 	desc rec = Desc_Base L ->
 	maxdist (M[pa]) <= maxdist rec ->
-	maxdist rec <= length L ->
+	maxdist rec <= bound L ->
 	Extend M (M[pa := rec]).
 Proof using.
 	introv Rpa HD Hlb Hub. unfold Extend.
@@ -548,7 +552,7 @@ Proof using.
 		{ inverts* E'. } }
 	{ tests : (q = pa).
 		{	applys* IsPArray_Base; rew_map*;
-			forwards* Rpa': IsPArray_Diff p pa; forwards* EL': IsPArray_inv_eq M pa (Lp[i := x]) L. subst. auto. }
+			forwards* Rpa': IsPArray_Diff p pa; forwards* EL': IsPArray_inv_eq M pa (Lp[i := x]) L. substs*. auto. }
 		{ applys* IsPArray_Diff.
 			{ rew_map*. }
 			{ rewrites* (>> read_update p). case_if*; rew_map*. rewrite <- C0 in *.
@@ -591,8 +595,14 @@ Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
 (*************************************************)
 (** Specifications *)
 
+Lemma dist_bound_spec : forall A (IA: Inhab A) (EA: Enc A) (a: array A) (L: list A),
+	SPEC (dist_bound a)
+		INV (a ~> Array L)
+		POST \[= bound L].
+Proof using. xcf*. xpay_fake. xapp*. xsimpl*. Qed.
 
-(* Laisser tel quel *)
+Hint Extern 1 (RegisterSpec dist_bound) => Provide dist_bound_spec.
+
 Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz: int) (d: A),
 	sz >= 0 ->
 	SPEC (parray_create sz d)

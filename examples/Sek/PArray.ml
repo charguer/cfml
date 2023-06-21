@@ -10,6 +10,9 @@ type 'a parray = {
 | PArray_Base of 'a array
 | PArray_Diff of 'a parray * int * 'a
 
+let dist_bound a =
+  Array.length a
+
 let parray_create size d =
   let a = Array.make size d in
   { data = PArray_Base a; maxdist = 0 }
@@ -42,7 +45,7 @@ let parray_get pa i =
 
 let parray_set pa i x =
   let a = parray_rebase_and_get_array pa in
-  let cond = (pa.maxdist = Array.length a) in
+  let cond = (pa.maxdist = dist_bound a) in
   if cond then begin
     let b = Array.copy a in
     b.(i) <- x;
