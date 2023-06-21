@@ -52,6 +52,8 @@ Ltac set_prove_setup use_classic ::=
 
 Hint Rewrite update_update_same LibListZ.update_same : rew_list.
 
+Hint Rewrite update_same : rew_map.
+
 
 Hint Extern 1 (dom _ \c _) => rew_map; set_prove.
 (*
@@ -133,8 +135,6 @@ Ltac rew_map_upd :=
 
 (*************************************************)
 (** PArrays *)
-
-Implicit Types p q: loc.
 
 (* maximum length of a chain of diff, possibly depending on array size *)
 Definition bound A (L: list A) : int := 
@@ -409,7 +409,7 @@ Definition Points_into {A} {IA: Inhab A} {EA: Enc A} (R: set (parray_ A)) (rec: 
 
 Lemma Points_into_Base : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (L: list A) (md: int),
 	Points_into R {| desc := Desc_Base L; maxdist := md |}.
-Proof using. unfold Points_into. intros. simpl. auto. Qed.
+Proof using. unfold Points_into. intros. simpls*. Qed.
 
 Lemma Points_into_of_eq_Base : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (rec: PArray_Rec A) (L: list A),
 	desc rec = Desc_Base L ->
@@ -418,7 +418,7 @@ Proof using. unfold Points_into. introv IA EA ->. auto. Qed.
 
 Lemma Points_into_eq_Diff : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) q i x (md: int),
 	Points_into R {| desc := Desc_Diff q i x; maxdist := md |} = q \in R.
-Proof using. unfold Points_into. intros. simpl. auto. Qed.
+Proof using. unfold Points_into. intros. simpls*. Qed.
 
 Lemma Points_into_eq_of_eq_Diff : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (rec: PArray_Rec A) q i x,
 	desc rec = Desc_Diff q i x ->
@@ -450,8 +450,7 @@ Lemma Points_into_forall_update :
 		Points_into_forall R (M[pa := rec]).
 Proof using.
 	introv Hforall H. rewrite Points_into_forall_eq. intros p Hp.
-	rew_map in *. rewrites* read_update.
-	case_if*. applys* Hforall. applys* indom_of_union_single_neq.
+	rew_map in *. rew_map_upd.
 Qed.
 
 Hint Resolve Points_into_forall_eq Points_into_forall_update.
@@ -703,18 +702,15 @@ Proof using.
 		xchange* PArray_Base_close.
 		xchange* hforall_specialize.
 		do 2 xchange* hwand_hpure_l; simpls*. rewrites* <- E.
-		rewrites* <- PArray_Rec_eq.     admit_rewrite (M[pa:=M[pa]] = M ). xsimpl*. (* REMY rew_map*. xsimpl*. *) }
+		rewrites* <- PArray_Rec_eq. rew_map*. xsimpl*. }
 	{ xchange* PArray_Desc_eq_Diff. intros E.
 		inverts Rpas as; tryifalse. intros q Hpa E' Rq Hi Hdist.
 		rewrite E in E'. inverts* E'.
 		xchange* <- PArray_Desc_eq_Diff. xclose* pa.
 		xchange* hforall_specialize.
 		do 2 xchange* hwand_hpure_l; simpls*. rew_map*.
-    admit_rewrite (M[pa:=M[pa]] = M ). (* REMY *)
 		xapp* IH; try math. intros a. xapp*. xvals*. }
 Qed.
-
-(* Faire une spec où on dit qu'il suffit d'avoir bound L + 1 crédits ? *)
 
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
 
@@ -730,25 +726,24 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ish
 			a ~> Array L \*
 			Group (PArray (A := A)) (M \-- pa) \*
 			\[Inv M] \*
-			(if ishd then IsHead M pa else \[])).
+			(if ishd then IsHead M pa else \$(maxdist (M[pa])))).
 Proof using.
 	introv Rpa. unfold parray_rebase_and_get_array_cost. xcf*. xpay.
-	xchange* Shared_eq. intros I. xchange* Group_rem.
+	xchange* Shared_eq. intros I. xchange* Group_rem pa M.
 	xopen* pa. intros D. xapp*. xmatch.
 	{ xchange* PArray_Desc_eq_Base. intros L' E'.
 		xvals*.
 		{ inverts Rpa as; tryifalse.
 			intros Hpa E Hdist. applys* Memory_eq_inv_Base. }
-		{ case_if*; xsimpl*. } }
-	{
-		xchange* PArray_Desc_Diff_inv. intros E'.
-		xclose* pa. xchange* Group_add_again.     admit_rewrite (M[pa:=M[pa]] = M ). (* REMY *) rew_map*. xchange* <- Shared_eq.
+		{ case_if*; xsimpl*. forwards*: IsPArray_inv_maxdist. } }
+	{	xchange* PArray_Desc_Diff_inv. intros E'.
+		xclose* pa. xchange* Group_add_again. rew_map*. xchange* <- Shared_eq.
 		xapp*. intros a.
 		xchange* Shared_eq. intros _. xchange* Group_rem pa M.
 		xopen* pa. intros D. xapp*. xvals*.
 		case_if*.
 		{ xchange* IsHead_eq_diff. }
-		{ xsimpl*. forwards*: Inv_dist_pos_inv. } }
+		{ xsimpl*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_rebase_and_get_array) => Provide parray_rebase_and_get_array_spec.
@@ -762,7 +757,7 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 		POST (fun M' x => \[x = L[i]] \* IsHead M' pa).
 Proof using.
 	introv Rpa Hind. xcf*. simpl. xpay.
-	xapp* (>> parray_rebase_and_get_array_spec ishd). (* J'aimerais ne pas avoir à case_if ici... *)
+	xapp*.
   intros a I. xapp*.
 	xchange* PArray_Base_close.
 	xchange* Group_add_again.
@@ -770,7 +765,7 @@ Proof using.
 	{ constructors*.
 	  { rew_map*. rewrites* <- dom_of_union_single_eq. }
 	  { intros p Hp. rew_map in Hp. rew_map_upd; applys* Inv_dist_pos_inv. } }
-  { unfold IsHead.
+  { setoid_rewrite IsHead_eq_base at 2; rew_map*. simpl. case_if*. unfold IsHead. xsimpl*. xsimpl*.
   
 Qed.
 
