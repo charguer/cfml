@@ -50,6 +50,8 @@ Ltac set_prove_setup use_classic ::=
 
 
 
+Hint Rewrite update_update_same LibListZ.update_same : rew_list.
+
 
 Hint Extern 1 (dom _ \c _) => rew_map; set_prove.
 (*
@@ -207,6 +209,7 @@ Lemma PArray_Rec_eq_maxdist : forall A (D: Desc A) (md: int),
 Proof using. auto. Qed.
 
 Hint Rewrite PArray_Rec_eq_desc PArray_Rec_eq_maxdist.
+Hint Extern 1 (maxdist {| desc := _; maxdist := _ |} <= _) => simpl.
 
 Definition PArray A {IA: Inhab A} {EA: Enc A} (rec: PArray_Rec A) (pa: parray_ A) : hprop :=
 	\exists d, pa ~~~> `{ data' := d ; maxdist' := maxdist rec } \* d ~> PArray_Desc (desc rec).
@@ -317,8 +320,7 @@ Lemma IsPArray_inv_maxdist : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (p
 	maxdist (M[pa]) <= length L.
 Proof using.
 	introv Rpa. induction Rpa as [| q pa i x L' L Hpa E Rq IH Hi EL Hdist]; auto.
-	forwards* Elen: length_update L' i x.
-	rewrites* <- EL in Elen. rewrites* <- Elen in IH. (* ARTHUR *) transitivity (maxdist M[q]); auto.
+	forwards* Elen: length_update L' i x. subst. rew_list in *. (* ARTHUR *) transitivity (maxdist M[q]); auto.
 Qed.
 
 Hint Resolve IsPArray_inv_maxdist.
@@ -684,10 +686,19 @@ Proof using.
 	xchanges* <- Shared_eq.
 	{ constructors*.
 		{ rew_map*. rewrites* <- dom_of_union_single_eq. } }
-	{ applys* Extend_update_Base. (* ARTHUR *) applys* IsPArray_inv_maxdist. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
+
+Ltac xif_pre tt ::=
+  xif_xmatch_pre tt;
+  match xgoal_code_without_wptag tt with
+	| (Wpgen_if ?cond _ _) =>
+		match goal with
+		|	H: cond = _ |- _ => rewrite H (* inline condition for case analysis *)
+		|	_ => idtac
+		end
+  end.
 
 Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A) (i: int) (x: A),
 	IsPArray M L pa ->
@@ -699,7 +710,7 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 Proof using.
 	introv Rpa Hi. xcf*. simpl. xpay_fake.
 	xapp*. intros a I. xapp*. xapp*.
-	xif; intros cb; rewrite isTrue_eq_if in Pcond; case_if*.
+	xif; intros C.
 	{ xapp*. intros b. xapp*. xapp*. intros pb.
 		do 2 xchange* PArray_Base_close.
 		xchange* Group_add_again pa.
@@ -733,9 +744,8 @@ Proof using.
 			{ applys* Extend_trans.
 				applys* Extend_update_Diff pa (L[i := x]) i (L[i]); rew_map*.
 					{ applys* index_update. }
-					{ rewrites* update_update_same. rewrites* LibListZ.update_same. (* rew_list ? ARTHUR *) }
-					{ applys* IsPArray_Base; rew_map*. rew_list*. forwards*: IsPArray_inv_maxdist pa. } }
-			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. rew_list*. forwards*: IsPArray_inv_maxdist pa. } } }
+					{ applys* IsPArray_Base; rew_map*. forwards*: IsPArray_inv_maxdist pa. } }
+			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. forwards*: IsPArray_inv_maxdist pa. } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
