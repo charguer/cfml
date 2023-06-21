@@ -624,7 +624,7 @@ Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
 
 Lemma set_in_remove_one_eq : forall A x y (E: set A),
 	x \in (E \-- y) = (x \in E /\ x <> y).
-Proof using. skip. Qed.
+Proof using. set_prove. Qed.
 
 Hint Rewrite set_in_remove_one_eq : rew_set.
 
