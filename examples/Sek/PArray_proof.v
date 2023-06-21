@@ -34,6 +34,9 @@ Ltac xcf_pre tt ::=
 Hint Rewrite @LibMap.dom_update : rew_map.
 
 
+Ltac math_0 ::=
+	simpl.
+
 
 Ltac set_prove_setup_custom tt :=
 	idtac.
@@ -315,7 +318,7 @@ Lemma IsPArray_inv_maxdist : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (p
 Proof using.
 	introv Rpa. induction Rpa as [| q pa i x L' L Hpa E Rq IH Hi EL Hdist]; auto.
 	forwards* Elen: length_update L' i x.
-	rewrites* <- EL in Elen. rewrites* <- Elen in IH. transitivity (maxdist M[q]); auto.
+	rewrites* <- EL in Elen. rewrites* <- Elen in IH. (* ARTHUR *) transitivity (maxdist M[q]); auto.
 Qed.
 
 Hint Resolve IsPArray_inv_maxdist.
@@ -431,6 +434,14 @@ Record Inv A {IA: Inhab A} {EA: Enc A} (M: Memory A) : Prop := {
 	Inv_closure : Points_into_forall (dom M) M
 }.
 
+Lemma Inv_closure_inv : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (p: parray_ A),
+	Inv M ->
+	p \indom M ->
+	Points_into (dom M) (M[p]).
+Proof using. introv I Hp. applys* Inv_closure. Qed.
+
+Hint Resolve Inv_closure Inv_closure_inv.
+
 
 Definition Shared {A} {IA: Inhab A} {EA: Enc A} (M: Memory A) : hprop :=
 	Group (PArray (A := A)) M \* \[Inv M].
@@ -478,8 +489,7 @@ Proof using.
 	{ constructors*.
 		{ rewrites* Points_into_forall_eq. intros p Hdom.
 			rew_map in *. rewrites* <- dom_of_union_single_eq in *.
-			rewrites* read_update. case_if*.
-			applys* Inv_closure I. } }
+			rewrites* read_update. case_if*. } }
 	{ xchange* hforall_specialize rec. }
 Qed.
 
@@ -491,8 +501,7 @@ Proof using.
 	intros. unfold Shared. xchanges* Group_add_fresh.
 	intros I Hpa. constructors*.
 	{ applys* Points_into_forall_update.
-		applys* Points_into_forall_subset (dom M).
-		applys* Inv_closure. }
+		applys* Points_into_forall_subset (dom M). }
 Qed.
 
 Hint Resolve Shared_inv_Inv Shared_add_fresh_Base.
@@ -537,12 +546,11 @@ Proof using.
 		{ inverts* E'. } }
 	{ tests : (q = pa).
 		{	applys* IsPArray_Base; rew_map*;
-			forwards* Rpa': IsPArray_Diff p pa; forwards* EL': IsPArray_inv_eq M pa (Lp[i := x]) L.
-			rewrites* <- EL in EL'. rewrites* EL'. auto. }
+			forwards* Rpa': IsPArray_Diff p pa; forwards* EL': IsPArray_inv_eq M pa (Lp[i := x]) L. subst. auto. }
 		{ applys* IsPArray_Diff.
 			{ rew_map*. }
 			{ rewrites* (>> read_update p). case_if*; rew_map*. rewrite <- C0 in *.
-				(* Clairement vrai, mais math ne fonctionne pas. *)skip. } } }
+				(* Clairement vrai, mais math ne fonctionne pas. ARTHUR *)skip. } } }
 Qed.
 
 Lemma Extend_update_Diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (rec: PArray_Rec A) (L: list A) q i x,
@@ -560,16 +568,16 @@ Proof using.
 	split*. intros Lp p Rp. induction Rp as [p Lp Hp E | r p j y Lr Lp Hp E Rr IH Hj EL].
 	{	tests : (p = pa).
 		{ applys* IsPArray_Diff q i x L; rew_map*.
-			{ applys* IsPArray_Base; rew_map*. rew_set. forwards*: IsPArray_inv_indom. }
+			{ applys* IsPArray_Base; rew_map*. rew_set. left*. }
 			{ forwards*: IsPArray_Base. } }
 		{ applys* IsPArray_Base; rew_map*. } }
 	{ tests : (p = pa).
 		{ applys* IsPArray_Diff q i x L; rew_map*.
-			{ applys* IsPArray_Base; rew_map*. rew_set. forwards*: IsPArray_inv_indom M q. }
+			{ applys* IsPArray_Base; rew_map*. rew_set. left*. }
 			{ forwards*: IsPArray_Diff r pa. } }
 		{ applys* IsPArray_Diff.
 			{ rew_map*. }
-			{ rewrites* (>> read_update r). case_if*; rew_map*. rewrite <- C0 in *. (* Idem. *) skip. } } }
+			{ rewrites* (>> read_update r). case_if*; rew_map*. rewrite <- C0 in *. (* Idem. ARTHUR *) skip. } } }
 Qed.
 
 Hint Resolve IsPArray_Extend Extend_trans Extend_add_fresh Extend_update_Base Extend_update_Diff.
@@ -596,7 +604,6 @@ Proof using.
 	xchange* PArray_Base_close.
 	xchanges* Shared_add_fresh_Base (make sz d). intros Hpa.
 	apply* IsPArray_Base; rew_map*.
-	simpl. auto.
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_create) => Provide parray_create_spec.
@@ -632,9 +639,8 @@ Proof using.
 		rewrite E in E'. inverts* E'.
 		xchange* <- PArray_Desc_eq_Diff. xclose* pa.
 		xchange* hforall_specialize.
-		xchange* hwand_hpure_l.
-		{ rewrites* (>> Points_into_eq_of_eq_Diff (M[pa])). applys* IsPArray_inv_indom. }
-		{ rew_map*. xapp* IH; try math. intros a. xapp*. xvals*. } }
+		xchange* hwand_hpure_l. rew_map*.
+		xapp* IH; try math. intros a. xapp*. xvals*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
@@ -677,9 +683,8 @@ Proof using.
 	xchange* Group_add_again.
 	xchanges* <- Shared_eq.
 	{ constructors*.
-		{ rew_map*. rewrites* <- dom_of_union_single_eq.
-			applys* Points_into_forall_update. applys* Inv_closure. } }
-	{ applys* Extend_update_Base; simpl; auto. applys* IsPArray_inv_maxdist. }
+		{ rew_map*. rewrites* <- dom_of_union_single_eq. } }
+	{ applys* Extend_update_Base. (* ARTHUR *) applys* IsPArray_inv_maxdist. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -694,7 +699,7 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 Proof using.
 	introv Rpa Hi. xcf*. simpl. xpay_fake.
 	xapp*. intros a I. xapp*. xapp*.
-	xif; intros x2.
+	xif; intros cb; rewrite isTrue_eq_if in Pcond; case_if*.
 	{ xapp*. intros b. xapp*. xapp*. intros pb.
 		do 2 xchange* PArray_Base_close.
 		xchange* Group_add_again pa.
@@ -703,13 +708,9 @@ Proof using.
 		{ constructors*.
 			{ rew_map*.
 				do 2 applys* Points_into_forall_update.
-				applys* Points_into_forall_subset (dom M).
-				applys* Inv_closure. } }
-		{ applys* Extend_trans.
-			applys* Extend_update_Base; simpl; auto.
-			applys* IsPArray_inv_maxdist. }
-		{ applys* IsPArray_Base; rew_map*.
-			simpl. auto. } }
+				applys* Points_into_forall_subset (dom M). } }
+		{ applys* Extend_trans. applys* Extend_update_Base. }
+		{ applys* IsPArray_Base; rew_map*. } }
 	{ xapp*. xapp*. xapp*. xapp*. intros pb. xapp*. xval*.
 		xchange* PArray_Diff_close. xchange* PArray_Base_close.
 		xchange* (heapdata pa pb). intros Diff.
@@ -727,16 +728,14 @@ Proof using.
 			{ constructors*.
 				{ rew_map*. applys* Points_into_forall_update.
 					{ applys* Points_into_forall_update.
-						applys* Points_into_forall_subset (dom M).
-						applys* Inv_closure. }
+						applys* Points_into_forall_subset (dom M). }
 					{ rewrites* Points_into_eq_Diff. set_prove. } } }
 			{ applys* Extend_trans.
-				applys* Extend_update_Diff pa (L[i := x]) i (L[i]); rew_map*; simpl; auto.
+				applys* Extend_update_Diff pa (L[i := x]) i (L[i]); rew_map*.
 					{ applys* index_update. }
-					{ rewrites* update_update_same. rewrites* LibListZ.update_same. }
-					{ applys* IsPArray_Base; rew_map*.
-						simpl. rewrites* length_update. (* math *)skip. } }
-			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. simpl. (* math *) skip. } } }
+					{ rewrites* update_update_same. rewrites* LibListZ.update_same. (* rew_list ? ARTHUR *) }
+					{ applys* IsPArray_Base; rew_map*. rew_list*. forwards*: IsPArray_inv_maxdist pa. } }
+			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. rew_list*. forwards*: IsPArray_inv_maxdist pa. } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
@@ -752,7 +751,7 @@ Proof using.
 	xapp*. intros a. xapp*. intros q.
 	xchange* PArray_Base_close.
 	xchanges* Shared_add_fresh_Base L; intros Hdom.
-	applys* IsPArray_Base; rew_map*. simpl. auto.
+	applys* IsPArray_Base; rew_map*.
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.
