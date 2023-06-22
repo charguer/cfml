@@ -146,7 +146,7 @@ Proof using. auto. Qed.
 
 Lemma bound_update : forall A (L: list A) i x,
 	index L i ->
-	bound L = bound L[i := x]. (* swap *)
+	bound L[i := x] = bound L. (* swap *)
 Proof using. unfold bound. intros. rew_list*. Qed.
 
 Hint Resolve bound_pos bound_update.
@@ -637,14 +637,21 @@ Proof using. auto. Qed.
 Lemma IsHead_eq_base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	desc (M[pa]) = Desc_Base L ->
 	IsHead M pa = \$(maxdist (M[pa])).
-Admitted.
+Proof using. introv E. rewrites* IsHead_eq. xsimpl*. Qed.
 
 Lemma IsHead_eq_diff : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) q i x,
 	desc (M[pa]) = Desc_Diff q i x ->
 	IsHead M pa = \[False].
-Admitted.
+Proof using. introv E. rewrites* IsHead_eq. xpull. intros [L contra]. false. Qed.
 
 Hint Resolve IsHead_eq_base IsHead_eq_diff.
+
+Lemma haffine_IsHead : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A),
+	maxdist (M[pa]) >= 0 ->
+	haffine (IsHead M pa).
+Proof using. intros. rewrite IsHead_eq. xaffine*. Qed.
+
+Hint Resolve haffine_IsHead : haffine.
 
 	(*************************************************)
 (** Specifications *)
@@ -662,7 +669,7 @@ Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz:
 	sz >= 0 ->
 	SPEC (parray_create sz d)
 		MONO M
-		PRE (\$1)
+		PRE (\$(sz + 1))
 		POST (fun M' pa => \[IsPArray M' (make sz d) pa] \* IsHead M' pa).
 Proof using.
 	introv Hsz. xcf*. simpl. xpay.
@@ -686,7 +693,7 @@ Admitted. *)
 Lemma parray_base_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
 	SPEC (parray_base_copy pa)
-		PRE (\$(bound L - maxdist (M[pa]) + 1))
+		PRE (\$(length L + bound L - maxdist (M[pa]) + 1))
 		INV (Shared M)
 		POST (fun a => a ~> Array L).
 Proof using.
@@ -715,7 +722,7 @@ Qed.
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
 
 Definition parray_rebase_and_get_array_cost A {IA: Inhab A} {EA: Enc A}  (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A) : hprop := 
-  if ishd then IsHead M pa \* \$1 else \$(bound L + 2).
+  if ishd then IsHead M pa \* \$1 else \$(length L + bound L + 2).
 
 Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A),
 	IsPArray M L pa ->
@@ -757,16 +764,16 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 		POST (fun M' x => \[x = L[i]] \* IsHead M' pa).
 Proof using.
 	introv Rpa Hind. xcf*. simpl. xpay.
-	xapp*.
-  intros a I. xapp*.
+	xapp*. intros a I. xapp*.
 	xchange* PArray_Base_close.
 	xchange* Group_add_again.
 	xchanges* <- Shared_eq.
 	{ constructors*.
 	  { rew_map*. rewrites* <- dom_of_union_single_eq. }
 	  { intros p Hp. rew_map in Hp. rew_map_upd; applys* Inv_dist_pos_inv. } }
-  { setoid_rewrite IsHead_eq_base at 2; rew_map*. simpl. case_if*. unfold IsHead. xsimpl*. xsimpl*.
-  
+  { setoid_rewrite IsHead_eq_base at 2; rew_map*. case_if*.
+		{	rewrites* IsHead_eq. xsimpl*. }
+		{ xsimpl*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -786,24 +793,24 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 	index L i ->
 	SPEC (parray_set pa i x)
 		MONO M
-		PRE (if ishd then IsHead M pa \* \$3 else \$(bound L + 4))
+		PRE (\$3 \* parray_rebase_and_get_array_cost ishd M pa L)
 		POST (fun M' q => \[IsPArray M' (L[i := x]) q] \* IsHead M' q).
 Proof using.
 	introv Rpa Hi. xcf*. simpl. xpay.
-	(* Idem *)skip.
-	(* xapp*. intros a I. xapp*. xapp*.
+	xapp*. intros a I. xapp*. xapp*.
 	xif; intros C.
 	{ xapp*. intros b. xapp*. xapp*. intros pb.
 		do 2 xchange* PArray_Base_close.
 		xchange* Group_add_again pa.
 		xchange* Group_add_fresh. intros Hpb.
 		xchanges* <- Shared_eq.
-		{ constructors*.
-			{ rew_map*.
-				do 2 applys* Points_into_forall_update.
-				applys* Points_into_forall_subset (dom M). } }
+		{ constructors*; rew_map*.
+			{ do 2 applys* Points_into_forall_update.
+				applys* Points_into_forall_subset (dom M). }
+			{ intros p Hp. rew_map_upd; rew_map_upd. applys* Inv_dist_pos. set_prove2. } }
 		{ applys* Extend_trans. applys* Extend_update_Base. }
-		{ applys* IsPArray_Base; rew_map*. } }
+		{ applys* IsPArray_Base; rew_map*. }
+		{ setoid_rewrite IsHead_eq_base at 2; rew_map*. case_if*; xsimpl*. } }
 	{ xapp*. xapp*. xapp*. xapp*. intros pb. xapp*. xval*.
 		xchange* PArray_Diff_close. xchange* PArray_Base_close.
 		xchange* (heapdata pa pb). intros Diff.
@@ -818,16 +825,24 @@ Proof using.
 				intros* [|]; auto.
 				rewrites* dom_remove in Hpb. }
 			xchanges* <- Shared_eq.
-			{ constructors*.
-				{ rew_map*. applys* Points_into_forall_update.
+			{ constructors*; rew_map*.
+				{ applys* Points_into_forall_update.
 					{ applys* Points_into_forall_update.
 						applys* Points_into_forall_subset (dom M). }
-					{ rewrites* Points_into_eq_Diff. set_prove. } } }
+					{ rewrites* Points_into_eq_Diff. set_prove. } }
+				{ intros p Hp. rew_map_upd.
+					{ applys* Inv_dist_pos. }
+					{ rew_map_upd.
+						{ forwards*: Inv_dist_pos pa. }
+						{ applys* Inv_dist_pos. set_prove2. } } } }
 			{ applys* Extend_trans.
 				applys* Extend_update_Diff pa (L[i := x]) i (L[i]); rew_map*.
 					{ applys* index_update. }
 					{ applys* IsPArray_Base; rew_map*. forwards*: IsPArray_inv_maxdist pa. } }
-			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. forwards*: IsPArray_inv_maxdist pa. } } } *)
+			{ applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. forwards*: IsPArray_inv_maxdist pa. }
+			{ setoid_rewrite IsHead_eq_base at 2; rewrites* read_update_neq; rew_map*. case_if*.
+				{ rewrite IsHead_eq. xsimpl*. }
+				{ xsimpl*. } } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
@@ -836,7 +851,7 @@ Lemma parray_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 	IsPArray M L pa ->
 	SPEC (parray_copy pa)
 		MONO M
-		PRE (\$(bound L + 2))
+		PRE (\$(length L + bound L + 2))
 		POST (fun M' q => \[IsPArray M' L q] \* IsHead M' q).
 Proof using.
 	introv Rpa. xcf*. simpl. xpay.
