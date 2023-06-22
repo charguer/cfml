@@ -200,7 +200,7 @@ Definition bound A (L: list A) : int :=
   length L.
 
 Lemma bound_pos : forall A (L: list A),
-	bound L >= 0.
+	bound L >= 0.	
 Proof using. auto. Qed.
 
 Lemma bound_update : forall A (L: list A) i x,
