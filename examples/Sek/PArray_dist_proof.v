@@ -15,7 +15,7 @@ Import IndexHints.
 Require Import ListMisc.
 Require Import Mono.
 
-Require Import PArray_ml.
+Require Import PArray_dist_ml.
 
 
 (*************************************************)

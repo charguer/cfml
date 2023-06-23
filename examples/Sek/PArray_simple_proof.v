@@ -33,6 +33,7 @@ Ltac xcf_pre tt ::=
 #[global]
 Hint Rewrite @LibMap.dom_update : rew_map.
 
+Hint Rewrite update_same : rew_map.
 
 
 Ltac set_prove_setup_custom tt :=
