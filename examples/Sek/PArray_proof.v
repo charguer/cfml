@@ -22,13 +22,14 @@ Require Import PArray_ml.
 (** CFML additions *)
 
 (*
-essayer en premier :
+essayer en premier :*)
 Ltac auto_star ::=
-  try solve [ auto |
+  try solve [ simpl; auto |
 		autounfold in *; subst; rew_list; rew_int;
              try math_only_if_arith;
              try typeclass_only_if_class tt; jauto].
 
+(*
 en second
 tilde et star
 
@@ -820,7 +821,7 @@ Proof using.
 	{ xchange* PArray_Desc_eq_Diff. intros E.
 		inverts Rpas as; tryifalse. intros q Hpa E' Rq Hi Hdist.
 		rewrite E in E'. inverts* E'.
-		xchange* <- PArray_Desc_eq_Diff. xclose* pa.
+		xchange* <- PArray_Desc_eq_Diff q i x. xclose* pa.
 		xchange* hforall_specialize.
 		do 2 xchange* hwand_hpure_l; simpls*. rew_map*.
 		xapp* (>> IH n0). intros a. xapp*. xvals*. }
@@ -878,7 +879,7 @@ Proof using.
 	  { intros p Hp. rew_map in Hp. rew_map_upd*; applys* Inv_dist_pos_inv. } }
   { setoid_rewrite IsHead_eq_base at 2; rew_map*. case_if*.
 		{	rewrites* IsHead_eq. xsimpl*. }
-		{ xsimpl*. } simple*. }
+		{ xsimpl*. } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_get) => Provide parray_get_spec.
@@ -913,7 +914,7 @@ Proof using.
 			{ rew_map*. intros p Hp. rew_map_upd*; rew_map_upd*. applys* Inv_dist_pos. set_prove2. } }
 		{ applys* Extend_trans. applys* Extend_update_Base. }
 		{ applys* IsPArray_Base; rew_map*. }
-		{ setoid_rewrite IsHead_eq_base at 2; rew_map*. case_if*; xsimpl*. simple*. }  }
+		{ setoid_rewrite IsHead_eq_base at 2; rew_map*. case_if*; xsimpl*. }  }
 	{ xapp*. xapp*. xapp*. xapp*. intros pb. xapp*. xval*.
 		xchange* PArray_Diff_close. xchange* PArray_Base_close.
 		xchange* (heapdata pa pb). intros Diff.
@@ -937,14 +938,14 @@ Proof using.
 					{ rew_map_upd*.
 						{ forwards*: Inv_dist_pos pa. }
 						{ applys* Inv_dist_pos. set_prove2. } } } }
-			{ applys* Extend_trans. 
-				applys* Extend_update_Diff pa (L[i := x]) i (L[i]); subst n; rew_map*.
+			{ applys* Extend_trans.
+				applys* Extend_update_Diff pa (L[i := x]) pb i (L[i]); rew_map*.
 					{ applys* index_update. }
 					{ applys* IsPArray_Base; rew_map*. forwards*: IsPArray_inv_maxdist pa. } }
 			{ subst n. applys* IsPArray_Base; rewrites* read_update_neq; rew_map*. forwards*: IsPArray_inv_maxdist pa. }
 			{ subst n. setoid_rewrite IsHead_eq_base at 2; rewrites* read_update_neq; rew_map*. case_if*.
 				{ rewrite IsHead_eq. xsimpl*. }
-				{ xsimpl*. } simple*. } } }
+				{ xsimpl*. } } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_set) => Provide parray_set_spec.
@@ -962,7 +963,7 @@ Proof using.
 	xchange* PArray_Base_close.
 	xchanges* Shared_add_fresh_Base L ;=> Hdom.
 	{ applys* IsPArray_Base; rew_map*. }
-	{ rewrites* IsHead_eq. rew_map*. xsimpl*. simple*. }
+	{ rewrites* IsHead_eq. rew_map*. xsimpl*. simpls*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.
