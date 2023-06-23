@@ -39,17 +39,18 @@ a) autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_list rew_int r
 b) autorewrite with rew_list rew_int rew_set rew_map
 *)
 
-(* TODO
-Hint Extern 1 (dom _ \c _) => rew_map; set_prove : hint_auto_star.*)
 
-Create HintDb hint_myauto_star.
+(* AUTOSTAR *) (* Create HintDb hint_myauto_star.
+
+Hint Extern 1 (dom _ \c _) => rew_map; set_prove : hint_auto_star.
+
 Ltac my_auto_star :=
   try solve [ simpl;
 		autounfold in *; subst; 
-    autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_list rew_int rew_set rew_map);
+    autorewrite_in_star_patch ltac: (fun tt => autorewrite with rew_list rew_int rew_set rew_map);
              try math_only_if_arith;
              try typeclass_only_if_class tt; jauto_set; eauto with hint_myauto_star].
-(* TODO  Ltac auto_star ::= my_auto_star.*)
+Ltac auto_star ::= my_auto_star. *)
 
 (* ARTHUR
 Ltac generalize_all_props tt :=
@@ -638,7 +639,7 @@ Lemma Shared_inv_focus : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 Proof using.
 	intros. unfold Shared. xchange~ Group_focus pa ;=> I.
 	xsimpl~ ;=> n Hdom Hpos.
-	{ constructors~ ;=> p Hp.
+	{ constructors ;=> p Hp.
 		{ rew_map in *. rewrites~ <- dom_of_union_single_eq in *. rew_map_upd~. } }
 	{ xchange~ hforall_specialize n. }
 Qed.
@@ -675,7 +676,7 @@ Lemma Extend_add_fresh : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 Proof using.
 	unfold Extend. introv H. split~.
 	{ intros L p Rp. induction Rp.
-  	{ applys~ IsPArray_Base; rew_map~. }
+  	{ applys* IsPArray_Base; rew_map~. }
 	  { applys~ IsPArray_Diff; rew_map~. forwards~: IsPArray_inv_indom M pa'. } }
 Qed.
 
