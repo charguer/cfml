@@ -13,8 +13,6 @@ It provides the following tactics:
 - [xchange] performs transitivity steps in entailments, modulo frame
 - [rew_heap] normalizes heap predicate expressions
 
-For documentation on Qc, see file [Coq.QArith.Qcanon].
-
 Author: Arthur Charguéraud.
 License: CC-by 4.0.
 
@@ -23,8 +21,8 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 From TLC Require Export LibCore.
 From CFML Require Export LibSepTLCbuffer.
-From Coq Require Export Qcanon.
-Local Open Scope Qc_scope.
+From CFML Require Export LibQ.
+Local Open Scope Q_scope.
 From Coq Require Export Field. (* for the [field] tactic *)
 
 
@@ -243,13 +241,14 @@ Include XsimplParams.
 
 Parameter use_credits : bool.
 
-Notation "'credits'" := Qcanon.Qc.
-Local Open Scope Qc_scope.
-Delimit Scope Qc_scope with cr.
+Notation "'credits'" := LibQ.Q.
+Local Open Scope Q_scope.
+Delimit Scope Q_scope with cr.
+Implicit Types n : credits.
 
 Parameter hcredits : credits -> hprop.
 
-Notation "'\$' n" := (hcredits (Z2Qc n))
+Notation "'\$' n" := (hcredits (Z_to_Q n))
   (at level 40,
    n at level 0,
    format "\$ n") : heap_scope.
@@ -454,6 +453,13 @@ Ltac remove_empty_heaps_right tt :=
 (* ********************************************************************** *)
 (* * Tactic [xsimpl] for heap entailments *)
 
+
+Notation "'0%Q'" := (Z_to_Q 0).
+Notation "'1%Q'" := (Z_to_Q 1).
+
+Notation "'0%cr'" := (Z_to_Q 0). (*TEMPORARY*)
+Notation "'1%cr'" := (Z_to_Q 1).
+
 (* ---------------------------------------------------------------------- *)
 (** [xsimpl_beautify_credits] for beautifying arithmetics involved in credits *)
 
@@ -463,9 +469,9 @@ Ltac remove_empty_heaps_right tt :=
     - Separate positives and negatives expressions in two groups.
     - Cancel each pair (n,-n) of expressions.
     - Pretty-print the result.
-   It applies this process both to credits in Z and in Qc. To that end:
+   It applies this process both to credits in Z and in Q. To that end:
     - it isolates credits in Z
-    - it cleans up credits in Qc, the result might end up in Z
+    - it cleans up credits in Q, the result might end up in Z
     - it cleans up the Z part
     - it produces the sum of the two parts, cleaning up the zeros if any.
 *)
@@ -483,31 +489,19 @@ Ltac xsimpl_beautify_credits_is_const_Z n :=
   | _ => constr:(false)
   end.
 
-Ltac xsimpl_beautify_credits_is_const_Qc n :=
+Ltac xsimpl_beautify_credits_is_const_Q n :=
   (* TODO: this implementation is somewhat approximative *)
   match n with
-  | Z2Qc ?m => xsimpl_beautify_credits_is_const_Z m
-  | _ =>
-     match n with
-     | 0%Qc => constr:(true)
-     | 1%Qc => constr:(true)
-     | (-1)%Qc => constr:(true)
-     (* TODO: incomplete... *)
-     | Qcmake (Coq.QArith.QArith_base.Qmake ?a ?b) =>
+  | Z_to_Q ?m => xsimpl_beautify_credits_is_const_Z m
+  | LibQ.make ?a ?b =>
        match xsimpl_beautify_credits_is_const_Z a with
        | false => constr:(false)
-       | true =>
-         match b with
-         | Coq.Numbers.BinNums.xI => constr:(true)
-         | Coq.Numbers.BinNums.xO => constr:(true)
-         | Coq.Numbers.BinNums.xH => constr:(true)
-         end
+       | true => xsimpl_beautify_credits_is_const_Z b
        end
-     | _ => constr:(false)
-     end
-   end.
+  | _ => constr:(false)
+  end.
 
-Lemma xsimpl_beautify_credits_is_const_demo : forall (m:Z) (n:Qc), True.
+Lemma xsimpl_beautify_credits_is_const_demo : forall (m:Z) (n:Q), True.
   intros.
   let x := xsimpl_beautify_credits_is_const_Z 0%Z in pose x.
   let x := xsimpl_beautify_credits_is_const_Z 3%Z in pose x.
@@ -515,12 +509,12 @@ Lemma xsimpl_beautify_credits_is_const_demo : forall (m:Z) (n:Qc), True.
   let x := xsimpl_beautify_credits_is_const_Z (- (3))%Z in pose x.
   let x := xsimpl_beautify_credits_is_const_Z (3 + 4)%Z in pose x.
   let x := xsimpl_beautify_credits_is_const_Z (- m)%Z in pose x.
-  let x := xsimpl_beautify_credits_is_const_Qc 0%Qc in pose x.
-  let x := xsimpl_beautify_credits_is_const_Qc (- 3)%Qc in pose x.
-  let x := xsimpl_beautify_credits_is_const_Qc (- n)%Qc in pose x.
-  (* compute on Qc does not seem to work well
-    let y := (eval compute in (1 / Z2Qc 4)) in set (a := y). *)
-  let x := xsimpl_beautify_credits_is_const_Qc (1 / 1)%Qc in pose x.
+  let x := xsimpl_beautify_credits_is_const_Q (0:Q) in pose x.
+  let x := xsimpl_beautify_credits_is_const_Q (- 3 : Q) in pose x.
+  let x := xsimpl_beautify_credits_is_const_Q ((- n)%Q) in pose x.
+  (* compute on Q does not work well 
+    let y := (eval compute in (1 / Z_to_Q 4)) in set (a := y).*)
+  let x := xsimpl_beautify_credits_is_const_Q (1 / 1)%Q in pose x.
 Abort.
 
 (* Auxiliary *)
@@ -530,11 +524,11 @@ Ltac ltac_neg pos :=
   | false => constr:(true)
   end.
 
-(* [xsimpl_beautify_split_Z_and_Qc n] takes a term in [Qc] and
+(* [xsimpl_beautify_split_Z_and_Q n] takes a term in [Q] and
    returns a pair of lists [(Lz,Lq)] such that
-   [n = Z2Qc (fold Z.add Lz) + (fold Qc.add Lq)]. *)
+   [n = Z_to_Q (fold Z.add Lz) + (fold Q.add Lq)]. *)
 
-Ltac xsimpl_beautify_split_Z_and_Qc n :=
+Ltac xsimpl_beautify_split_Z_and_Q n :=
   let rec auxZ acc pos m := (* this function expects (m:Z) *)
     match m with
     | (?n1 + ?n2)%Z =>
@@ -557,35 +551,35 @@ Ltac xsimpl_beautify_split_Z_and_Qc n :=
         match acc with (?Lz,?Lq) =>
           constr:(((m' :: Lz), Lq)) end
     end in
-  let rec aux acc pos n := (* this function expects (n:Qc) *)
+  let rec aux acc pos n := (* this function expects (n:Q) *)
       match n with
-      | Z2Qc ?m => auxZ acc pos m
-      | (?n1 + ?n2)%Qc =>
+      | Z_to_Q ?m => auxZ acc pos m
+      | (?n1 + ?n2)%Q =>
         let R := aux acc pos n1 in
         aux R pos n2
-      | (?n1 - ?n2)%Qc =>
+      | (?n1 - ?n2)%Q =>
         let R := aux acc pos n1 in
         let posneg := ltac_neg pos in
         aux R posneg n2
-      | (- ?n1)%Qc =>
+      | (- ?n1)%Q =>
         let posneg := ltac_neg pos in
         aux acc posneg n1
-      | 0%Qc => constr:(acc)
+      | 0%Q => constr:(acc)
       | _ =>
         let n' :=
           match pos with
           | true => constr:(n)
-          | false => constr:((-n)%Qc)
+          | false => constr:((-n)%Q)
           end in
          match acc with (?Lz,?Lq) =>
           constr:((Lz, (n' :: Lq))) end
       end in
-  aux (@nil Z, @nil Qc) true n.
+  aux (@nil Z, @nil Q) true n.
 
-Lemma xsimpl_beautify_split_Z_and_Qc_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Qc), True.
+Lemma xsimpl_beautify_split_Z_and_Q_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Q), True.
   intros.
-  let x := xsimpl_beautify_split_Z_and_Qc
-    (n1 + Z2Qc 4%Z - (n2 + n3) - Z2Qc (m1 - (m2 - m3))%Z - Z2Qc 3%Z - n4 + Z2Qc m4)%Qc in pose x.
+  let x := xsimpl_beautify_split_Z_and_Q
+    (n1 + Z_to_Q 4%Z - (n2 + n3) - Z_to_Q (m1 - (m2 - m3))%Z - Z_to_Q 3%Z - n4 + Z_to_Q m4)%Q in pose x.
 Abort.
 
 (* [xsimpl_beautify_credits_sort_cst_neg_pos_Z L] takes a list of
@@ -631,26 +625,26 @@ Lemma xsimpl_beautify_credits_sort_cst_neg_pos_Z_demo : forall (m1 m2 m3 m4:Z), 
     (( (- (5))%Z :: (- m1)%Z :: (- (2))%Z :: (- m2)%Z :: m3 :: m2 :: nil))%Z in pose x.
 Abort.
 
-(* [xsimpl_beautify_credits_sort_cst_neg_pos_Qc L] takes a list of
-   Qc values, and returns a triple of the form [(C,Ln,Lp)]
-   such that [(sum Qc.add L) = C - (sum Qc.add Ln) + (sum Qc.add Lp)]. *)
-Ltac xsimpl_beautify_credits_sort_cst_neg_pos_Qc L :=
+(* [xsimpl_beautify_credits_sort_cst_neg_pos_Q L] takes a list of
+   Q values, and returns a triple of the form [(C,Ln,Lp)]
+   such that [(sum Q.add L) = C - (sum Q.add Ln) + (sum Q.add Lp)]. *)
+Ltac xsimpl_beautify_credits_sort_cst_neg_pos_Q L :=
   let rec aux acc L :=
     match L with
     | nil => constr:(acc)
     | ?m::?L' =>
         let acc' :=
           match acc with (?C, ?Ln, ?Lp) =>
-            match xsimpl_beautify_credits_is_const_Qc m with
+            match xsimpl_beautify_credits_is_const_Q m with
             | true =>
                 (* TEMPORARY: dont accumulate the initial zero because we don't simplify it later *)
                 match C with
-                | 0%Qc => constr:( (m, Ln, Lp) )
-                | _ => constr:( ((m + C)%Qc, Ln, Lp) )
+                | 0%Q => constr:( (m, Ln, Lp) )
+                | _ => constr:( ((m + C)%Q, Ln, Lp) )
                 end
             | false =>
                 match m with
-                | (- ?m1)%Qc => constr:( (C, (m1::Ln), Lp) )
+                | (- ?m1)%Q => constr:( (C, (m1::Ln), Lp) )
                 | _ =>
                     let Lp' :=
                       match is_evar_as_bool m with
@@ -663,12 +657,12 @@ Ltac xsimpl_beautify_credits_sort_cst_neg_pos_Qc L :=
           end in
         aux acc' L'
     end in
-  aux (0%Qc, @nil Qc, @nil Qc) L.
+  aux (0%Q, @nil Q, @nil Q) L.
 
-Lemma xsimpl_beautify_credits_sort_cst_neg_pos_Qc_demo : forall (n1 n2 n3 n4:Qc), True.
+Lemma xsimpl_beautify_credits_sort_cst_neg_pos_Q_demo : forall (n1 n2 n3 n4:Q), True.
   intros.
-  let x := xsimpl_beautify_credits_sort_cst_neg_pos_Qc
-    (n1 :: -n2 :: n2 :: -n3 :: 1%Qc :: n3 :: n3 :: (Z2Qc (-2)) :: (Z2Qc 4) :: nil)%Qc in pose x.
+  let x := xsimpl_beautify_credits_sort_cst_neg_pos_Q
+    (n1 :: -n2 :: n2 :: -n3 :: Z_to_Q 1 :: n3 :: n3 :: (Z_to_Q (-2)) :: (Z_to_Q 4) :: nil)%Q in pose x.
 Abort.
 
 (* [xsimpl_beautify_find_and_remove x L]
@@ -741,20 +735,20 @@ Lemma xsimpl_beautify_credits_list_to_arith_Z_demo : forall (m1 m2 m3 m4:Z), Tru
   let x := xsimpl_beautify_credits_list_to_arith_Z (@nil Z) (@nil Z) 2%Z in pose x.
 Abort.
 
-(* Computer a prettified version of [C + sum Qc.add Lp - sum Qc.add Ln]
-   with values in Qc *)
-Ltac xsimpl_beautify_credits_list_to_arith_Qc Ln Lp C :=
-  let add x y := constr:((x + y)%Qc) in
-  let sub x y := constr:((x - y)%Qc) in
+(* Computer a prettified version of [C + sum Q.add Lp - sum Q.add Ln]
+   with values in Q *)
+Ltac xsimpl_beautify_credits_list_to_arith_Q Ln Lp C :=
+  let add x y := constr:((x + y)%Q) in
+  let sub x y := constr:((x - y)%Q) in
   (* TEMPORARY: deactivate computation in C *)
-  (*let t := (eval vm_compute in (C ?= 0)%Qc) in
+  (*let t := (eval vm_compute in (C ?= 0)%Q) in
   match t with
   | true => *)
   match C with
-  | 0%Qc =>
+  | 0%Q =>
     match constr:((Ln,Lp)) with
-    | (nil, nil) => constr:(0%Qc)
-    | (?a::?Ln', nil) => fold_left sub (-a)%Qc Ln'
+    | (nil, nil) => constr:(0%Q)
+    | (?a::?Ln', nil) => fold_left sub (-a)%Q Ln'
     | (_, ?a::?Lp') =>
       let p := fold_left add a Lp' in
       fold_left sub p Ln
@@ -764,14 +758,14 @@ Ltac xsimpl_beautify_credits_list_to_arith_Qc Ln Lp C :=
     fold_left sub p Ln
   end.
 
-Lemma xsimpl_beautify_credits_list_to_arith_Qc_demo : forall (n1 n2 n3 n4 c:Qc), True.
+Lemma xsimpl_beautify_credits_list_to_arith_Q_demo : forall (n1 n2 n3 n4 c:Q), True.
   intros.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (n1::n2::n3::nil) (n4::nil) c in pose x.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (n1::n2::n3::nil) (n4::nil) c in pose x.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (n1::n2::n3::nil) (@nil Z) 0%Qc in pose x.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (@nil Z) (n1::n2::n3::nil) c in pose x.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (@nil Z) (n1::n2::n3::nil) 0%Qc in pose x.
-  let x := xsimpl_beautify_credits_list_to_arith_Qc (@nil Z) (@nil Z) c in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (n1::n2::n3::nil) (n4::nil) c in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (n1::n2::n3::nil) (n4::nil) c in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (n1::n2::n3::nil) (@nil Z) 0%Q in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (@nil Z) (n1::n2::n3::nil) c in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (@nil Z) (n1::n2::n3::nil) 0%Q in pose x.
+  let x := xsimpl_beautify_credits_list_to_arith_Q (@nil Z) (@nil Z) c in pose x.
 Abort.
 
 (* .. list_rev *)
@@ -785,39 +779,39 @@ Ltac xsimpl_beautify_credits_core_Z L :=
     xsimpl_beautify_credits_list_to_arith_Z Ln' Lp' C'
    end end.
 
-(* [xsimpl_beautify_credits_core_Qc L] takes [L] a list of Qc values,
-   and returns a beautified Qc value. *)
-Ltac xsimpl_beautify_credits_core_Qc L :=
-  match xsimpl_beautify_credits_sort_cst_neg_pos_Qc L with (?C, ?Ln, ?Lp) =>
+(* [xsimpl_beautify_credits_core_Q L] takes [L] a list of Q values,
+   and returns a beautified Q value. *)
+Ltac xsimpl_beautify_credits_core_Q L :=
+  match xsimpl_beautify_credits_sort_cst_neg_pos_Q L with (?C, ?Ln, ?Lp) =>
    (* let C' := (eval vm_compute in C) in TEMPORARY NOT DONE *)
    let C' := constr:(C) in
    match xsimpl_beautify_credits_simpl_list Ln Lp with (?Ln', ?Lp') =>
-    xsimpl_beautify_credits_list_to_arith_Qc Ln' Lp' C'
+    xsimpl_beautify_credits_list_to_arith_Q Ln' Lp' C'
    end end.
 
-Lemma xsimpl_beautify_credits_core_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Qc), True.
+Lemma xsimpl_beautify_credits_core_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Q), True.
   intros.
   let x := xsimpl_beautify_credits_core_Z (m1::m3::m2::(-m3)::m3::(-m4)::3::(-m2)::0::nil)%Z in pose x.
-  let x := xsimpl_beautify_credits_core_Qc (n1::n3::n2::(-n3)::n3::(-n4)::1%Qc::(-n2)::0%Qc::nil)%Qc in pose x.
+  let x := xsimpl_beautify_credits_core_Q (n1::n3::n2::(-n3)::n3::(-n4)::Z_to_Q 1::(-n2)::Z_to_Q 0::nil)%Q in pose x.
 Abort.
 
-(* [xsimpl_beautify_credits_core n] takes an argument [n:Qc]
+(* [xsimpl_beautify_credits_core n] takes an argument [n:Q]
    and returns a beautified version of it. *)
 Ltac xsimpl_beautify_credits_core n :=
-  match xsimpl_beautify_split_Z_and_Qc n with (?Lz,?Lq) =>
+  match xsimpl_beautify_split_Z_and_Q n with (?Lz,?Lq) =>
     let Vz := xsimpl_beautify_credits_core_Z Lz in
-    let Vq := xsimpl_beautify_credits_core_Qc Lq in
+    let Vq := xsimpl_beautify_credits_core_Q Lq in
     match constr:( (Vz, Vq) ) with
     | (0%Z, _) => constr:(Vq)
-    | (_, 0%Qc) => constr:(Z2Qc Vz)
-    | (_, (- 0)%Qc) => constr:(Z2Qc Vz)
-    | (_, _) => constr:( (Z2Qc Vz + Vq)%Qc ) (* LATER: if Vq starts with a negative value, we get Vz+(-Vq) *)
+    | (_, 0%Q) => constr:(Z_to_Q Vz)
+    | (_, (- 0)%Q) => constr:(Z_to_Q Vz)
+    | (_, _) => constr:( (Z_to_Q Vz + Vq)%Q ) (* LATER: if Vq starts with a negative value, we get Vz+(-Vq) *)
     end
   end.
 
-Lemma xsimpl_beautify_credits_core_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Qc), True.
+Lemma xsimpl_beautify_credits_core_demo : forall (m1 m2 m3 m4:Z) (n1 n2 n3 n4:Q), True.
   intros.
-  let n := constr:(((Z2Qc 0) + Z2Qc m2 - (n1 - n3) - Z2Qc (- m3 + m2) - Z2Qc 2 - (n2 + Z2Qc m1) + (n3 + n4) + 1%Qc - Z2Qc 5)%Qc) in
+  let n := constr:(((Z_to_Q 0) + Z_to_Q m2 - (n1 - n3) - Z_to_Q (- m3 + m2) - Z_to_Q 2 - (n2 + Z_to_Q m1) + (n3 + n4) + 1%Q - Z_to_Q 5)%Q) in
   let x := xsimpl_beautify_credits_core n in pose x.
 Abort.
 
@@ -825,8 +819,8 @@ Abort.
    to prove that [n2] is a simplified version of [n1] .*)
 Ltac xsimpl_beautify_credits_solver tt :=
   unfold xsimpl_hcredits_protect;
-  try match goal with |- hcredits _ = hcredits _ => fequal end; 
-  try match goal with |- Z2Qc _ = Z2Qc _ => fequal end;
+  try match goal with |- hcredits _ = hcredits _ => fequal end;
+  try match goal with |- Z_to_Q _ = Z_to_Q _ => fequal end;
    try solve [ math | ring ].
 
 (* [xsimpl_beautify_credits_using replacer n] applies the operation
@@ -852,12 +846,12 @@ Ltac xsimpl_beautify_credits_once_goal tt :=
   end.
 
 Ltac xsimpl_beautify_credits_goal tt :=
-  rew_qc in *;
+  rew_Q;
   repeat (xsimpl_beautify_credits_once_goal tt);
   unfolds xsimpl_hcredits_protect.
 
 Ltac xsimpl_beautify_credits_everywhere tt :=
-  rew_qc;
+  rew_Q; (* not [rew in *] otherwise mess up with ltac mark *)
   repeat (xsimpl_beautify_credits_once_goal tt);
   repeat (xsimpl_beautify_credits_once_hyp tt);
   unfolds xsimpl_hcredits_protect.
@@ -876,7 +870,7 @@ Example ring_tactic_demo : (forall a b:Z,
     (a + b) ^ 2 - a * a - b * b - 2 * a * b = 0)%Z.
 Proof. intros. ring. Abort.
 
-Example field_tactic_demo : (forall x y : Qc, y<>0 -> (x/y)*y = x)%Qc.
+Example field_tactic_demo : (forall x y : Q, y<>0 -> (x/y)*y = x)%Q.
 Proof. intros. field. auto. Abort.
 
 
@@ -888,14 +882,14 @@ Proof using.
   { xsimpl_beautify_credits_once_goal tt.
     xsimpl_beautify_credits_once_goal tt.
     unfolds xsimpl_hcredits_protect. demo. }
-  { rew_qc in *;
+  { rew_Q in *;
     repeat (xsimpl_beautify_credits_once_goal tt);
     unfolds xsimpl_hcredits_protect. demo. }
 Abort.
 
-Lemma xsimpl_hcredits_beautify_demo_Qc : forall (n1 n2 n3 n4 n5:credits),
-  \$$ (- (n3 + Z2Qc 2 - Z2Qc 4 - n4))%cr ==> \$$(Z2Qc 2 - (n3 + n4) - n5)%cr ->
-  \$$ (Z2Qc 0 + n1 - Z2Qc 2 - n2 + (n3 + n4) - n5 - Z2Qc 5)%cr ==> \$$ (- (n3 + n4) - n5 - Z2Qc 7)%cr.
+Lemma xsimpl_hcredits_beautify_demo_Q : forall (n1 n2 n3 n4 n5:credits),
+  \$$ (- (n3 + Z_to_Q 2 - Z_to_Q 4 - n4))%cr ==> \$$(Z_to_Q 2 - (n3 + n4) - n5)%cr ->
+  \$$ (Z_to_Q 0 + n1 - Z_to_Q 2 - n2 + (n3 + n4) - n5 - Z_to_Q 5)%cr ==> \$$ (- (n3 + n4) - n5 - Z_to_Q 7)%cr.
 Proof using.
   intros.
   { xsimpl_beautify_credits_once_goal tt.
@@ -910,70 +904,55 @@ Abort.
 
 Delimit Scope comp_scope with C.
 
-Notation "'0%Qc'" := (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |}) : Qc_scope.
-Notation "'1%Qc'" := (Q2Qc {| QArith_base.Qnum := 1; QArith_base.Qden := 1 |}) : Qc_scope.
-
-Axiom Qc2Q_Z2Qc : forall (n:Z),  (* TODO: move *)
-  Qcanon.this (Z2Qc n) = {| QArith_base.Qnum := n; QArith_base.Qden := 1 |}.
-(*Proof using.
-  intros n. simpl. Locate ggcdn.
-Qed. *)
-
 Lemma xsimpl_hcredits_Z : forall (n:Z),
   (n >= 0%Z)%C ->
-  (Z2Qc n >= 0)%Qc.
+  (Z_to_Q n >= 0)%Q.
 Proof using.
-  introv M. asserts N: (0 <= n)%Z. { math. }
-  rewrite QArith_base.Zle_Qle in N. rewrite Qc2Q_Z2Qc.
-  simpl. applys N.
+  skip. (* TODO *)
 Qed.
 
-Axiom xsimpl_hcredits_Z' : forall (n:Z),
+Axiom xsimpl_hcredits_Z0 : forall (n:Z),
   (n >= 0%Z)%C ->
-  (QArith_base.Qle (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |}) (Z2Qc n))%Qc.
-
+  (Z_to_Q n >= Z_to_Q 0%Z)%C.
 
 Axiom xsimpl_hcredits_ZZ : forall (n m:Z),
   (n >= m)%C ->
-  (QArith_base.Qle (Z2Qc m) (Z2Qc n))%Qc.
+  (Z_to_Q n >= Z_to_Q m)%C.
 
-
-Axiom Z2QC_eq_zero : forall (n:Z),
+Axiom Z_to_Q_eq_zero : forall (n:Z),
   n = 0%Z ->
-  Z2Qc n = 0%Qc.
+  Z_to_Q n = 0%Q.
 
-
-Axiom zero_eq_Z2QC : forall (n:Z),
+Axiom zero_eq_Z_to_Q : forall (n:Z),
   n = 0%Z ->
-  0%Qc = Z2Qc n.
+  0%Q = Z_to_Q n.
 
 
+Axiom Z_to_Q_add' : forall (n1 n2:Z),
+  Z_to_Q n1 + Z_to_Q n2 = Z_to_Q (n1 + n2)%Z.
+Axiom Z_to_Q_sub' : forall (n1 n2:Z),
+  Z_to_Q n1 - Z_to_Q n2 = Z_to_Q (n1 - n2)%Z.
+Axiom Z_to_Q_opp' : forall (n1:Z),
+  - Z_to_Q n1 = Z_to_Q (- n1)%Z.
+Axiom Z_to_Q_zero' :
+  0%Q = Z_to_Q 0%Z.
+Axiom Z_to_Q_zero :
+  Z_to_Q 0%Z = 0%Q.
 
-Axiom Z2Qc_add' : forall (n1 n2:Z),
-  Z2Qc n1 + Z2Qc n2 = Z2Qc (n1 + n2)%Z.
-Axiom Z2Qc_sub' : forall (n1 n2:Z),
-  Z2Qc n1 - Z2Qc n2 = Z2Qc (n1 - n2)%Z.
-Axiom Z2Qc_opp' : forall (n1:Z),
-  - Z2Qc n1 = Z2Qc (- n1)%Z.
-Axiom Z2Qc_zero' :
-  0%Qc = Z2Qc 0%Z.
-Axiom Z2Qc_zero :
-  Z2Qc 0%Z = 0%Qc.
+Hint Rewrite Z_to_Q_add' Z_to_Q_sub' Z_to_Q_opp' Z_to_Q_zero' Z_to_Q_zero' : Z_to_Q_gather.
 
-Hint Rewrite Z2Qc_add' Z2Qc_sub' Z2Qc_opp' Z2Qc_zero' Z2Qc_zero' : Z2QC_gather.
+Ltac Z_to_Q_gather tt :=
+  autorewrite with Z_to_Q_gather.
 
-Ltac Z2Qc_gather tt :=
-  autorewrite with Z2QC_gather.
+Ltac Z_to_Q_restore_zero tt :=
+  autorewrite with Z_to_Q_restore_zero.
 
-Ltac Z2QC_restore_zero tt :=
-  autorewrite with Z2QC_restore_zero.
-
-Hint Rewrite Z2Qc_zero : Z2QC_restore_zero.
+Hint Rewrite Z_to_Q_zero : Z_to_Q_restore_zero.
 
 
 Lemma xsimpl_hcredits_zero :
-  (0 >= 0)%Qc.
-Proof using. applys QArith_base.Qle_refl. Qed.
+  (0 >= 0)%Q.
+Proof using.  Admitted. (* TODO *)
 
 Lemma xsimpl_hcredits_nonneg_inst_evar : forall n,
   n - n >= 0.
@@ -983,81 +962,82 @@ Ltac xsimpl_hcredits_nonneg_custom := fail.
 
 
 Ltac xsimpl_beautify_nonneg_and_eqzero_toZ tt :=
-  first 
-  [ apply Z2QC_eq_zero
-  | apply zero_eq_Z2QC
-  | apply xsimpl_hcredits_zero
-  | solve [ apply xsimpl_hcredits_nonneg_inst_evar ]
-  | apply xsimpl_hcredits_ZZ; try xsimpl_hcredits_nonneg_custom tt
-  | apply xsimpl_hcredits_Z'; try xsimpl_hcredits_nonneg_custom tt
-  | try xsimpl_hcredits_nonneg_custom tt ].
-
-(* DEPRECATED
-Ltac xsimpl_beautify_nonneg_and_eqzero_toZ tt :=
-  match goal with
-  (* TODO: cleanup *)
-  | |- QArith_base.Qle (Qcanon.this (Z2Qc ?m)) (Qcanon.this (Z2Qc ?n)) => apply xsimpl_hcredits_ZZ; try xsimpl_hcredits_nonneg_custom tt
-  | |- QArith_base.Qle (Qcanon.this (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |})) (Qcanon.this (Z2Qc ?n)) =>
-       apply xsimpl_hcredits_Z'; try xsimpl_hcredits_nonneg_custom tt
-  | |- (Z2Qc ?n >= 0)%Qc => apply xsimpl_hcredits_Z; try xsimpl_hcredits_nonneg_custom tt
-  | |- (Z2Qc ?m) = 0%cr => apply Z2QC_eq_zero
-  | |- Z2Qc ?m = Z2Qc 0%Z => apply Z2QC_eq_zero
-  | |- Z2Qc ?m = Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |} => apply Z2QC_eq_zero
-  (* | |- (?n >= 0)%Qc => try xsimpl_hcredits_nonneg_custom tt *)
-  | _ => xsimpl_hcredits_nonneg_custom tt (* might fail *)
+  try match goal with
+  | |- ?n = _ (*zero*) :> Q => 
+      first
+      [ apply Z_to_Q_eq_zero
+      | apply zero_eq_Z_to_Q ]
+  | |- @ge Q _ ?n (*zero*) _ =>
+      first
+      [ apply xsimpl_hcredits_zero
+      | solve [ apply xsimpl_hcredits_nonneg_inst_evar ]
+      | apply xsimpl_hcredits_ZZ; try xsimpl_hcredits_nonneg_custom tt
+      | apply xsimpl_hcredits_Z0; try xsimpl_hcredits_nonneg_custom tt
+      | try xsimpl_hcredits_nonneg_custom tt ]
   end.
-*)
-
+ 
 Ltac xsimpl_beautify_nonneg_and_eqzero_goal_core tt :=
   let beautify n :=
     let n' := xsimpl_beautify_credits_core n in
     replace n with n'; [ | xsimpl_beautify_credits_solver tt ] in
-(* LATER: tag the goals of the form [n>=0] produced by [xsimpl], so that only those 
-   are simplified by the tactic. *)
-  match goal with 
-  (* particular cases *)
-  | |- (0 >= 0)%Qc => apply xsimpl_hcredits_zero
-  | |- (?n1 - ?n2 >= 0)%Qc => apply xsimpl_hcredits_nonneg_inst_evar (* fallthrough otherwise *)
-  (* goal is: [?n >= 0%Qc] *) 
-  | |- 
-     QArith_base.Qle (Qcanon.this (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |})) (Qcanon.this ?n) =>
-        try beautify n 
-  | |- QArith_base.Qle (Qcanon.this (Z2Qc 0%Z)) (Qcanon.this ?n) =>
-        try beautify n 
-  | |- (fun _ _ : credits => QArith_base.Qle _ _) (?n) _ =>
-        try beautify n 
-  (* goal is  [?n = 0%Qc] *)
-  | |- ?n = 0%cr => try beautify n
-  | |- ?n = (Z2Qc 0%Z) => try beautify n
+  try match goal with
+  | |- (?n >= _)%C => 
+      first [ apply xsimpl_hcredits_zero
+            | apply xsimpl_hcredits_nonneg_inst_evar
+            | beautify n  ]
+  | |- (?n = _ :> Q) => beautify n 
   end.
 
+
+(*DEPRECATED
+
+(* LATER: tag the goals of the form [n>=0] produced by [xsimpl], so that only those
+   are simplified by the tactic. *)
+  match goal with
+  (* particular cases *)
+  | |- (0 >= 0)%Q => apply xsimpl_hcredits_zero
+  | |- (?n1 - ?n2 >= 0)%Q => apply xsimpl_hcredits_nonneg_inst_evar (* fallthrough otherwise *)
+  (* goal is: [?n >= 0%Q] *)
+  | |-
+     QArith_base.Qle (Qcanon.this (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |})) (Qcanon.this ?n) =>
+        try beautify n
+  | |- QArith_base.Qle (Qcanon.this (Z_to_Q 0%Z)) (Qcanon.this ?n) =>
+        try beautify n
+  | |- (fun _ _ : credits => QArith_base.Qle _ _) (?n) _ =>
+        try beautify n
+  (* goal is  [?n = 0%Q] *)
+  | |- ?n = 0%cr => try beautify n
+  | |- ?n = (Z_to_Q 0%Z) => try beautify n
+  end.
+*)
+
 Ltac xsimpl_beautify_nonneg_and_eqzero_goal tt :=
-  Z2Qc_gather tt;
-  try xsimpl_beautify_nonneg_and_eqzero_goal_core tt;
-  try xsimpl_beautify_nonneg_and_eqzero_toZ tt;
-  Z2QC_restore_zero tt.
+  Z_to_Q_gather tt;
+  xsimpl_beautify_nonneg_and_eqzero_goal_core tt;
+  xsimpl_beautify_nonneg_and_eqzero_toZ tt;
+  Z_to_Q_restore_zero tt.
 
 
-Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo1 : forall (n:Qc),
-  ((0%Qc + Z2Qc 4 - Z2Qc 2 - n) >= 0%Qc)%cr.
+Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo1 : forall (n:Q),
+  ((0%Q + Z_to_Q 4 - Z_to_Q 2 - n) >= 0%Q)%cr.
 Proof using.
-  intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. demo. 
+  intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. demo.
 Abort.
 
-Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo2 : forall (n:Qc),
-  ((0%Qc - n + Z2Qc 4 - Z2Qc 4 + n) = 0%Qc)%cr.
+Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo2 : forall (n:Q),
+  ((0%Q - n + Z_to_Q 4 - Z_to_Q 4 + n) = 0%Q)%cr.
 Proof using.
-  intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. auto. demo.
+  intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. auto.
 Abort.
 
 Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo3 :
-  ((0%Qc - Z2Qc 1 + Z2Qc 3) >= 0%Qc)%cr.
+  ((0%Q - Z_to_Q 1 + Z_to_Q 3) >= 0%Q)%cr.
 Proof using.
   intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. math.
 Abort.
 
 Lemma xsimpl_beautify_nonneg_and_eqzero_goal_demo4 : forall (n:Z),
-  Z2Qc n = 0%Qc.
+  Z_to_Q n = 0%Q.
 Proof using.
   intros. xsimpl_beautify_nonneg_and_eqzero_goal tt. demo.
 Abort.
@@ -1505,6 +1485,8 @@ Tactic Notation "hstars_simpl" :=
 (* ---------------------------------------------------------------------- *)
 (** ** Transition lemmas *)
 
+Implicit Types Nc : credits.
+
 (** Transition lemmas to start the process *)
 
 Lemma xpull_protect : forall H1 H2,
@@ -1810,7 +1792,7 @@ Proof using.
 Qed.
 
 Lemma xsimpl_lr_refl_nocredits : forall Hla,
-  Xsimpl (0, Hla, \[], \[]) (Hla, \[], \[]).
+  Xsimpl (0%cr, Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 
 Lemma xsimpl_lr_refl : forall Hla Nc,
@@ -1830,7 +1812,7 @@ Proof using. intros. unfolds Xsimpl. hstars_simpl. rewrite~ qwand_equiv. Qed.
 
 (* Note that top makes no sense in a world with credits *)
 Lemma xsimpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
-  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (0%cr, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
   xsimpl_lr_start M. rewrite <- (hstar_hempty_l (\$$Nc \* Hla)).
@@ -1844,10 +1826,10 @@ Lemma xsimpl_lr_hgc_hempty : forall Hla Hrg,
 Proof using. apply haffine_hempty. Qed.
 *)
 
-Lemma xsimpl_lr_hgc : forall Nc Hla Hrg,
+Lemma xsimpl_lr_hgc : forall (Nc:credits) Hla Hrg,
   Nc >= 0 -> (* TODO: use [use_credits] as tactics to avoid generating this *)
   haffine Hla ->
-  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (0%cr, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using.
   introv HNc N. xsimpl_lr_start M.
@@ -1860,8 +1842,8 @@ Qed.
 
 Lemma xsimpl_lr_hgc_nocredits : forall Hla Hrg,
   haffine Hla ->
-  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
-  Xsimpl (0, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
+  Xsimpl (0%cr, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (0%cr, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using.
   introv N. xsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
   applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
@@ -1869,7 +1851,7 @@ Qed.
 
 Lemma xsimpl_lr_exit_nogc_nocredits : forall Hla Hra,
   Hla ==> Hra ->
-  Xsimpl (0, Hla, \[], \[]) (Hra, \[], \[]).
+  Xsimpl (0%cr, Hla, \[], \[]) (Hra, \[], \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. auto. Qed.
 
 Lemma xsimpl_lr_exit_credits_to_hempty : forall Nc,
@@ -1884,7 +1866,7 @@ Proof using. introv M. unfolds Xsimpl. hstars_simpl. auto. Qed.
 
 Lemma xsimpl_lr_exit_nocredits : forall Hla Hra Hrg,
   Hla ==> Hra \* Hrg ->
-  Xsimpl (0, Hla, \[], \[]) (Hra, Hrg, \[]).
+  Xsimpl (0%cr, Hla, \[], \[]) (Hra, Hrg, \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ hstar_comm. Qed.
 
 Lemma xsimpl_lr_exit : forall Hla Hra Hrg Nc,
@@ -1903,7 +1885,7 @@ Proof using.
 Qed.
 
 Lemma xsimpl_lr_exit_instantiate_nocredits : forall Hla,
-  Xsimpl (0, Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
+  Xsimpl (0%cr, Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
 Proof using.
   intros. applys_eq xsimpl_lr_exit_instantiate.
   rewrite hcredits_zero. rew_heap*.
@@ -2701,7 +2683,7 @@ Proof using.
     xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl2. auto. }
   { xsimpl 3. auto. }
-Qed.
+Abort.
 
 Lemma xsimpl_demo_stars_gc : forall H1 H2,
   haffine H2 ->
@@ -2741,7 +2723,7 @@ Proof using. intros. xsimpl~. Abort.
 Lemma xsimpl_demo_hgc_multiple : forall H1 H2,
   haffine H2 ->
   H1 \* H2 \* \GC ==> H1 \* \GC \* \GC.
-Proof using. intros. xsimpl~. Qed.
+Proof using. intros. xsimpl~. Abort.
 
 Lemma xsimpl_demo_hwand : forall H1 H2 H3 H4,
   (H1 \-* (H2 \-* H3)) \* H1 \* H4 ==> (H2 \-* (H3 \* H4)).
@@ -2753,28 +2735,28 @@ Proof using.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
   { intros. xsimpl~. }
-Qed.
+Abort.
 
 Lemma xsimpl_demo_qwand : forall A (x:A) (Q1 Q2:A->hprop) H1,
   H1 \* (H1 \-* (Q1 \--* Q2)) \* (Q1 x) ==> (Q2 x).
-Proof using. intros. xsimpl~. Qed.
+Proof using. intros. xsimpl~. Abort.
 
 Lemma xsimpl_demo_hwand_r : forall H1 H2 H3,
   H1 \* H2 ==> H1 \* (H3 \-* (H2 \* H3)).
-Proof using. intros. xsimpl~. Qed.
+Proof using. intros. xsimpl~. Abort.
 
 Lemma xsimpl_demo_qwand_r : forall A (x:A) (Q1 Q2:A->hprop) H1 H2,
   H1 \* H2 ==> H1 \* (Q1 \--* (Q1 \*+ H2)).
-Proof using. intros. xsimpl. Qed.
+Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_demo_hwand_multiple_1 : forall H1 H2 H3 H4 H5,
   H1 \-* H4 ==> H5 ->
   (H2 \* ((H1 \* H2 \* H3) \-* H4)) \* H3 ==> H5.
-Proof using. introv M. xsimpl. auto. Qed.
+Proof using. introv M. xsimpl. auto. Abort.
 
 Lemma xsimpl_demo_hwand_multiple_2 : forall H1 H2 H3 H4 H5,
   (H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5))) \* (H2 \-* H3) \* H4 ==> H5.
-Proof using. intros. xsimpl. Qed.
+Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_demo_hwand_hempty : forall H1 H2 H3,
   (\[] \-* H1) \* H2 ==> H3.
@@ -2795,7 +2777,18 @@ Proof using.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
   { xsimpl. }
-Qed.
+Abort.
+
+Lemma xsimpl_demo_hwand_hyp : forall H1 H1' H2 H2',
+  H1' ==> H1 ->
+  H2 ==> H2' ->
+  (H1 \-* H2) ==> (H1' \-* H2').
+Proof using.
+  introv M1 M2. dup.
+  { xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
+    xsimpl1. xsimpl1. xsimpl1. xsimpl_clean tt. demo. }
+  { xsimpl. demo. }
+Abort.
 
 Lemma xsimpl_demo_repr_1 : forall p q (R:int->int->hprop),
   p ~> R 3 \* q ~> R 4 ==> \exists n m, p ~> R n \* q ~> R m.
@@ -2804,12 +2797,12 @@ Proof using.
   { xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
   { xsimpl~. }
-Qed.
+Abort.
 
 Lemma xsimpl_demo_repr_2 : forall p (R R':int->int->hprop),
   R = R' ->
   p ~> R' 3 ==> \exists n, p ~> R n.
-Proof using. introv E. xsimpl. subst R'. xsimpl. Qed.
+Proof using. introv E. subst R'. xsimpl. (* TODO: check: introv E subst R'. xsimpl. *) Abort.
 
 Lemma xsimpl_demo_repr_3 : forall p (R:int->int->hprop),
   let R' := R in
@@ -2823,7 +2816,7 @@ Qed.
 Lemma xsimpl_demo_repr_4 : forall p n m (R:int->int->hprop),
   n = (m + 0)%Z ->
   p ~> R n ==> p ~> R m.
-Proof using. intros. xsimpl. math. Qed.
+Proof using. intros. xsimpl. math. Abort.
 
 (* NOTE: in the presence of [let R' := R], it is possible that R'
    is renamed into R during a call to [xsimpl], because
@@ -2859,7 +2852,7 @@ Lemma xsimpl_demo_gc_4 : forall H1 H2,
 Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_demo_evar_gc : (forall H, \[] ==> (H \* \GC) -> True) -> True.
-Proof using. introv M. eapply M. xsimpl. Qed.
+Proof using. introv M. eapply M. xsimpl. Abort.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2886,14 +2879,14 @@ Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_hcredits_hwand_eq_Z : forall (n:Z) H,
   ((\$n) \-* H) = (H \* (\$(- n)%Z)).
-Proof using. intros. xsimpl. (* TODO: autorewrite to cleanup 0+ and 0- in Qc *)
+Proof using. intros. xsimpl. (* TODO: autorewrite to cleanup 0+ and 0- in Q *)
 Abort.
 
 Lemma xsimpl_hcredits_hwand_eq : forall n H,
-  ((\$$n) \-* H) = (H \* (\$$(- n)%Qc)).
+  ((\$$n) \-* H) = (H \* (\$$(- n)%Q)).
 Proof using. intros. xsimpl. ring. Abort.
 
-Lemma xsimpl_hcredits_steps : forall (n1 n2 n3 : Qc),
+Lemma xsimpl_hcredits_steps : forall (n1 n2 n3 : Q),
   \$$ (n1 + n2)%cr ==> \$$ n3.
 Proof using. intros. xsimpl. Abort.
 
@@ -2902,15 +2895,15 @@ Lemma xsimpl_hcredits_steps_Z : forall (n1 n2 n3 : Z),
 Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_hcredits_ring : forall (a b : Z),
-  \$$ (Z2Qc ((a + b) ^ 2) - Z2Qc (a * a) - Z2Qc (b * b) - Z2Qc (2 * a * b))%cr ==> \[].
+  \$$ (Z_to_Q ((a + b) ^ 2) - Z_to_Q (a * a) - Z_to_Q (b * b) - Z_to_Q (2 * a * b))%cr ==> \[].
 Proof using. intros. xsimpl. ring. Abort.
 
 Lemma xsimpl_hcredits_ring2 : forall (a b : Z),
-  \$$ (Z2Qc ((a + b) ^ 2) - Z2Qc (a * a) - Z2Qc (b * b) - Z2Qc (2 * a * b))%cr ==> \$$(0)%cr.
-Proof using. intros. xsimpl. (* would need some processing before ring works *) Abort.
+  \$$ (Z_to_Q ((a + b) ^ 2) - Z_to_Q (a * a) - Z_to_Q (b * b) - Z_to_Q (2 * a * b))%cr ==> \$$(0)%cr.
+Proof using. intros. xsimpl. ring. Abort.
 
 Lemma xsimpl_hcredits_ring3 : forall (a b : Z),
-  \$$ (Z2Qc ((a + b) ^ 2))%cr ==> \$$(Z2Qc (a * a) + Z2Qc (b * b) + Z2Qc (2 * a * b))%cr.
+  \$$ (Z_to_Q ((a + b) ^ 2))%cr ==> \$$(Z_to_Q (a * a) + Z_to_Q (b * b) + Z_to_Q (2 * a * b))%cr.
 Proof using. intros. xsimpl. ring. Abort.
 
 
@@ -2994,14 +2987,14 @@ Open Scope heap_scope.
 Definition use_credits : bool :=
   false.
 
-Notation "'credits'" := Qcanon.Qc.
-Local Open Scope Qc_scope.
-Delimit Scope Qc with cr.
+Notation "'credits'" := LibQ.Q.
+Local Open Scope Q_scope.
+Delimit Scope Q with cr.
 
 Definition hcredits (n:credits) : hprop :=
   \[].
 
-Notation "'\$' n" := (hcredits (Z2Qc n))
+Notation "'\$' n" := (hcredits (Z_to_Q n))
   (at level 40,
    n at level 0,
    format "\$ n") : heap_scope.

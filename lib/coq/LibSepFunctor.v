@@ -145,8 +145,9 @@ Include SepCore.
 
 Parameter use_credits : bool.
 
-Notation "'credits'" := Qc.
-Delimit Scope Qc_scope with cr.
+Notation "'credits'" := Q.
+Delimit Scope Q_scope with cr.
+Implicit Types n : credits.
 
 Parameter heap_credits : credits -> heap.
 
@@ -385,7 +386,7 @@ Notation "\GC" := (hgc) : heap_scope.
 Definition hcredits (n:credits) : hprop :=
   fun h => h = heap_credits n.
 
-Notation "'\$' n" := (hcredits (Z2Qc n))
+Notation "'\$' n" := (hcredits (Z_to_Q n))
   (at level 40,
    n at level 0,
    format "\$ n") : heap_scope.
@@ -1128,6 +1129,7 @@ Global Opaque hand.
 
 Section Credits.
 Transparent hempty hstar haffine.
+Implicit Types n : credits.
 
 Lemma hcredits_skip :
   use_credits = false ->
@@ -2689,8 +2691,9 @@ Open Scope heap_scope.
 Definition use_credits : bool :=
   false.
 
-Notation "'credits'" := Qc.
-Delimit Scope Qc_scope with cr.
+Notation "'credits'" := Q.
+Delimit Scope Q_scope with cr.
+Implicit Types n : credits.
 
 Definition heap_credits (n:credits) : heap :=
   heap_empty.

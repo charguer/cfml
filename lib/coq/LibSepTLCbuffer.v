@@ -25,60 +25,6 @@ Global Opaque Z.add.
 
 
 (*--------------------------------------------------------*)
-(* LibRational *)
-
-From Coq.QArith Require QArith_base.
-From Coq Require Import Qcanon.
-
-Definition Z2Qc (n:Z) : Qc :=
-  Q2Qc (QArith_base.inject_Z n).
-
-Lemma add_Z2Qc : forall n m,
-  ((Z2Qc n) + (Z2Qc m))%Qc = (Z2Qc (n + m)%Z).
-Proof. skip. (* TODO *) Qed.
-
-Lemma sub_Z2Qc : forall n m,
-  ((Z2Qc n) - (Z2Qc m))%Qc = (Z2Qc (n - m)%Z).
-Proof. skip. (* TODO *) Qed.
-
-Lemma neg_Z2Qc : forall n,
-  (- (Z2Qc n))%Qc = (Z2Qc (- n)%Z).
-Proof. skip. (* TODO *) Qed.
-
-Lemma Qc_add_zero_l : forall (p:Qc),
-  (0 + p)%Qc = p.
-Proof. skip. (* TODO *) Qed.
-
-Lemma Qc_add_zero_r : forall (p:Qc),
-  (p + 0)%Qc = p.
-Proof. skip. (* TODO *) Qed.
-
-Hint Rewrite add_Z2Qc sub_Z2Qc neg_Z2Qc Qc_add_zero_l Qc_add_zero_r : rew_qc.
-
-Tactic Notation "rew_qc" :=
-  autorewrite with rew_qc.
-Tactic Notation "rew_qc" "in" "*" :=
-  autorewrite with rew_qc in *.
-Tactic Notation "rew_qc" "in" hyp(H) :=
-  autorewrite with rew_qc in H.
-
-Tactic Notation "rew_qc" "~" :=
-  rew_qc; auto_tilde.
-Tactic Notation "rew_qc" "~" "in" "*" :=
-  rew_qc in *; auto_tilde.
-Tactic Notation "rew_qc" "~" "in" hyp(H) :=
-  rew_qc in H; auto_tilde.
-
-Tactic Notation "rew_qc" "*" :=
-  rew_qc; auto_star.
-Tactic Notation "rew_qc" "*" "in" "*" :=
-  rew_qc in *; auto_star.
-Tactic Notation "rew_qc" "*" "in" hyp(H) :=
-  rew_qc in H; auto_star.
-
-
-
-(*--------------------------------------------------------*)
 (* LibListZ *)
 
 From TLC Require Import LibListZ.
