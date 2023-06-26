@@ -155,7 +155,7 @@ Parameter heap_compat_credits : forall n m,
 
 Parameter heap_credits_skip :
   use_credits = false ->
-  forall n, heap_credits n = heap_empty.
+  forall (n:credits), heap_credits n = heap_empty.
 
 Parameter heap_credits_zero :
   heap_credits 0 = heap_empty.
@@ -1131,7 +1131,7 @@ Transparent hempty hstar haffine.
 
 Lemma hcredits_skip :
   use_credits = false ->
-  forall n, \$ n = \[].
+  forall (n:credits), \$$ n = \[].
 Proof using.
   introv E. intros n. applys fun_ext_1. intros h.
   unfolds hcredits. rewrite* (heap_credits_skip E).
@@ -1160,17 +1160,17 @@ Lemma haffine_hcredits : forall n,
   haffine (\$$ n).
 Proof using. introv H. unfold haffine. introv ->. apply* heap_credits_affine. Qed.
 
-Lemma hcredits_sub : forall (n m : int),
+Lemma hcredits_sub : forall (n m : credits),
   \$$(n-m)%cr = \$$ n \* \$$ (-m).
-Proof using. intros. math_rewrite (n-m = n+(-m))%cr. rewrite* hcredits_add. Qed.
+Proof using. intros. asserts_rewrite (n-m = n+(-m))%cr. ring. rewrite* hcredits_add. Qed.
 
-Lemma hcredits_cancel : forall (n: int),
+Lemma hcredits_cancel : forall (n: credits),
   \$$ n \* \$$ (-n)%cr = \[].
-Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. math. Qed.
+Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. ring. Qed.
 
 Lemma hcredits_extract : forall m n,
   \$$ n = \$$ m \* \$$ (n-m).
-Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
+Proof using. intros. rewrite <- hcredits_add. fequals. ring. Qed.
 
 Lemma hwand_hcredits_l : forall H n,
   (\$$n \-* H) = (\$$(-n) \* H).
@@ -2689,7 +2689,8 @@ Open Scope heap_scope.
 Definition use_credits : bool :=
   false.
 
-Notation "'credits'" := Z.
+Notation "'credits'" := Qc.
+Delimit Scope Qc_scope with cr.
 
 Definition heap_credits (n:credits) : heap :=
   heap_empty.
@@ -2700,7 +2701,7 @@ Proof using. intros. applys heap_compat_empty_l. Qed.
 
 Lemma heap_credits_skip :
   use_credits = false ->
-  forall n, heap_credits n = heap_empty.
+  forall (n:credits), heap_credits n = heap_empty.
 Proof using. auto. Qed.
 
 Lemma heap_credits_zero :
@@ -2711,8 +2712,8 @@ Lemma heap_credits_add : forall n m,
   heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
 Proof using. intros. rewrite* heap_union_empty_l. Qed.
 
-Lemma heap_credits_affine : forall n,
-  n >= 0 ->
+Lemma heap_credits_affine : forall (n:credits),
+  (n >= 0)%cr ->
   heap_affine (heap_credits n).
 Proof using. intros. applys heap_affine_empty. Qed.
 
