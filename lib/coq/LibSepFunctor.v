@@ -1,6 +1,6 @@
 (**
 
-This file formalizes a functor that may be instantiated con construct, e.g.
+This file formalizes a functor that may be instantiated to construct, e.g.
   -- a standard Separation Logic,
   -- a Separation Logic extended with credits,
   -- a Separation Logic extended with temporary read-only permissions.
@@ -145,7 +145,8 @@ Include SepCore.
 
 Parameter use_credits : bool.
 
-Notation "'credits'" := Z.
+Notation "'credits'" := Qc.
+Delimit Scope Qc_scope with cr.
 
 Parameter heap_credits : credits -> heap.
 
@@ -159,11 +160,11 @@ Parameter heap_credits_skip :
 Parameter heap_credits_zero :
   heap_credits 0 = heap_empty.
 
-Parameter heap_credits_add : forall n m,
-  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+Parameter heap_credits_add : forall (n m:credits),
+  heap_credits (n + m)%cr = heap_union (heap_credits n) (heap_credits m).
 
-Parameter heap_credits_affine : forall n,
-  n >= 0 ->
+Parameter heap_credits_affine : forall (n:credits),
+  (n >= 0)%cr ->
   heap_affine (heap_credits n).
 
 End SepCoreCredits.
@@ -384,10 +385,15 @@ Notation "\GC" := (hgc) : heap_scope.
 Definition hcredits (n:credits) : hprop :=
   fun h => h = heap_credits n.
 
-Notation "'\$' n" := (hcredits n)
+Notation "'\$' n" := (hcredits (Z2Qc n))
   (at level 40,
    n at level 0,
    format "\$ n") : heap_scope.
+
+Notation "'\$$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$$  n") : heap_scope.
 
 (** Additional notation for entailment
     [H1 ==+> H2] is short for [H1 ==> H1 \* H2] *)
@@ -1132,13 +1138,13 @@ Proof using.
 Qed.
 
 Lemma hcredits_zero :
-  \$ 0 = \[].
+  \$$ 0%cr = \[].
 Proof using.
   applys fun_ext_1. intros h. unfold hcredits. rewrite* heap_credits_zero.
 Qed.
 
 Lemma hcredits_add : forall n m,
-  \$ (n+m) = \$ n \* \$ m.
+  \$$ (n+m)%cr = \$$ n \* \$$ m.
 Proof using.
   intros. applys fun_ext_1. intros h. unfold hcredits.
   unfold hstar. extens. iff M.
@@ -1150,24 +1156,24 @@ Proof using.
 Qed.
 
 Lemma haffine_hcredits : forall n,
-  n >= 0 ->
-  haffine (\$ n).
+  (n >= 0)%cr ->
+  haffine (\$$ n).
 Proof using. introv H. unfold haffine. introv ->. apply* heap_credits_affine. Qed.
 
 Lemma hcredits_sub : forall (n m : int),
-  \$(n-m) = \$ n \* \$ (-m).
-Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
+  \$$(n-m)%cr = \$$ n \* \$$ (-m).
+Proof using. intros. math_rewrite (n-m = n+(-m))%cr. rewrite* hcredits_add. Qed.
 
 Lemma hcredits_cancel : forall (n: int),
-  \$ n \* \$ (-n) = \[].
+  \$$ n \* \$$ (-n)%cr = \[].
 Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. math. Qed.
 
 Lemma hcredits_extract : forall m n,
-  \$ n = \$ m \* \$ (n-m).
+  \$$ n = \$$ m \* \$$ (n-m).
 Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
 
 Lemma hwand_hcredits_l : forall H n,
-  (\$n \-* H) = (\$(-n) \* H).
+  (\$$n \-* H) = (\$$(-n) \* H).
 Proof using.
   intros H1 n. rewrite hwand_eq_hexists. applys himpl_antisym.
   { applys himpl_hexists_l. intros H2. rewrite hstar_comm.
@@ -1175,7 +1181,7 @@ Proof using.
     rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
     rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
     rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
-  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2.
+  { sets H2: (\$$(- n) \* H1). applys himpl_hexists_r H2.
     rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
     subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
     rewrite* hstar_hempty_l. }

@@ -42,7 +42,8 @@ Module Export SepBasicCore <: SepCoreCredits.
 
 Declare Scope heap_scope.
 
-Local Notation "'credits'" := Z.
+Local Notation "'credits'" := Qc.
+Delimit Scope Qc_scope with cr.
 
 (** A heap is a state (a finite map from location to values)
    as defined in [Semantics.v]. *)
@@ -152,17 +153,17 @@ Lemma heap_credits_skip :
 Proof using. intros M. false. Qed.
 
 Lemma heap_credits_zero :
-  heap_credits 0 = heap_empty.
+  heap_credits 0%cr = heap_empty.
 Proof using. auto. Qed.
 
-Lemma heap_credits_add : forall n m,
-  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+Lemma heap_credits_add : forall (n m:credits),
+  heap_credits (n + m)%cr = heap_union (heap_credits n) (heap_credits m).
 Proof using.
   intros. unfolds heap_credits, heap_union. fequals. rewrite* Fmap.union_empty_l.
 Qed.
 
 Lemma heap_credits_affine : forall n,
-  n >= 0 ->
+  (n >= 0)%cr ->
   heap_affine (heap_credits n).
 Proof using. introv M. simpls. math. Qed.
 
