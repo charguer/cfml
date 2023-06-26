@@ -192,7 +192,7 @@ Proof using.
   xtriple. xunfold MListOf. xpull ;=> l E. xapp.
   { rewrites~ (>> LibSepTLCbuffer.list_same_length_inv_nil L). }
   intros x l' ->. destruct L as [|X L']; rew_listx in *; tryfalse.
-  rew_heapx. xsimpl*. math.
+  rew_heapx. xsimpl*. 
 Qed.
 
 End OfOps.

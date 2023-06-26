@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-From CFML Require Import WPLib.
+From CFML Require Import WPLibCredits.
 From CFML Require Import Stdlib.
 From CFML Require Import Stdlib.Array_proof.
 From EXAMPLES Require Import UnitTestsCredits_ml.
