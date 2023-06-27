@@ -1,4 +1,5 @@
 open PArray
+open Capacity
 
 (**
   Type pour des buffers circulaires de capacité fixe K
@@ -9,7 +10,6 @@ type 'a pchunk = {
   p_size : int;
   p_default : 'a
 }
-let capacity = 32
 
 let pchunk_default c = c.p_default
 
@@ -32,9 +32,6 @@ let pchunk_is_empty c =
 let pchunk_is_full c =
   c.p_size = capacity
 
-let wrap_up n =
-  if n >= capacity then n - capacity else n
-
 let pchunk_peek_back c =
   let back = wrap_up (c.p_front + c.p_size - 1) in
   parray_get c.p_data back
@@ -49,7 +46,7 @@ let pchunk_pop_back c =
     p_size = new_size;
     p_default = c.p_default
   } in
-  (x, c')
+  (c', x)
 
 let pchunk_push_back c x =
   let i = wrap_up (c.p_front + c.p_size) in
@@ -59,9 +56,6 @@ let pchunk_push_back c x =
     p_size = c.p_size + 1;
     p_default = c.p_default
   }
-
-let wrap_down n =
-  if n < 0 then n + capacity else n
 
 let pchunk_peek_front c =
   parray_get c.p_data c.p_front
@@ -74,7 +68,7 @@ let pchunk_pop_front c =
     p_size = c.p_size - 1;
     p_default = c.p_default
   } in
-  (x, c')
+  (c', x)
 
 let pchunk_push_front c x =
   let new_front = wrap_down (c.p_front - 1) in

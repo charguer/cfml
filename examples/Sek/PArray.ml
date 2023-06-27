@@ -5,7 +5,6 @@ type 'a parray = {
   mutable data : 'a parray_desc;
   mutable maxdist : int
   }
- 
  and 'a parray_desc =
 | PArray_Base of 'a array
 | PArray_Diff of 'a parray * int * 'a

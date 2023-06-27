@@ -15,7 +15,7 @@ Import IndexHints.
 Require Import ListMisc.
 
 Require Import EChunkImpl_ml.
-
+Require Import Capacity_proof.
 
 
 
@@ -32,11 +32,6 @@ Hint Rewrite plus_minus: rew_maths.
 
 (*************************************************)
 (** EChunks *)
-
-Notation "'K'" := capacity.
-
-Definition Wrap_up i := If i >= K then i - K else i.
-Definition Wrap_down i := If i < 0 then i + K else i.
 
 Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (front: int) (size: int) (default: A) : Prop :=
 	mkEChunk_inv {
@@ -88,10 +83,6 @@ Qed.
 Definition IsFull A (c:list A) : Prop :=
   length c = K.
 
-Lemma capacity_spec :
-  capacity > 0.
-Proof. rewrite capacity_cf__; math. Qed.
-
 Lemma NotFull_of_nil : forall A,
   ~ IsFull (@nil A).
 Proof.
@@ -99,47 +90,9 @@ Proof.
   intros. unfold IsFull. rew_list*.
 Qed.
 
-Hint Extern 1 (@le _ _ _ capacity) => hint capacity_spec; math.
-Hint Extern 1 (@lt _ _ _ capacity) => hint capacity_spec; math.
-Hint Extern 1 (@ge _ _ capacity _) => hint capacity_spec; math.
-Hint Extern 1 (@gt _ _ capacity _) => hint capacity_spec; math.
 
 (*************************************************)
 (** Specifications *)
-
-Lemma wrap_up_spec : forall (n: int),
-	SPEC (wrap_up n)
-		PRE (\$1)
-		POST (fun n' => \[n' = Wrap_up n]).
-Proof.
-	xcf. unfold Wrap_up.
-	xpay.
-	xif; intros C; case_if; xval*; xsimpl*.
-Qed.
-
-Hint Extern 1 (RegisterSpec wrap_up) => Provide wrap_up_spec.
-
-Lemma wrap_down_spec : forall (n: int),
-	SPEC (wrap_down n)
-		PRE (\$1)
-		POST (fun n' => \[n' = Wrap_down n]).
-Proof.
-	xcf. unfold Wrap_down.
-	xpay.
-	xif; intros C; case_if; xval*; xsimpl*.
-Qed.
-
-Hint Extern 1 (RegisterSpec wrap_down) => Provide wrap_down_spec.
-
-Tactic Notation "unwrap_up" :=
-	unfold Wrap_up; repeat case_if*.
-Tactic Notation "unwrap_up" "in" hyp(H) :=
-	unfold Wrap_up in H; repeat case_if* in H.
-
-Tactic Notation "unwrap_down" :=
-	unfold Wrap_down; repeat case_if*.
-Tactic Notation "unwrap_down" "in" hyp(H) :=
-	unfold Wrap_down in H; repeat case_if* in H.
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (a: A),
   SPEC (echunk_create a)

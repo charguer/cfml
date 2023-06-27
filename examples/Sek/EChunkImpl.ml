@@ -1,3 +1,5 @@
+open Capacity
+
 (**
   Type pour des buffers circulaires de capacité fixe K
 *)
@@ -7,7 +9,6 @@ type 'a echunk = {
   mutable size : int;
   default : 'a
 }
-let capacity = 32
 
 let echunk_default c = c.default
 
@@ -30,9 +31,6 @@ let echunk_is_empty c =
 let echunk_is_full c =
   c.size = capacity
 
-let wrap_up n =
-  if n >= capacity then n - capacity else n
-
 let echunk_peek_back c =
   let back = wrap_up (c.front + c.size - 1) in
   c.data.(back)
@@ -50,9 +48,6 @@ let echunk_push_back c x =
   c.size <- old_size + 1;
   let i = wrap_up (c.front + old_size) in
   c.data.(i) <- x
-
-let wrap_down n =
-  if n < 0 then n + capacity else n
 
 let echunk_peek_front c =
   c.data.(c.front)
