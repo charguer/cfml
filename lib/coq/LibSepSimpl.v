@@ -480,7 +480,7 @@ Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$$n.
 
 Ltac xsimpl_beautify_credits_is_const_Z n :=
-  (* note: we purposely don't recurse over binary operators such as Z.add *)
+  (* note: we don't recurse over binary operators such as Z.m *)
   match n with
   | Z0 => constr:(true)
   | Zneg _ => constr:(true)
@@ -490,7 +490,7 @@ Ltac xsimpl_beautify_credits_is_const_Z n :=
   end.
 
 Ltac xsimpl_beautify_credits_is_const_Q n :=
-  (* TODO: this implementation is somewhat approximative *)
+  (* note: here again, we don't recurse in operators such as mul/div, but we could *)
   match n with
   | Z_to_Q ?m => xsimpl_beautify_credits_is_const_Z m
   | LibQ.make ?a ?b =>
@@ -904,40 +904,55 @@ Abort.
 
 Delimit Scope comp_scope with C.
 
+Lemma xsimpl_hcredits_ZZ : forall (n m:Z),
+  (n >= m)%C ->
+  (Z_to_Q n >= Z_to_Q m)%C.
+Proof using. intros. applys* ge_Q_of_ge_int. Qed.
+
 Lemma xsimpl_hcredits_Z : forall (n:Z),
   (n >= 0%Z)%C ->
   (Z_to_Q n >= 0)%Q.
-Proof using. intros. applys* ge_Q_of_ge_int. Qed.
+Proof using. intros. applys* xsimpl_hcredits_ZZ. Qed.
 
-Axiom xsimpl_hcredits_Z0 : forall (n:Z),
+Lemma xsimpl_hcredits_Z0 : forall (n:Z),
   (n >= 0%Z)%C ->
   (Z_to_Q n >= Z_to_Q 0%Z)%C.
+Proof using. intros. applys* xsimpl_hcredits_Z. Qed.
 
-Axiom xsimpl_hcredits_ZZ : forall (n m:Z),
-  (n >= m)%C ->
-  (Z_to_Q n >= Z_to_Q m)%C.
-
-Axiom Z_to_Q_eq_zero : forall (n:Z),
+Lemma Z_to_Q_eq_zero : forall (n:Z),
   n = 0%Z ->
   Z_to_Q n = 0%Q.
+Proof using. intros. applys* eq_Q_of_eq_Z. Qed.
 
-Axiom zero_eq_Z_to_Q : forall (n:Z),
+Lemma zero_eq_Z_to_Q : forall (n:Z),
   n = 0%Z ->
   0%Q = Z_to_Q n.
+Proof using. intros. symmetry. applys* Z_to_Q_eq_zero. Qed.
 
 
-Axiom Z_to_Q_add' : forall (n1 n2:Z),
-  Z_to_Q n1 + Z_to_Q n2 = Z_to_Q (n1 + n2)%Z.
-Axiom Z_to_Q_sub' : forall (n1 n2:Z),
+Lemma Z_to_Q_add' : forall (n1 n2:Z),
+  Z_to_Q n1 + Z_to_Q n2 = Z_to_Q (n1 +
+ n2)%Z.
+Proof using. intros. rew_Q*. Qed.
+
+Lemma Z_to_Q_sub' : forall (n1 n2:Z),
   Z_to_Q n1 - Z_to_Q n2 = Z_to_Q (n1 - n2)%Z.
-Axiom Z_to_Q_opp' : forall (n1:Z),
+Proof using. intros. rew_Q*. Qed.
+
+Lemma Z_to_Q_opp' : forall (n1:Z),
   - Z_to_Q n1 = Z_to_Q (- n1)%Z.
-Axiom Z_to_Q_zero' :
+Proof using. intros. rew_Q*. Qed.
+
+Lemma Z_to_Q_zero' :
   0%Q = Z_to_Q 0%Z.
-Axiom Z_to_Q_zero :
+Proof using. auto. Qed.
+
+Lemma Z_to_Q_zero :
   Z_to_Q 0%Z = 0%Q.
+Proof using. auto. Qed.
 
 Hint Rewrite Z_to_Q_add' Z_to_Q_sub' Z_to_Q_opp' Z_to_Q_zero' Z_to_Q_zero' : Z_to_Q_gather.
+
 
 Ltac Z_to_Q_gather tt :=
   autorewrite with Z_to_Q_gather.
@@ -947,14 +962,17 @@ Ltac Z_to_Q_restore_zero tt :=
 
 Hint Rewrite Z_to_Q_zero : Z_to_Q_restore_zero.
 
+#[global] Instance int_le_total_order : Le_total_order (A:=Q).
+Admitted.
 
 Lemma xsimpl_hcredits_zero :
-  (0 >= 0)%Q.
-Proof using.  Admitted. (* TODO *)
+  (0%cr >= 0%cr).
+Proof using. intros. eapply ge_refl. Qed.
 
 Lemma xsimpl_hcredits_nonneg_inst_evar : forall n,
-  n - n >= 0.
-Proof using.  Admitted. (* TODO *)
+  n - n >= 0%cr.
+Proof using. intros. rew_Q. applys xsimpl_hcredits_zero. Qed.
+
 
 Ltac xsimpl_hcredits_nonneg_custom := fail.
 
@@ -985,29 +1003,6 @@ Ltac xsimpl_beautify_nonneg_and_eqzero_goal_core tt :=
             | beautify n  ]
   | |- (?n = _ :> Q) => beautify n 
   end.
-
-
-(*DEPRECATED
-
-(* LATER: tag the goals of the form [n>=0] produced by [xsimpl], so that only those
-   are simplified by the tactic. *)
-  match goal with
-  (* particular cases *)
-  | |- (0 >= 0)%Q => apply xsimpl_hcredits_zero
-  | |- (?n1 - ?n2 >= 0)%Q => apply xsimpl_hcredits_nonneg_inst_evar (* fallthrough otherwise *)
-  (* goal is: [?n >= 0%Q] *)
-  | |-
-     QArith_base.Qle (Qcanon.this (Q2Qc {| QArith_base.Qnum := 0; QArith_base.Qden := 1 |})) (Qcanon.this ?n) =>
-        try beautify n
-  | |- QArith_base.Qle (Qcanon.this (Z_to_Q 0%Z)) (Qcanon.this ?n) =>
-        try beautify n
-  | |- (fun _ _ : credits => QArith_base.Qle _ _) (?n) _ =>
-        try beautify n
-  (* goal is  [?n = 0%Q] *)
-  | |- ?n = 0%cr => try beautify n
-  | |- ?n = (Z_to_Q 0%Z) => try beautify n
-  end.
-*)
 
 Ltac xsimpl_beautify_nonneg_and_eqzero_goal tt :=
   Z_to_Q_gather tt;
@@ -1763,7 +1758,7 @@ Qed.
 
 Lemma xsimpl_lr_hwand_hfalse : forall Hla H1 Nc,
   Xsimpl (Nc, Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
-Proof using. (* TODO: could be generalized in LHS *)
+Proof using. (* could be generalized in LHS *)
   intros. generalize True. xsimpl_lr_start M. rewrite hwand_equiv.
   applys himpl_hstar_hpure_l. auto_false.
 Qed.
@@ -1809,7 +1804,7 @@ Lemma xsimpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
 Proof using. intros. unfolds Xsimpl. hstars_simpl. rewrite~ qwand_equiv. Qed.
 
 (* Note that top makes no sense in a world with credits *)
-Lemma xsimpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
+Lemma xsimpl_lr_htop : forall Hla Hrg Nc, (* should keep only top *)
   Xsimpl (0%cr, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
@@ -1825,7 +1820,7 @@ Proof using. apply haffine_hempty. Qed.
 *)
 
 Lemma xsimpl_lr_hgc : forall (Nc:credits) Hla Hrg,
-  Nc >= 0 -> (* TODO: use [use_credits] as tactics to avoid generating this *)
+  Nc >= 0 -> (*  use [use_credits] as tactics to avoid generating this *)
   haffine Hla ->
   Xsimpl (0%cr, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
@@ -2248,7 +2243,7 @@ Ltac xsimpl_step_r tt :=
   | ?p ~> _ => xsimpl_pick_repr H; apply xsimpl_lr_cancel_eq_repr;
                [ xsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
   | ?x ~> Id ?X => has_no_evar x; apply xsimpl_r_id
-  (* --TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
+  (* --DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
                   let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
                   apply xsimpl_r_id; [ try reflexivity |  ] *)
   | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar;
@@ -2257,8 +2252,9 @@ Ltac xsimpl_step_r tt :=
   end end.
 
 (* [xsimpl_use_credits tt] should return [true] or [false]. *)
-(* TODO: probably in fact we don't need this at all.
-   if we see a credit, we can assume [xsimpl_use_credits] is true. *)
+(* It seems that we probably don't need xsimpl_use_credits: if we see a credit,
+   we can assume [xsimpl_use_credits] is true. We nevertheless keep this tactic
+   in case other tactics need to use it. *)
 
 Ltac xsimpl_use_credits tt :=
   constr:(false).
@@ -2285,7 +2281,7 @@ Ltac xsimpl_step_lr tt :=
              | _ => apply xsimpl_lr_qwand; intro
              end
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
-                        (* --TODO: optimize for iterated \forall bindings *)
+                        (* --LATER: optimize for iterated \forall bindings *)
          end
        | \[] =>
           first [ apply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
@@ -2311,7 +2307,7 @@ Ltac xsimpl_step_lr tt :=
                      | apply xsimpl_lr_exit ]
   end end.
 
-  (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
+  (* --LATER: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
 
 Ltac xsimpl_step tt :=
   first [ xsimpl_step_l tt
@@ -2656,7 +2652,7 @@ Proof using.
   { intros. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. demo. }
   { intros. xsimpl. demo. }
-Abort. (* --TODO: coq bug, abort should be required, not qed allowed *)
+Abort.
 
 Lemma xsimpl_demo_keep_order : forall H1 H2 H3 H4 H5 H6 H7,
   H1 \* H2 \* H3 \* H4 ==> H5 \* H3 \* H6 \* H7.
@@ -2800,7 +2796,11 @@ Abort.
 Lemma xsimpl_demo_repr_2 : forall p (R R':int->int->hprop),
   R = R' ->
   p ~> R' 3 ==> \exists n, p ~> R n.
-Proof using. introv E. subst R'. xsimpl. (* TODO: check: introv E subst R'. xsimpl. *) Abort.
+Proof using.
+  dup 2.
+  { introv E. subst. xsimpl. }
+  { introv E. xsimpl. subst. eauto. }
+Abort.
 
 Lemma xsimpl_demo_repr_3 : forall p (R:int->int->hprop),
   let R' := R in
@@ -2877,8 +2877,7 @@ Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_hcredits_hwand_eq_Z : forall (n:Z) H,
   ((\$n) \-* H) = (H \* (\$(- n)%Z)).
-Proof using. intros. xsimpl. (* TODO: autorewrite to cleanup 0+ and 0- in Q *)
-Abort.
+Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_hcredits_hwand_eq : forall n H,
   ((\$$n) \-* H) = (H \* (\$$(- n)%Q)).
@@ -2905,7 +2904,7 @@ Lemma xsimpl_hcredits_ring3 : forall (a b : Z),
 Proof using. intros. xsimpl. ring. Abort.
 
 
-(* TODO: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
+(* LATER: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
    do [dup 2].
    in the first branch, call [xsimpl_beautify_hcredits_everywhere tt]
    then [xchanges M].
@@ -2987,7 +2986,7 @@ Definition use_credits : bool :=
 
 Notation "'credits'" := LibQ.Q.
 Local Open Scope Q_scope.
-Delimit Scope Q with cr.
+Delimit Scope Q_scope with cr.
 
 Definition hcredits (n:credits) : hprop :=
   \[].

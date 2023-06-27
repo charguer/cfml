@@ -726,6 +726,11 @@ Qed.
 End InternalLe.
 
 
+#[global] Instance int_le_total_order : Le_total_order (A:=Q).
+Admitted.
+
+
+
 (* ---------------------------------------------------------------------- *)
 (** ** Inequalities *)
 
