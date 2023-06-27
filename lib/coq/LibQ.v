@@ -461,8 +461,9 @@ Proof using. q_ops_prove. Qed.
 
 #[global] Hint Rewrite add_zero_r add_zero_l assoc_add : rew_Q.
 
+
 (* ---------------------------------------------------------------------- *)
-(** ** [sub] *)
+(** ** [opp] and [sub] *)
 
 Lemma sub_zero_r : forall q,
   q - 0 = q.
@@ -476,7 +477,11 @@ Lemma sub_self : forall q,
   q - q = 0.
 Proof using. q_ops_prove. Qed.
 
-#[global] Hint Rewrite sub_zero_r sub_zero_l sub_self : rew_Q.
+Lemma opp_self : forall q,
+  - (- q) = q.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite sub_zero_r sub_zero_l sub_self opp_self : rew_Q.
 
 (* ---------------------------------------------------------------------- *)
 (** ** [add] and [sub] *)
@@ -489,7 +494,15 @@ Lemma sub_add_r : forall q1 q2 q3,
   q1 - (q2 + q3) = q1 - q2 - q3.
 Proof using. q_ops_prove. Qed.
 
-#[global] Hint Rewrite sub_add_l sub_add_r : rew_Q.
+Lemma add_opp_r : forall q1 q2,
+  q1 + (- q2) = q1 - q2.
+Proof using. q_ops_prove. Qed.
+
+Lemma add_opp_self_r : forall q,
+  q + (- q) = 0.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite sub_add_l sub_add_r add_opp_r add_opp_self_r : rew_Q.
 
 (* too specific? *)
 
@@ -535,6 +548,34 @@ Lemma assoc_mul : forall q1 q2 q3,
 Proof using. q_ops_prove. Qed.
 
 #[global] Hint Rewrite mul_zero_l mul_zero_r mul_one_l mul_one_r assoc_mul : rew_Q.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [mul] and [add] or [sub] or [opp] *)
+
+Lemma mul_add_r : forall q1 q2 q3,
+  (q1 + q2) * q3 = (q1 * q3) + (q2 * q3).
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_add_l : forall q1 q2 q3,
+  q1 * (q2 + q3) = (q1 * q2) + (q1 * q3).
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_sub_r : forall q1 q2 q3,
+  (q1 - q2) * q3 = (q1 * q3) - (q2 * q3).
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_sub_l : forall q1 q2 q3,
+  q1 * (q2 - q3) = (q1 * q2) - (q1 * q3).
+Proof using. q_ops_prove. Qed.
+
+Lemma opp_mul_l : forall q1 q2,
+  - (q1 * q2) = (-q1) * q2.
+Proof using. q_ops_prove. Qed.
+
+Lemma opp_mul_r : forall q1 q2,
+  - (q1 * q2) = q1 * (-q2).
+Proof using. q_ops_prove. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -837,15 +878,15 @@ Definition ring_theory_Q : ring_theory (Z_to_Q 0) (Z_to_Q 1) add mul sub opp (eq
 Proof.
   constructor.
   { exact add_zero_l. }
-  { skip. (* add_comm. *) }
-  { skip. (* add assoc *) }
+  { applys comm_add. }
+  { applys assoc_add. }
   { exact mul_one_l. }
-  { skip. (* mul_comm. *) }
-  { skip. (* mul_assoc. *) }
-  { skip. (* mul_distrib *) }
+  { applys comm_mul. }
+  { applys assoc_mul. }
+  { applys mul_add_r. }
   { reflexivity. }
-  { skip. (* add_opp_same *) } 
-Qed. (* TODO *)
+  { applys add_opp_self_r. }
+Qed.
 
 Add Ring ring_Q : ring_theory_Q.
 
@@ -856,7 +897,7 @@ Proof.
   { exact ring_theory_Q. }
   { applys neq_Q_of_neq_Z. math. } 
   { reflexivity. }
-  { skip. } (* TODO *)
+  { q_ops_prove. }
 Qed.
 
 Add Field field_Q : field_theory_Q.
