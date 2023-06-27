@@ -962,9 +962,6 @@ Ltac Z_to_Q_restore_zero tt :=
 
 Hint Rewrite Z_to_Q_zero : Z_to_Q_restore_zero.
 
-#[global] Instance int_le_total_order : Le_total_order (A:=Q).
-Admitted.
-
 Lemma xsimpl_hcredits_zero :
   (0%cr >= 0%cr).
 Proof using. intros. eapply ge_refl. Qed.
