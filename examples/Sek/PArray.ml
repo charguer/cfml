@@ -1,13 +1,12 @@
-(**
-  Type pour un tableau persistant
-*)
+(** Type pour un tableau persistant *)
+
 type 'a parray = {
   mutable data : 'a parray_desc;
-  mutable maxdist : int
-  }
- and 'a parray_desc =
-| PArray_Base of 'a array
-| PArray_Diff of 'a parray * int * 'a
+  mutable maxdist : int }
+
+and 'a parray_desc =
+  | PArray_Base of 'a array
+  | PArray_Diff of 'a parray * int * 'a
 
 let dist_bound a =
   Array.length a
@@ -15,11 +14,6 @@ let dist_bound a =
 let parray_create size d =
   let a = Array.make size d in
   { data = PArray_Base a; maxdist = 0 }
-
-(* let rec parray_length pa =
-  match pa.data with
-  | PArray_Base a -> Array.length a
-  | PArray_Diff (origin, _, _) -> parray_length origin *)
 
 (* On coupe la chaîne avec un nouveau tableau contenant toutes les modifications de la version. *)
 let rec parray_base_copy pa =
@@ -56,8 +50,9 @@ let parray_set pa i x =
     pa.data <- PArray_Diff (pb, i, v);
     pb
   end
-  
 
 let parray_copy pa =
   let a = parray_base_copy pa in
   { data = PArray_Base a; maxdist = 0 }
+
+(* TODO: parray_of_array *)

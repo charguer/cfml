@@ -4,7 +4,6 @@ open View
 let echunk_default = echunk_default
 let echunk_dummy = echunk_dummy
 let echunk_create = echunk_create
-
 let echunk_is_empty = echunk_is_empty
 let echunk_is_full = echunk_is_full
 

@@ -1,16 +1,15 @@
 open Capacity
 
-(**
-  Type pour des buffers circulaires de capacité fixe K
-*)
+(** Type pour des buffers circulaires de capacité fixe K *)
+
 type 'a echunk = {
   data : 'a array;
   mutable front : int;
   mutable size : int;
-  default : 'a
-}
+  default : 'a }
 
-let echunk_default c = c.default
+let echunk_default c =
+  c.default
 
 let echunk_dummy d = {
   data = [||];
@@ -28,6 +27,7 @@ let echunk_create d = {
 
 let echunk_is_empty c =
   c.size = 0
+
 let echunk_is_full c =
   c.size = capacity
 
@@ -79,7 +79,6 @@ let echunk_set c i x =
     default = c.default }
 
 let echunk_sub c size =
-  (* assert (size <= 0 && size <= c.top); *)
   let d = c.default in
   let t = c.data in
   let item i =
@@ -87,4 +86,5 @@ let echunk_sub c size =
   let tsub = Array.init capacity item in
   { data = tsub;
     top = size;
-    default = d; } *)
+    default = d; }
+*)
