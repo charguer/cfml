@@ -1,8 +1,29 @@
 Set Implicit Arguments.
 From TLC Require Import LibTactics LibRelation LibEpsilon LibLogic LibInt.
 From Coq Require Import Field.
+From AAC_tactics Require Import AAC.
+From AAC_tactics Require Instances.
+Import Instances.Z.
 Open Scope Z_scope.
 Open Scope Int_scope.
+
+
+Ltac iff_core H1 H2 :=
+  repeat intro;
+  try match goal with |- _ = _ :> _ => apply prop_ext end;
+  split; [ intros H1 | intros H2 ].
+
+Tactic Notation "iff" simple_intropattern(H1) simple_intropattern(H2) :=
+  iff_core H1 H2.
+Tactic Notation "iff" simple_intropattern(H) :=
+  iff H H.
+Tactic Notation "iff" :=
+  let H := fresh "H" in iff H.
+
+
+Lemma exist_eq_exist_eq : forall A (P:A->Prop) (x y:A) (p:P x) (q:P y), 
+  (exist P x p = exist P y q) = (x = y).
+Proof using. iff M. { inverts* M. } { applys* exist_eq_exist. } Qed.
 
 
 (* ********************************************************************** *)
@@ -51,7 +72,6 @@ Qed.
 
 Declare Scope Q_scope.
 Delimit Scope Q_scope with Q.
-
 Local Open Scope Q_scope.
 
 
@@ -103,28 +123,24 @@ Implicit Types q : Q.
 Instance Inhab_Q : Inhab Q.
 Proof using. intros. applys Inhab_quotient equiv_rel. Qed.
 
-
-(** Constructor from numerator/denominator *)
+(** Constructor from numerator/denominator -- for internal use only *)
 
 Program Definition make (n m : Z) : Q :=
   If m = 0 then arbitrary else inject equiv_rel (n,m).
 
+Local Notation "x '//' y" := (make x y) (at level 39) : Q_scope.
 
-(** Conversion from Z, registered as coercion *)
+(** Deconstructor for numerator/denominator -- for internal use only *)
 
-Coercion Z_to_Q (n:Z) : Q :=
-  make n 1.
+Definition Q_to_ZZ (q:Q) : Z*Z :=
+  sig_val (sig_val q).
 
 
 (* ---------------------------------------------------------------------- *)
 (** ** Internal operations -- don't use outside this module *)
 
-(** Query of a numerator/denominator representation *)
 
-Definition Q_to_ZZ (q:Q) : Z*Z :=
-  sig_val (sig_val q).
-
-(** Proving equalities -- for internal use only *)
+(** DEPRECATED Proving equalities -- for internal use only 
 
 Lemma Q_eq' : forall q1 q2,
   let '(n1,m1) := Q_to_ZZ q1 in
@@ -136,108 +152,176 @@ Proof using.
   applys exist_eq_exist. applys exist_eq_exist. autos*.
 Qed.
 
-From Coq Require Import Field.
+*)
+
+Section Internal.
+
+Hint Resolve equiv_rel.
+Hint Extern 1 (exists _, rel _ _) => eexists; eapply equiv_refl.
+
+Lemma make_eq_make_eq : forall n1 m1 n2 m2,
+  m1 <> 0 ->
+  m2 <> 0 ->
+  (make n1 m1 = make n2 m2) = (n1 * m2 = n2 * m1)%Z.
+Proof using.
+  introv N1 N2. unfold make.
+  destruct (classicT (m1 = 0)); try math.
+  destruct (classicT (m2 = 0)); try math.
+  unfold Q. rewrite inject_eq_eq_rel. unfold rel; simple*.
+Qed.
+
+End Internal.
+
+Ltac make_eq_elim_core tt :=
+  match goal with 
+  | H: context [ make _ _ = make _ _ ] |- _ => rewrite make_eq_make_eq in H; [ try make_eq_elim_core tt | | ]
+  | |- context [ make _ _ = make _ _ ] => rewrite make_eq_make_eq; [ try make_eq_elim_core tt | | ]
+  end.
+
+Tactic Notation "make_eq_elim" := 
+  make_eq_elim_core tt.
+
+Tactic Notation "make_eq_elim" "*" := 
+  make_eq_elim; first [ math | auto_star ].
+
+
+
+(* DEPRECATED
 
 Lemma make_eq : forall n1 m1 n2 m2,
   (n1 * m2 = m1 * n2)%Z ->
   m1 <> 0 ->
   m2 <> 0 ->
   make n1 m1 = make n2 m2.
-Proof using.
-  introv E N1 N2. unfold make.
-  destruct (classicT (m1 = 0)); try math.
-  destruct (classicT (m2 = 0)); try math.
-  applys exist_eq_exist. applys epsilon_eq. intros ((n3&m3)&N3). simpls.
-  unfold rel. simpl. iff M.
-  { applys* Z.mul_reg_l m1. rewrite Z.mul_assoc. rewrite <- E.
-    rewrite <- Z.mul_assoc. rewrite Z.mul_shuffle3. rewrite M.
-    rewrite <- (Z.mul_comm m1). rewrite Z.mul_shuffle3.
-    rewrite <- (Z.mul_comm n3). auto. }
-  { applys* Z.mul_reg_l m2. rewrite Z.mul_assoc. rewrite <- (Z.mul_comm n1).
-    rewrite E. rewrite <- Z.mul_assoc. rewrite M. rewrite <- (Z.mul_comm m2).
-    rewrite Z.mul_shuffle3. rewrite <- (Z.mul_comm m1). auto. }
-Qed.
 
-Hint Resolve equiv_rel.
-
-Lemma make_eq_make_inv : forall n1 m1 n2 m2,
+Lema make_eq_make_inv : forall n1 m1 n2 m2,
   make n1 m1 = make n2 m2 ->
   m1 <> 0 ->
   m2 <> 0 ->
   (n1 * m2 = m1 * n2)%Z.
-Proof using.
-  introv E N1 N2. unfolds make.
-  destruct (classicT (m1 = 0)); try math.
-  destruct (classicT (m2 = 0)); try math.
-  inverts E as E'.
-  epsilon* s1. { esplit. applys* equiv_refl. }
-  epsilon* s2. { esplit. applys* equiv_refl. }
-  destruct s1 as ((a1&b1)&Nb1).
-  destruct s2 as ((a2&b2)&Nb2).
-  unfold rel. simpl.
-  introv E1 E2. inverts E'.
-  applys* Z.mul_reg_l b2. rewrite Z.mul_assoc. rewrite <- (Z.mul_comm n1). rewrite E2.
-  rewrite <- Z.mul_assoc. rewrite <- (Z.mul_comm m2). rewrite Z.mul_assoc.
-  rewrite <- E1. rewrite <- (Z.mul_comm b2). rewrite  (Z.mul_comm m1).
-  rewrite Z.mul_assoc. auto.
-Qed.
 
-(*
-Lemma make_eq : forall n m (Hm:m <> 0),
-  exists H Hm, make n m = inject equiv_rel (exist _ (n,m) Hm) H.
 *)
 
-Lemma Q_inv : forall q,
-  exists n m, m <> 0 /\ Q_to_ZZ q = (n,m) /\ q = make n m.
+(** Decomposition of a rational [q] into the form [n // m]. *)
+
+Lemma Q_inv_ZZ : forall q,
+  exists n m, m <> 0 /\ q = n // m /\ Q_to_ZZ q = (n,m) .
 Proof using.
   intros (((n1,m1)&Hm1)&E1). exists n1 m1. splits.
   { auto. }
-  { unfold Q_to_ZZ. simple*. }
   { unfold make. destruct (classicT (m1 = 0)). { false. }
     applys exist_eq_exist. auto. }
+  { unfold Q_to_ZZ. simple*. }
 Qed.
 
-Lemma Q_inv_Z : forall (a:Z),
+Lemma Q_inv : forall q,
+  exists n m, m <> 0 /\ q = n // m.
+Proof using. intros. forwards* (n&m&?&?&_): Q_inv_ZZ q. Qed.
+
+Ltac Q_inv :=
+  match goal with q: Q |- _ => 
+    let n' := fresh "n" q in
+    let m' := fresh "m" q in
+    let Hm' := fresh "Hm" q in
+    lets (n'&m'&Hm'&->): Q_inv q
+  end.
+
+Ltac Q_invs :=
+  repeat Q_inv.
+
+Lemma Q_to_ZZ_make : forall n m,
+  m <> 0 ->
+  exists n' m', m' <> 0 
+             /\ Q_to_ZZ (n // m) = (n',m')
+             /\ (n // m) = (n' // m').
+Proof using. introv Hm. lets (n'&m'&Hm'&->&F): Q_inv_ZZ (n // m). exists* n' m'. Qed.
+
+Ltac Q_to_ZZ_make :=
+  match goal with |- context [Q_to_ZZ (?n // ?m)] =>
+    let n' := fresh n "'" in
+    let m' := fresh m "'" in
+    let E := fresh "E" n' in
+    let Hm' := fresh "H" m' in
+    forwards (n'&m'&Hm'&->&E): Q_to_ZZ_make n m end; [ try assumption | ].
+
+Ltac Q_to_ZZ_makes :=
+  repeat Q_to_ZZ_make.
+
+(* DEPRECATED
+
+Lemma Q_inv_ZZ_Z : forall (a:Z),
   exists n m, m <> 0 /\ (Q_to_ZZ (Z_to_Q a)) = (n,m) /\ (a * m = n)%Z.
 Proof using.
-  intros. lets (n&m&Nm&Em&Fm): Q_inv (Z_to_Q a).
+  intros. lets (n&m&Nm&Em&Fm): Q_inv_ZZ (Z_to_Q a).
   exists n m. splits*. unfolds Z_to_Q.
   forwards E: make_eq_make_inv Fm; try math; auto.
 Qed.
 
-Lemma Q_inv_make : forall a b,
+Lemma Q_inv_ZZ_make : forall a b,
   b <> 0 ->
   exists n m, m <> 0 /\ Q_to_ZZ (make a b) = (n,m) /\ a * m = b * n.
 Proof using.
-  introv Hb. lets (n&m&Nm&Em&Fm): Q_inv (make a b).
+  introv Hb. lets (n&m&Nm&Em&Fm): Q_inv_ZZ (make a b).
   forwards*: make_eq_make_inv Fm.
 Qed.
+*)
 
 
+(* ---------------------------------------------------------------------- *)
+(** ** Relationship to Z *)
+
+(** Conversion from Z, registered as coercion *)
+
+Coercion Z_to_Q (n:Z) : Q :=
+  n // 1.
+
+Lemma Q_inv_Z : forall (a:Z), (* not used *)
+  Z_to_Q a = a // 1.
+Proof using. auto. Qed.
+
+(** Zero equality *)
+
+Lemma make_zero_eq : forall n m,
+  m <> 0 ->
+  ((n // m) = 0) = (n = 0).
+Proof. introv Hm. unfold Z_to_Q. rewrite make_eq_make_eq; try math. Qed.
+
+Lemma make_nonzero_eq : forall n m,
+  m <> 0 ->
+  ((n // m) <> 0) = (n <> 0).
+Proof.
+  introv Hm. lets R: make_zero_eq n Hm. apply injective_not. rew_logic. rewrite* R.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (** ** Operations *)
+
+(** Binary and unary operations *)
 
 Definition add (q1 q2 : Q) : Q :=
   let '(n1,m1) := Q_to_ZZ q1 in
   let '(n2,m2) := Q_to_ZZ q2 in
   make (n1*m2 + n2*m1) (m1*m2).
 
+Infix "+" := add : Q_scope.
+
 Definition mul (q1 q2 : Q) : Q :=
   let '(n1,m1) := Q_to_ZZ q1 in
   let '(n2,m2) := Q_to_ZZ q2 in
   make (n1*n2) (m1*m2).
 
+Infix "*" := mul : Q_scope.
+
 Definition opp (q1 : Q) : Q :=
   mul (-1) q1.
-  (* alternative:
-  let '(n1,m1) := Q_to_ZZ q1 in
-  make (-n1) m1.
-  *)
+
+Notation "- x" := (opp x) : Q_scope.
 
 Definition sub (q1 q2 : Q) : Q :=
   add q1 (opp q2).
+
+Infix "-" := sub : Q_scope.
 
 (* only for internal use *)
 Definition inv (q1 : Q) : Q :=
@@ -247,225 +331,298 @@ Definition inv (q1 : Q) : Q :=
 Definition div (q1 q2 : Q) : Q :=
   mul q1 (inv q2).
 
-
-(** Notations *)
-
-Infix "+" := add : Q_scope.
-
-Infix "*" := mul : Q_scope.
-
-Notation "- x" := (opp x) : Q_scope.
-
-Infix "-" := sub : Q_scope.
-
 Infix "/" := div : Q_scope.
 
-
 (* ---------------------------------------------------------------------- *)
-(** ** Comparison *)
+(** ** Charcterization of operations *)
 
-Definition Q_le (q1 q2 : Q) : Prop :=
-  let '(n1,m1) := Q_to_ZZ q1 in
-  let '(n2,m2) := Q_to_ZZ q2 in
-  n1 * m2 <= n2 * m1.
+Ltac ring_hyps :=
+  try ring_simplify;
+  repeat (
+    match goal with H: _ = _ :> Z |- _ => 
+      first [ aac_rewrite H; clear H
+            | aac_rewrite <- H; clear H
+            | clear H ]
+    end);
+  try ring.
 
-Open Scope comp_scope.
 
-#[global]
-Instance le_Q_inst : Le Q := Build_Le Q_le.
-
-Lemma le_reveal : forall A `{Le A} (R:binary A) x y,
-  @le A {| le := R |} x y = R x y.
-Proof using. auto. Qed.
-
-Lemma make_le_make_inv : forall n1 m1 n2 m2,
-  make n1 m1 <= make n2 m2 ->
-  m1 <> 0 ->
+Lemma add_make : forall n1 m1 n2 m2,
+  m1 <> 0 -> 
   m2 <> 0 ->
-  (n1 * m2 <= m1 * n2)%Z.
+  add (n1 // m1) (n2 // m2) = (n1*m2 + n2*m1) // (m1*m2).
 Proof using.
-  introv E N1 N2. unfolds make.
-  destruct (classicT (m1 = 0)); try math.
-  destruct (classicT (m2 = 0)); try math.
-  unfolds le_Q_inst. rewrite le_reveal in E; try typeclass.
-  unfolds Q_le. unfolds inject, Q_to_ZZ. simpls.
-  epsilon* s1. { esplit. applys* equiv_refl. }
-  epsilon* s2. { esplit. applys* equiv_refl. }
-  destruct s1 as ((a1&b1)&Nb1).
-  destruct s2 as ((a2&b2)&Nb2).
-  unfold rel. simpl.
-  introv E1 E2. simpls. skip. (* TODO *)
+  introv N1 N2. unfold add. Q_to_ZZ_makes. make_eq_elim*. ring_hyps.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** ** Addition and substraction *)
-
-Open Scope Q_scope.
-
-Lemma plus_zero_r : forall q,
-  q + 0 = q.
+Lemma mul_make : forall n1 m1 n2 m2,
+  m1 <> 0 -> 
+  m2 <> 0 ->
+  mul (n1 // m1) (n2 // m2) = (n1*n2) // (m1*m2).
 Proof using.
-  intros. lets (n1&m1&N1&E1&F1): Q_inv q.
-  intros. lets (n2&m2&N2&E2&F2): Q_inv_Z 0.
-  unfold add. rewrite E1, E2, F1.
-  rewrite Z.mul_0_l in F2. subst. rewrite Z.mul_0_l. rew_int.
-  applys* make_eq. ring. math.
+  introv N1 N2. unfold mul. Q_to_ZZ_makes. make_eq_elim*. ring_hyps.
+  (* details: ring_simplify. aac_rewrite <- En1'. aac_rewrite <- En2'. ring. *)
 Qed.
 
-Lemma plus_zero_l : forall q,
-  0 + q = q.
-Proof using. skip. Qed.
+Lemma opp_make : forall n1 m1,
+  m1 <> 0 -> 
+  opp (n1 // m1) = (-n1) // m1.
+Proof using. introv N1. unfold opp, Z_to_Q. rewrite mul_make; try math. make_eq_elim*. Qed.
 
-Lemma minus_zero_r : forall q,
-  q - 0 = q.
-Proof using. skip. Qed.
+Lemma sub_make : forall n1 m1 n2 m2,
+  m1 <> 0 -> 
+  m2 <> 0 ->
+  sub (n1 // m1) (n2 // m2) = (n1*m2 - n2*m1) // (m1*m2).
+Proof using. introv N1 N2. unfold sub. rewrite opp_make, add_make; try math. make_eq_elim*. Qed.
 
-Lemma minus_zero_l : forall q,
-  0 - q = (- q).
-Proof using. skip. Qed.
+Lemma inv_make : forall n1 m1,
+  n1 <> 0 ->
+  m1 <> 0 -> 
+  inv (n1 // m1) = (m1 // n1).
+Proof using. introv N1 N2. unfold inv. Q_to_ZZ_makes. make_eq_elim*. Qed.
 
-Lemma mul_zero_l : forall q,
-  0 * q = 0.
-Proof using. skip. Qed.
+Lemma div_make : forall n1 m1 n2 m2,
+  m1 <> 0 -> 
+  m2 <> 0 ->
+  n2 <> 0 ->
+  div (n1 // m1) (n2 // m2) = (n1*m2) // (m1*n2).
+Proof using. introv N1 N2 N3. unfold div. rewrite inv_make, mul_make; try math. auto. Qed.
 
-Lemma mul_zero_r : forall q,
-  q * 0 = 0.
-Proof using. skip. Qed.
+(** Tactic [rew_q_op] *)
 
-Lemma mul_one_l : forall q,
-  1 * q = q.
-Proof using. skip. Qed.
+#[global] Hint Rewrite make_zero_eq make_nonzero_eq
+ add_make mul_make opp_make sub_make inv_make div_make : rew_q_op.
 
-Lemma mul_one_r : forall q,
-  q * 1 = q.
-Proof using. skip. Qed.
+Tactic Notation "rew_q_op" :=
+  autorewrite with rew_q_op.
 
-Lemma minus_self : forall q,
-  q - q = 0.
-Proof using. skip. Qed.
+Tactic Notation "rew_q_op" "in" "*" :=
+  autorewrite with rew_q_op in *.
+  (* DOES NOT WORK BECAUSE SIDE CONDITIONS 
+    autorewrite_in_star_patch
+    ltac:(fun tt => autorewrite with rew_q_op). *)
 
-Lemma one_plus_minus_one_r : forall q,
-  1 + (q - 1) = q.
-Proof using. skip. Qed.
+Ltac rew_q_ops_core cont := 
+  unfold Z_to_Q; rew_q_op; try math.
 
-Lemma plus_one_minus_one_l : forall q,
-  (q + 1) - 1 = q.
-Proof using. skip. Qed.
+Ltac rew_q_ops_in_star_core cont := 
+  unfolds Z_to_Q; rew_q_op in *; try math.
 
-Lemma one_plus_minus_one_l : forall q,
-  (1 + q) - 1 = q.
-Proof using. skip. Qed.
+Tactic Notation "rew_q_ops" :=
+  rew_q_ops_core tt.
 
-(* e.g.
-q1 - (q2 + q3)
-*)
+Tactic Notation "rew_q_ops" "in" "*" :=
+  rew_q_ops_in_star_core tt.
+
+
+(* ********************************************************************** *)
+(** * Public properties *)
+
+Ltac q_ops_prove :=
+  intros; Q_invs; rew_q_ops in *; try make_eq_elim; try math.
 
 (* ---------------------------------------------------------------------- *)
-(** ** Multiplication, division and inversions *)
+(** ** Zero inversions *)
 
 Lemma mul_zero_inv : forall q1 q2,
   q1 * q2 = 0 ->
   q1 = 0 \/ q2 = 0.
-Proof using. skip. Qed.
+Proof using.
+  introv R. Q_invs. rew_q_ops in *.
+  ring_simplify in R. lets [|]: Zmult_integral R; subst.
+  { left. ring. } { right. ring. }
+Qed.
 
 Lemma mul_zero_inv_nonzero_l : forall q1 q2,
   q1 * q2 = 0 ->
   q1 <> 0 ->
   q2 = 0.
-Proof using. skip. Qed.
+Proof using. introv E N. lets: mul_zero_inv E. autos*. Qed.
+
+(* ---------------------------------------------------------------------- *)
+(** ** [add] *)
+
+Lemma add_zero_r : forall q,
+  q + 0 = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma add_zero_l : forall q,
+  0 + q = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma comm_add : (* [comm add] *) 
+  forall q1 q2,
+  q1 + q2 = q2 + q1.
+Proof using. q_ops_prove. Qed.
+
+Lemma assoc_add : forall q1 q2 q3,
+  q1 + (q2 + q3) = (q1 + q2) + q3.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite add_zero_r add_zero_l assoc_add : rew_Q.
+
+(* ---------------------------------------------------------------------- *)
+(** ** [sub] *)
+
+Lemma sub_zero_r : forall q,
+  q - 0 = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma sub_zero_l : forall q,
+  0 - q = (- q).
+Proof using. q_ops_prove. Qed.
+
+Lemma sub_self : forall q,
+  q - q = 0.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite sub_zero_r sub_zero_l sub_self : rew_Q.
+
+(* ---------------------------------------------------------------------- *)
+(** ** [add] and [sub] *)
+
+Lemma sub_add_l : forall q1 q2 q3,
+  (q1 + q2) - q3 = q1 + (q2 - q3).
+Proof using. q_ops_prove. Qed.
+
+Lemma sub_add_r : forall q1 q2 q3,
+  q1 - (q2 + q3) = q1 - q2 - q3.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite sub_add_l sub_add_r : rew_Q.
+
+(* too specific? *)
+
+Lemma one_add_sub_one_r : forall q,
+  1 + (q - 1) = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma add_one_sub_one_l : forall q,
+  (q + 1) - 1 = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma one_add_sub_one_l : forall q,
+  (1 + q) - 1 = q.
+Proof using. q_ops_prove. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [mul] *)
+
+Lemma mul_zero_l : forall q,
+  0 * q = 0.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_zero_r : forall q,
+  q * 0 = 0.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_one_l : forall q,
+  1 * q = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_one_r : forall q,
+  q * 1 = q.
+Proof using. q_ops_prove. Qed.
+
+Lemma comm_mul :
+  forall q1 q2,
+  q1 * q2 = q2 * q1.
+Proof using. q_ops_prove. Qed.
+
+Lemma assoc_mul : forall q1 q2 q3,
+  q1 * (q2 * q3) = (q1 * q2) * q3.
+Proof using. q_ops_prove. Qed.
+
+#[global] Hint Rewrite mul_zero_l mul_zero_r mul_one_l mul_one_r assoc_mul : rew_Q.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [div] *)
 
 Lemma div_same : forall q,
+  q <> 0 ->
   q / q = 1.
-Proof using. skip. Qed.
+Proof using. q_ops_prove. Qed.
 
-Lemma mul_assoc : forall q1 q2 q3,
-  q1 * (q2 * q3) = (q1 * q2) * q3.
-Proof using.
-  intros. unfold mul.
-  lets (n1&m1&N1&->&F1): Q_inv q1.
-  lets (n2&m2&N2&->&F2): Q_inv q2.
-  lets (n3&m3&N3&->&F3): Q_inv q3.
-  forwards (n4&m4&N4&->&F4): Q_inv_make (n2 * n3)%Z (m2 * m3)%Z; try math. (* TODO: use match context *)
-  forwards (n5&m5&N5&->&F5): Q_inv_make (n1 * n2)%Z (m1 * m2)%Z; try math.
-  applys make_eq; try math.
-  applys* Z.mul_reg_l m2.
-  asserts_rewrite ((m2 * (n1 * n4 * (m5 * m3))) = (m2 * m3 * n4) * (n1 * m5))%Z; try ring.
-  rewrite <- F4.
-  asserts_rewrite ((n2 * n3 * m4 * (n1 * m5)) = (n1 * n2 * m5) * (n3 * m4))%Z; try ring.
-  rewrite F5.
-  ring.
-Qed.
+#[global] Hint Rewrite div_same : rew_Qx.
 
-Lemma mul_div_r : forall q1 q2 q3,
-  q1 * (q2 / q3) = (q1 * q2) / q3.
-Proof using. skip. Qed.
 
-Lemma mul_inv_r : forall q,
-  q * (1 / q) = 1.
-Proof using. skip. Qed.
-
-Lemma div_div_r : forall q1 q2 q3,
-  q1 / (q2 / q3) = (q1 * q3) / q2.
-Proof using. skip. Qed.
+(* ---------------------------------------------------------------------- *)
+(** ** [div] and [mul] *)
 
 Lemma div_div_l : forall q1 q2 q3,
+  q2 <> 0 ->
+  q3 <> 0 ->
   (q1 / q2) / q3 = q1 / (q2 * q3).
-Proof using. skip. Qed.
+Proof using. q_ops_prove. Qed.
+
+Lemma div_div_r : forall q1 q2 q3,
+  q2 <> 0 ->
+  q3 <> 0 ->
+  q1 / (q2 / q3) = (q1 * q3) / q2.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_div_l : forall q1 q2 q3,
+  q2 <> 0 ->
+  (q1 / q2) * q3 = (q1 * q3) / q2.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_div_r : forall q1 q2 q3,
+  q2 <> 0 ->
+  q3 <> 0 ->
+  q1 * (q2 / q3) = (q1 * q2) / q3.
+Proof using. q_ops_prove. Qed.
+
+Lemma mul_inv_r : forall q,
+  q <> 0 ->
+  q * (1 / q) = 1.
+Proof using. q_ops_prove. Qed.
 
 Lemma div_mul_cancel_l : forall q1 q2,
   q1 <> 0 ->
   (q1 * q2) / q1 = q2.
-Proof using. skip. Qed.
+Proof using. q_ops_prove. Qed.
+
+Lemma div_mul_cancel_r : forall q1 q2,
+  q2 <> 0 ->
+  (q1 * q2) / q2 = q1.
+Proof using. q_ops_prove. Qed.
 
 Lemma mul_div_cancel_l : forall q1 q2,
   q1 <> 0 ->
   q1 * (q2 / q1) = q2.
-Proof using. skip. Qed.
+Proof using. q_ops_prove. Qed.
 
+Lemma mul_div_cancel_r : forall q1 q2,
+  q1 <> 0 ->
+  (q2 / q1) * q1 = q2.
+Proof using. q_ops_prove. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** ** Inequalities *)
-
-Lemma le_mul_mul : forall q1 q2 q3 q4,
-  q1 <= q2 ->
-  q3 <= q4 ->
-  q1 * q3 >= q2 * q4.
-Proof using. skip. Qed.
-
-Lemma le_mul_same_r : forall q1 q2 q3,
-  q1 <= q2 ->
-  q3 >= 0 ->
-  q1 * q3 <= q2 * q3.
-Proof using. skip. Qed.
-
+#[global] Hint Rewrite div_div_l div_div_r mul_div_l mul_div_r mul_inv_r 
+  div_mul_cancel_l div_mul_cancel_r mul_div_cancel_l mul_div_cancel_r : rew_Qx.
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** Rewriting *)
+(** ** Distrib operators over [Z_to_Q] *)
 
 Lemma add_Z_to_Q : forall n m,
   ((Z_to_Q n) + (Z_to_Q m))%Q = (Z_to_Q (n + m)%Z).
-Proof. skip. (* TODO *) Qed.
+Proof. q_ops_prove. Qed.
 
 Lemma sub_Z_to_Q : forall n m,
   ((Z_to_Q n) - (Z_to_Q m))%Q = (Z_to_Q (n - m)%Z).
-Proof. skip. (* TODO *) Qed.
+Proof. q_ops_prove. Qed.
 
-Lemma neg_Z_to_Q : forall n,
+Lemma opp_Z_to_Q : forall n,
   (- (Z_to_Q n))%Q = (Z_to_Q (- n)%Z).
-Proof. skip. (* TODO *) Qed.
+Proof. q_ops_prove. Qed.
 
-Lemma Q_add_zero_l : forall q,
-  (0 + q)%Q = q.
-Proof. skip. (* TODO *) Qed.
+Lemma mul_Z_to_Q : forall n m,
+  ((Z_to_Q n) + (Z_to_Q m))%Q = (Z_to_Q (n + m)%Z).
+Proof. q_ops_prove. Qed.
 
-Lemma Q_add_zero_r : forall q,
-  (q + 0)%Q = q.
-Proof. skip. (* TODO *) Qed.
-
-Hint Rewrite add_Z_to_Q sub_Z_to_Q neg_Z_to_Q Q_add_zero_l Q_add_zero_r : rew_Q.
+#[global] Hint Rewrite add_Z_to_Q sub_Z_to_Q opp_Z_to_Q mul_Z_to_Q : rew_Q.
 
 
 
@@ -474,12 +631,6 @@ Hint Rewrite add_Z_to_Q sub_Z_to_Q neg_Z_to_Q Q_add_zero_l Q_add_zero_r : rew_Q.
 
 (** [rew_Q] performs some basic simplification on
     expressions involving rationals *)
-
-#[global]
-Hint Rewrite plus_zero_r plus_zero_l minus_zero_r minus_zero_l
-  mult_zero_l mult_zero_r mult_one_l mult_one_r
-  minus_self one_plus_minus_one_r plus_one_minus_one_l
-  one_plus_minus_one_l : rew_Q.
 
 Tactic Notation "rew_Q" :=
   autorewrite with rew_Q.
@@ -501,6 +652,94 @@ Tactic Notation "rew_Q" "~" "in" hyp(H) :=
 Tactic Notation "rew_Q" "*" "in" hyp(H) :=
   rew_Q in H; auto_star.
 
+(** [rew_Qx] performs some basic simplification on
+    expressions involving divisions
+    TODO: include also all other rewrite rules? *)
+
+Tactic Notation "rew_Qx" :=
+  autorewrite with rew_Qx.
+Tactic Notation "rew_Qx" "~" :=
+  rew_Qx; auto_tilde.
+Tactic Notation "rew_Qx" "*" :=
+  rew_Qx; auto_star.
+Tactic Notation "rew_Qx" "in" "*" :=
+  (*  autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_Qx). *)
+  autorewrite with rew_Qx in *. 
+Tactic Notation "rew_Qx" "~" "in" "*" :=
+  rew_Qx in *; auto_tilde.
+Tactic Notation "rew_Qx" "*" "in" "*" :=
+  rew_Qx in *; auto_star.
+Tactic Notation "rew_Qx" "in" hyp(H) :=
+  autorewrite with rew_Qx in H.
+Tactic Notation "rew_Qx" "~" "in" hyp(H) :=
+  rew_Qx in H; auto_tilde.
+Tactic Notation "rew_Qx" "*" "in" hyp(H) :=
+  rew_Qx in H; auto_star.
+
+
+
+
+(* ********************************************************************** *)
+(** * Comparisons *)
+
+(* ---------------------------------------------------------------------- *)
+(** ** Le definition *)
+
+Definition Q_le (q1 q2 : Q) : Prop :=
+  let '(n1,m1) := Q_to_ZZ q1 in
+  let '(n2,m2) := Q_to_ZZ q2 in
+  n1 * m2 <= n2 * m1.
+
+Open Scope comp_scope.
+
+#[global]
+Instance le_Q_inst : Le Q := Build_Le Q_le.
+
+
+Section InternalLe.
+
+Hint Resolve equiv_rel.
+Hint Extern 1 (exists _, rel _ _) => eexists; eapply equiv_refl.
+
+
+Lemma le_reveal : forall A `{Le A} (R:binary A) x y,
+  @le A {| le := R |} x y = R x y.
+Proof using. auto. Qed.
+
+Lemma make_le_make_inv : forall n1 m1 n2 m2,
+  make n1 m1 <= make n2 m2 ->
+  m1 <> 0 ->
+  m2 <> 0 ->
+  (n1 * m2 <= m1 * n2)%Z.
+Proof using.
+  introv E N1 N2. unfolds make.
+  destruct (classicT (m1 = 0)); try math.
+  destruct (classicT (m2 = 0)); try math.
+  unfolds le_Q_inst. rewrite le_reveal in E; try typeclass.
+  unfolds Q_le. unfolds inject, Q_to_ZZ. simpls.
+  epsilon* s1. destruct s1 as ((a1&b1)&Nb1).
+  epsilon* s2. destruct s2 as ((a2&b2)&Nb2).
+  unfold rel. simpl.
+  introv E1 E2. simpls. skip. (* TODO *)
+Qed.
+
+End InternalLe.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Inequalities *)
+
+Lemma le_mul_mul : forall q1 q2 q3 q4,
+  q1 <= q2 ->
+  q3 <= q4 ->
+  q1 * q3 >= q2 * q4.
+Proof using. skip. Qed.
+
+Lemma le_mul_same_r : forall q1 q2 q3,
+  q1 <= q2 ->
+  q3 >= 0 ->
+  q1 * q3 <= q2 * q3.
+Proof using. skip. Qed.
 
 
 
@@ -538,11 +777,14 @@ Lemma le_int_of_le_Q : forall (n1 n2:Z),
   (n1:Q) <= (n2:Q) ->
   (n1 <= n2).
 Proof using.
+(*
   intros a1 a2 M.
   unfolds le_Q_inst. simpls. unfolds Q_le. unfolds Z_to_Q.
-  lets (n1&m1&N1&E1&F1): Q_inv_Z a1.
-  lets (n2&m2&N2&E2&F2): Q_inv_Z a2.
+  lets (n1&m1&N1&E1&F1): Q_inv_ZZ_Z a1.
+  lets (n2&m2&N2&E2&F2): Q_inv_ZZ_Z a2.
   forwards: make_le_make_inv M; try math.
+*)
+skip.
 Qed.
 
 Lemma le_Q_of_le_int : forall (n1 n2:int),
@@ -589,9 +831,9 @@ Proof using. skip. Qed.
 Definition ring_theory_Q : ring_theory (Z_to_Q 0) (Z_to_Q 1) add mul sub opp (eq(A:=Q)).
 Proof.
   constructor.
-  { exact plus_zero_l. }
-  { skip. (* plus_comm. *) }
-  { skip. (* plus assoc *) }
+  { exact add_zero_l. }
+  { skip. (* add_comm. *) }
+  { skip. (* add assoc *) }
   { exact mul_one_l. }
   { skip. (* mul_comm. *) }
   { skip. (* mul_assoc. *) }

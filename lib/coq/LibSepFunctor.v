@@ -1163,7 +1163,7 @@ Lemma haffine_hcredits : forall n,
 Proof using. introv H. unfold haffine. introv ->. apply* heap_credits_affine. Qed.
 
 Lemma hcredits_sub : forall (n m : credits),
-  \$$(n-m)%cr = \$$ n \* \$$ (-m).
+  \$$(n-m)%cr = \$$ n \* \$$ (-m)%cr.
 Proof using. intros. asserts_rewrite (n-m = n+(-m))%cr. ring. rewrite* hcredits_add. Qed.
 
 Lemma hcredits_cancel : forall (n: credits),
@@ -1171,11 +1171,11 @@ Lemma hcredits_cancel : forall (n: credits),
 Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. ring. Qed.
 
 Lemma hcredits_extract : forall m n,
-  \$$ n = \$$ m \* \$$ (n-m).
+  \$$ n = \$$ m \* \$$ (n-m)%cr.
 Proof using. intros. rewrite <- hcredits_add. fequals. ring. Qed.
 
 Lemma hwand_hcredits_l : forall H n,
-  (\$$n \-* H) = (\$$(-n) \* H).
+  (\$$n \-* H) = (\$$(-n)%cr \* H).
 Proof using.
   intros H1 n. rewrite hwand_eq_hexists. applys himpl_antisym.
   { applys himpl_hexists_l. intros H2. rewrite hstar_comm.
@@ -1183,7 +1183,7 @@ Proof using.
     rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
     rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
     rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
-  { sets H2: (\$$(- n) \* H1). applys himpl_hexists_r H2.
+  { sets H2: (\$$(- n)%cr \* H1). applys himpl_hexists_r H2.
     rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
     subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
     rewrite* hstar_hempty_l. }
@@ -2712,7 +2712,7 @@ Lemma heap_credits_zero :
 Proof using. auto. Qed.
 
 Lemma heap_credits_add : forall n m,
-  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+  heap_credits (n + m)%cr = heap_union (heap_credits n) (heap_credits m).
 Proof using. intros. rewrite* heap_union_empty_l. Qed.
 
 Lemma heap_credits_affine : forall (n:credits),

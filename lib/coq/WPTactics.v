@@ -216,7 +216,7 @@ Tactic Notation "xspec" :=
 
 (** [xspec E] operates as follows, when [f] is the function involved in the goal.
     - if [E] is of the form [(>> __ v1 ... vN)], then the tactic finds the
-      specification [Sf] associated with [f], and produces the instantiated
+      specification [Sf] associated with [f], and produces the cdiated
       specification obtained by [lets: Sf v1 .. vN] at head of the goal.
     - otherwise, it assumes [E] to be a specification, and simply puts [E]
       at the head of the goal. *)
@@ -919,7 +919,7 @@ Ltac xcf_find f :=
   ltac_database_get database_cf f.
 
 Ltac xcf_post tt :=
-  instantiate;
+  (* instantiate; *)
   try solve_enc tt.
   (* TODO: needed? cbv beta; remove_head_unit tt. *)
 
@@ -2962,7 +2962,7 @@ Ltac xstep_pre tt :=
   try xpull; intros.
 
 Ltac xstep_core stopat :=
-  xstep_pre tt; xstep_once stopat; instantiate.
+  xstep_pre tt; xstep_once stopat. (*; instantiate. *)
 
 Tactic Notation "xstep" :=
   xstep_core tt.

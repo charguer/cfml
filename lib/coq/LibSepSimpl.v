@@ -907,9 +907,7 @@ Delimit Scope comp_scope with C.
 Lemma xsimpl_hcredits_Z : forall (n:Z),
   (n >= 0%Z)%C ->
   (Z_to_Q n >= 0)%Q.
-Proof using.
-  skip. (* TODO *)
-Qed.
+Proof using. intros. applys* ge_Q_of_ge_int. Qed.
 
 Axiom xsimpl_hcredits_Z0 : forall (n:Z),
   (n >= 0%Z)%C ->

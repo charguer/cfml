@@ -72,7 +72,7 @@ Definition heap_compat (h1 h2:heap) : Prop :=
 (** Union *)
 
 Definition heap_union (h1 h2:heap) : heap :=
-  match h1,h2 with (s1,n1),(s2,n2) => (Fmap.union s1 s2, n1 + n2) end.
+  match h1,h2 with (s1,n1),(s2,n2) => (Fmap.union s1 s2, (n1 + n2)%cr) end.
 
 Declare Scope heap_union_scope.
 
