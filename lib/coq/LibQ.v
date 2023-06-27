@@ -236,13 +236,21 @@ Lemma Q_to_ZZ_make : forall n m,
              /\ (n // m) = (n' // m').
 Proof using. introv Hm. lets (n'&m'&Hm'&->&F): Q_inv_ZZ (n // m). exists* n' m'. Qed.
 
+Ltac Q_to_ZZ_make_on n m :=
+  let n' := fresh n "'" in
+  let m' := fresh m "'" in
+  let E := fresh "E" n' in
+  let EQ := fresh "EQ" n' in
+  let Hm' := fresh "H" m' in
+  forwards (n'&m'&Hm'&EQ&E): Q_to_ZZ_make n m;
+  [ try assumption
+  | rewrite EQ in *; clear EQ ].
+
 Ltac Q_to_ZZ_make :=
-  match goal with |- context [Q_to_ZZ (?n // ?m)] =>
-    let n' := fresh n "'" in
-    let m' := fresh m "'" in
-    let E := fresh "E" n' in
-    let Hm' := fresh "H" m' in
-    forwards (n'&m'&Hm'&->&E): Q_to_ZZ_make n m end; [ try assumption | ].
+  match goal with 
+  | |- context [Q_to_ZZ (?n // ?m)] => Q_to_ZZ_make_on n m
+  | H: context [Q_to_ZZ (?n // ?m)] |- _ => Q_to_ZZ_make_on n m
+  end.
 
 Ltac Q_to_ZZ_makes :=
   repeat Q_to_ZZ_make.
@@ -336,15 +344,17 @@ Infix "/" := div : Q_scope.
 (* ---------------------------------------------------------------------- *)
 (** ** Charcterization of operations *)
 
-Ltac ring_hyps :=
+Ltac ring_hyps_setup :=
   try ring_simplify;
   repeat (
     match goal with H: _ = _ :> Z |- _ => 
       first [ aac_rewrite H; clear H
             | aac_rewrite <- H; clear H
             | clear H ]
-    end);
-  try ring.
+    end).
+
+Ltac ring_hyps :=
+  ring_hyps_setup; try solve [ ring ].
 
 
 Lemma add_make : forall n1 m1 n2 m2,
@@ -352,8 +362,7 @@ Lemma add_make : forall n1 m1 n2 m2,
   m2 <> 0 ->
   add (n1 // m1) (n2 // m2) = (n1*m2 + n2*m1) // (m1*m2).
 Proof using.
-  introv N1 N2. unfold add. Q_to_ZZ_makes. make_eq_elim*. ring_hyps.
-Qed.
+  introv N1 N2. unfold add. Q_to_ZZ_makes. make_eq_elim*. ring_hyps. Qed.
 
 Lemma mul_make : forall n1 m1 n2 m2,
   m1 <> 0 -> 
@@ -438,6 +447,33 @@ Lemma mul_zero_inv_nonzero_l : forall q1 q2,
   q1 <> 0 ->
   q2 = 0.
 Proof using. introv E N. lets: mul_zero_inv E. autos*. Qed.
+
+(* LATER
+Lemma eq_add_same_r_eq : forall q1 q2 q3,
+  (q1 + q3 = q2 + q3) = (q1 = q2).
+Proof using.
+  iff M.
+  { intros. Q_invs. unfolds add. Q_to_ZZ_makes. make_eq_elim; try math.
+    applys Z.mul_cancel_l (mq1' * mq2')%Z. math.
+    aac_rewrite Enq1'. ring_simplify. symmetry. aac_rewrite Enq2'.
+    ring_simplify. ring_simplify in M. applys 
+
+    asserts R: (forall a b c d:Z, (c <> d -> a <> b) -> (a = b -> c = d)). 
+    { intros. subst. tests: (c = d); auto_false*. }
+    applys (rm R) (rm M). intros N. aac_rewrite Enq1'.
+    applys Z.mul_cancel_l (mq1' * mq2' * mq3')%Z. math.
+    ring_simplify. 
+ }
+  { subst*. }
+Qed.
+*)
+
+
+(*
+Lemma sub_eq_zero_eq_same : forall q1 q2,
+  (q1 - q2 = 0) = (q1 = q2).
+Proof using. intros. Q_invs. unfold sub, opp, Z_to_Q. Qed.
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** ** [add] *)
@@ -726,33 +762,79 @@ Tactic Notation "rew_Qx" "*" "in" hyp(H) :=
 (* ---------------------------------------------------------------------- *)
 (** ** Le definition *)
 
+Definition Q_nonneg (q : Q) : Prop :=
+  let '(n,m) := Q_to_ZZ q in
+  (n * m)%Z >= 0.
+
+Lemma Q_nonneg_make : forall n m,
+  Q_nonneg (make n m) ->
+  (n * m)%Z >= 0.
+Proof using.
+  intros. unfold make. destruct (classicT (m = 0)); try math.
+  unfolds Q_nonneg. Q_to_ZZ_makes. make_eq_elim; try math.
+  forwards [(?&?)|(?&?)]: Z.le_0_mul n' m'; try math;
+  tests: (n >= 0); tests: (m >= 0); try math.
+  asserts: (n = 0); math.
+  asserts: (n' = 0); math.
+Qed.
+
 Definition Q_le (q1 q2 : Q) : Prop :=
-  let '(n1,m1) := Q_to_ZZ q1 in
-  let '(n2,m2) := Q_to_ZZ q2 in
-  n1 * m2 <= n2 * m1.
+  Q_nonneg (q2 - q1).
 
 Open Scope comp_scope.
 
-#[global]
-Instance le_Q_inst : Le Q := Build_Le Q_le.
+#[global] Instance le_Q_inst : Le Q := Build_Le Q_le.
+
+(*
+Lemma le_reveal : forall A `{Le A} (R:binary A) x y,
+  @le A {| le := R |} x y = R x y.
+Proof using. auto. Qed.
+*)
+
+Lemma le_eq : forall q1 q2,
+  (q1 <= q2) = (Q_le q1 q2).
+Proof using. auto. Qed.
 
 
+
+(*
 Section InternalLe.
 
 Hint Resolve equiv_rel.
 Hint Extern 1 (exists _, rel _ _) => eexists; eapply equiv_refl.
 
 
-Lemma le_reveal : forall A `{Le A} (R:binary A) x y,
-  @le A {| le := R |} x y = R x y.
-Proof using. auto. Qed.
 
-Lemma make_le_make_inv : forall n1 m1 n2 m2,
+Lemma make_le_make_inv_pos : forall n1 m1 n2 m2,
   make n1 m1 <= make n2 m2 ->
-  m1 <> 0 ->
-  m2 <> 0 ->
-  (n1 * m2 <= m1 * n2)%Z.
+  m1 > 0 ->
+  m2 > 0 ->
+  (n1 * m2 <= n2 * m1)%Z.
 Proof using.
+  introv E N1 N2. unfold make.
+  destruct (classicT (m1 = 0)); try math.
+  destruct (classicT (m2 = 0)); try math.
+  unfolds le_Q_inst. rewrite le_reveal in E; try typeclass.
+  unfolds Q_le. Q_to_ZZ_makes. make_eq_elim; try math.
+  applys_eq (rm E). 
+  asserts R: ((n1 * m2 + n2' * m1') = (n2 * m1 + n1' * m2'))%Z; [|math].
+  applys Z.mul_cancel_l (m1' * m2')%Z. math.
+  ring_simplify. aac_rewrite En1'. rewrite Z.mul_comm in En2'. aac_rewrite En2'.
+  ring_simplify.
+
+ math. 
+  match goal with H: context [Q_to_ZZ (?n // ?m)] |- _ =>  
+    let n' := fresh n "'" in
+    let m' := fresh m "'" in
+    let E := fresh "E" n' in
+    let Hm' := fresh "H" m' in
+    forwards (n'&m'&Hm'&?&E): Q_to_ZZ_make n m end; [ try assumption | ].
+
+
+ unfold Q. rewrite le_reveal in E. make_eq_elim. rewrite inject_eq_eq_rel. unfold rel; simple*.
+Qed.
+
+
   introv E N1 N2. unfolds make.
   destruct (classicT (m1 = 0)); try math.
   destruct (classicT (m2 = 0)); try math.
@@ -765,11 +847,48 @@ Proof using.
 Qed.
 
 End InternalLe.
+*)
+
+Ltac Q_to_ZZ_make_on n m ::=
+  first [
+    let n' := fresh n "'" in
+    let m' := fresh m "'" in
+    let E := fresh "E" n' in
+    let EQ := fresh "EQ" n' in
+    let Hm' := fresh "H" m' in
+    forwards (n'&m'&Hm'&EQ&E): Q_to_ZZ_make n m;
+    [ try assumption
+    | rewrite EQ in *; clear EQ ]
+  | let EQ := fresh "EQ" in 
+    forwards (?&?&?&EQ&?): Q_to_ZZ_make n m;
+    [ try assumption
+    | rewrite EQ in *; clear EQ ] ].
+
 
 
 #[global] Instance int_le_total_order : Le_total_order (A:=Q).
 Admitted.
+(* LATER
+Proof using.
+  constructors. constructors.
+  { constructors.
+    { intros q. rewrite le_eq. unfolds. unfolds. rew_Q. clear q.
+       unfold Z_to_Q. Q_to_ZZ_make; try math. make_eq_elim; try math. }
+    { skip. }
+    { intros q1 q2 M1 M2. rewrite le_eq in *. unfolds Q_le, Q_nonneg.
+      Q_invs. Q_to_ZZ_make.
+       unfold Z_to_Q. Q_to_ZZ_make; try math. make_eq_elim; try math. }
 
+ }
+  match goal with 
+  | |- context [Q_to_ZZ (?n // ?m)] => Q_to_ZZ_make_on n m
+end.
+forwards (n'&m'&Hm'&EQ&E): Q_to_ZZ_make n m
+  end. skip. rewrite EQ in *; clear EQ.
+
+Q_to_ZZ_make.
+Admitted.
+*)
 
 
 (* ---------------------------------------------------------------------- *)
