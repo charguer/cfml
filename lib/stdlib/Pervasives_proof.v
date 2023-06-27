@@ -159,9 +159,8 @@ Lemma min_spec : forall (n m:int),
     POST \[= Z.min n m ].
 Proof using.
   xcf. xgo*.
-  (*  solved by ring
   { rewrite~ Z.min_l. }
-  { rewrite~ Z.min_r. math. } *)
+  { rewrite~ Z.min_r. math. } 
 Qed.
 
 Lemma max_spec : forall (n m:int),
@@ -170,9 +169,8 @@ Lemma max_spec : forall (n m:int),
     POST \[= Z.max n m ].
 Proof using.
   xcf. xgo*.
-  (*  solved by ring
   { rewrite~ Z.max_l. }
-  { rewrite~ Z.max_r. math. } *)
+  { rewrite~ Z.max_r. math. } 
 Qed.
 
 Hint Extern 1 (RegisterSpec min) => Provide min_spec.
@@ -283,9 +281,8 @@ Lemma abs___spec : forall (n:int),
     POST \[= Z.abs n ].
 Proof using.
   xcf. xgo.
-    (*  solved by ring
   { rewrite~ Z.abs_eq. }
-  { rewrite~ Z.abs_neq. math. } *)
+  { rewrite~ Z.abs_neq. math. } 
 Qed.
 
 Hint Extern 1 (RegisterSpec succ) => Provide succ_spec.

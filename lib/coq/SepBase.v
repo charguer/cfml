@@ -42,8 +42,10 @@ Module Export SepBasicCore <: SepCoreCredits.
 
 Declare Scope heap_scope.
 
-Local Notation "'credits'" := Qc.
-Delimit Scope Qc_scope with cr.
+Local Notation "'credits'" := Q.
+Delimit Scope Q_scope with cr.
+Notation "'0%cr'" := (Z_to_Q 0).
+Notation "'1%cr'" := (Z_to_Q 1).
 
 (** A heap is a state (a finite map from location to values)
    as defined in [Semantics.v]. *)
@@ -60,7 +62,7 @@ Definition heap_affine (h:heap) :=
   functor, we introduce local names for operations and lemmas on heaps. *)
 
 Definition heap_empty : heap :=
-  (Fmap.empty, 0).
+  (Fmap.empty, 0%cr).
 
 (** Compatibility for union amounts to disjointness *)
 
@@ -247,12 +249,12 @@ Notation "l '~~~>' v" := (hsingle l v)
 
 Lemma hsingle_intro : forall l v,
   l <> null ->
-  (l ~~~> v) (Fmap.single l v, 0).
+  (l ~~~> v) (Fmap.single l v, 0%cr).
 Proof using. intros. split~. Qed.
 
 Lemma hsingle_inv : forall h l v,
   (l ~~~> v) h ->
-  h = (Fmap.single l v, 0) /\ (l <> null).
+  h = (Fmap.single l v, 0%cr) /\ (l <> null).
 Proof using. intros (s,n) l v (E&M). subst*. Qed.
 
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
@@ -485,9 +487,10 @@ Qed.
 (* ********************************************************************** *)
 (** * Definition of Hoare triples *)
 
+Close Scope Q_scope.
 
 Definition heap_of_state (s:state) : heap :=
-  (s,0).
+  (s,0%cr).
 
 Definition heap_state (h:heap) : state :=
   match h with (s,n) => s end.
@@ -522,8 +525,6 @@ Proof using. introv M. intros h Hh. applys* M. Qed.
 
 (* ********************************************************************** *)
 (** * Hoare rules for term constructs *)
-
-Close Scope Qc_scope.
 
 Lemma hoare_evalctx : forall C t1 H Q Q1,
   evalctx C ->

@@ -2791,10 +2791,10 @@ Lemma xpay_lemma_pre : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
   H ==> ^(Wpgen_pay F1) Q.
 Proof using.
   introv M1 M2. xchange M1.
-  applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
+  applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl*. }
   applys MkStruct_erase. xchange M2.
   applys_eq himpl_refl. fequals.
-  applys fun_ext_1. xsimpl.
+  applys fun_ext_1. xsimpl*.
 Qed.
 
 Ltac xpay_post tt :=

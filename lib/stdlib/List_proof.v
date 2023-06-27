@@ -24,7 +24,7 @@ Proof using.
     { xgo. rew_list. math. }
     { xapp Spec_aux. xgo.
       rew_list. math. } }
-  xgo. (* math. *)
+  xgo. math.
 Qed.
 
 Hint Extern 1 (RegisterSpec length) => Provide length_spec.

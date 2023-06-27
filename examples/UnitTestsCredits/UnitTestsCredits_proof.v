@@ -11,7 +11,7 @@ Lemma f_spec : forall n,
     PRE (\$ 1)
     POST \[= 2*n].
 Proof using.
-  xcf. xpay. xvals*.
+  xcf. xpay. xvals*. math.
 Qed.
 
 Lemma g_spec : forall n,
@@ -35,7 +35,7 @@ Lemma g_spec' : forall n,
 Proof using.
   intros n. induction_wf IH: (downto 0) n. introv Hn.
   xcf. xpay. xif; intros C.
-  { xapp. auto with maths. math. xsimpl. math. }
+  { xapp. auto with maths. math. xsimpl. }
   { xvals. }
 Qed.
 
