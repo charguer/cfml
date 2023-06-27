@@ -31,6 +31,8 @@ let pchunk_is_empty c =
   c.p_size = 0
 let pchunk_is_full c =
   c.p_size = capacity
+let pchunk_size c =
+  c.p_size
 
 let pchunk_peek_back c =
   let back = wrap_up (c.p_front + c.p_size - 1) in
@@ -49,8 +51,7 @@ let pchunk_pop_back c =
   (c', x)
 
 let pchunk_push_back c x =
-  let i = wrap_up (c.p_front + c.p_size) in
-  {
+  let i = wrap_up (c.p_front + c.p_size) in {
     p_data = parray_set c.p_data i x;
     p_front = c.p_front;
     p_size = c.p_size + 1;
@@ -71,13 +72,39 @@ let pchunk_pop_front c =
   (c', x)
 
 let pchunk_push_front c x =
-  let new_front = wrap_down (c.p_front - 1) in
-  {
+  let new_front = wrap_down (c.p_front - 1) in {
     p_data = parray_set c.p_data new_front x;
     p_front = new_front;
     p_size = c.p_size + 1;
     p_default = c.p_default
   }
+
+let pchunk_get c i =
+  parray_get c.p_data (wrap_up (c.p_front + i))
+
+let pchunk_set c i x =
+  let front = c.p_front in {
+    p_data = parray_set c.p_data (wrap_up (front + i)) x;
+    p_front = front;
+    p_size = c.p_size;
+    p_default = c.p_default
+  }
+
+let rec pchunk_concat c0 c1 =
+  if pchunk_is_empty c1 then c0
+  else
+    let c2, x = pchunk_pop_front c1 in
+    pchunk_concat (pchunk_push_back c0 x) c2
+
+let rec pchunk_displace c0 c1 =
+  function
+  | 0 -> c0, c1
+  | n ->
+      let c2, x = pchunk_pop_back c0 in
+      pchunk_displace c2 (pchunk_push_front c1 x) (n - 1)
+
+let pchunk_split c i =
+  pchunk_displace c (pchunk_create c.p_default) i
 
 (* let echunk_get c i =
   c.data.(i)

@@ -8,6 +8,7 @@ let pchunk_create = PChunkImpl.pchunk_create
 
 let pchunk_is_empty = PChunkImpl.pchunk_is_empty
 let pchunk_is_full = PChunkImpl.pchunk_is_full
+let pchunk_size = PChunkImpl.pchunk_size
 
 let pchunk_peek = function
   | Front -> PChunkImpl.pchunk_peek_front
@@ -20,3 +21,9 @@ let pchunk_pop = function
 let pchunk_push = function
   | Front -> PChunkImpl.pchunk_push_front
   | Back -> PChunkImpl.pchunk_push_back
+
+let pchunk_get = PChunkImpl.pchunk_get
+let pchunk_set = PChunkImpl.pchunk_set
+
+let pchunk_concat = PChunkImpl.pchunk_concat
+let pchunk_split = PChunkImpl.pchunk_split
