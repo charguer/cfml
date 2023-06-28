@@ -27,3 +27,5 @@ let pchunk_set = PChunkImpl.pchunk_set
 
 let pchunk_concat = PChunkImpl.pchunk_concat
 let pchunk_split = PChunkImpl.pchunk_split
+
+let pchunk_of_echunk = PChunkImpl.pchunk_of_echunk

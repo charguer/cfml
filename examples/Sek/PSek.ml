@@ -7,24 +7,53 @@ open View
 (* later: psek/sek *)
 
 type 'a pwchunk = 'a weighted pchunk
+type 'a pwchunkw = 'a pwchunk weighted
 (* 'a weighted pchunk weighted *)
 
 let pwchunk_default c =
-  (pchunk_default c).elem
+  pchunk_default (elem c)
 
 let pwchunk_create d =
   pchunk_create (dummy_weighted d)
 
-let pwchunk_weight c = (* later: iter or fold *)
+let pwchunk_is_empty c =
+  pchunk_is_empty (elem c)
+
+let pwchunk_is_full c =
+  pchunk_is_full (elem c)
+
+let pwchunk_size c =
+  pchunk_size (elem c)
+
+
+let pwchunkw_default c =
+  elem (pwchunk_default c)
+
+let pwchunkw_create d =
+  dummy_weighted (pwchunk_create d)
+
+let pwchunkw_push v c x =
+  let el = pchunk_push v (elem c) x in
+  mk_weighted el (weight c + weight x)
+
+let pwchunkw_pop v c =
+  let el, x = pchunk_pop v (elem c) in
+  mk_weighted el (weight c - weight x), x
+
+let pwchunkw_concat c0 c1 =
+  let el = pchunk_concat (elem c0) (elem c1) in
+  mk_weighted el (weight c0 + weight c1)
+
+(* let pwchunk_weight c = (* later: iter or fold *)
   let w = ref 0 in
   for i = 0 to (pchunk_size c) - 1 do
     w := !w + (pchunk_get c i).weight
   done;
-  !w
+  !w *)
 
-type 'a psek = {
-  p_sides : 'a pwchunk array; (* array of size 2 *)
-  p_mid : 'a pwchunk psek option;
+type 'a pwsek = {
+  p_sides : 'a pwchunkw array; (* array of size 2, with weights *)
+  p_mid : 'a pwchunk pwsek option;
   p_weight : int
 }
 (* if one of the side is empty, then mid must be empty *)
@@ -38,80 +67,102 @@ see
 
 *)
 
-let psek_default s =
-  pwchunk_default s.p_sides.(0)
+let pwsek_default s =
+  pwchunkw_default s.p_sides.(0)
 
-let psek_create d = {
-  let pa0 = pwchunk_create d in
-  p_sides = [| pa0; pa0 |];
-  p_mid = None;
-  p_weight = 0 }
+let pwsek_create d =
+  let pa0 = pwchunkw_create d in {
+    p_sides = [| pa0; pa0 |];
+    p_mid = None;
+    p_weight = 0 }
 
-let psek_is_empty s =
-  pchunk_is_empty s.p_sides.(0) && pchunk_is_empty s.p_sides.(1)
-
-(* pwsek_push : 'a. view -> 'a psek -> 'a weighted -> 'a psek = fun v s x -> *)
-let rec psek_weighted_push : 'a. view -> 'a psek -> 'a -> int -> 'a psek = fun pov s x w ->
-  let ind = view_index pov in (* ind -> vi *)
-  let default = psek_default s in (* default -> d *)
-  let sides = [| s.p_sides.(0); s.p_sides.(1) |] in (* Array.copy s_psides *)
-  let side = sides.(ind) in
-  (* let side, mid =
-        ...
-     mkseq_onesided pov side mid (s.p_weight + weight x) *)
-  let mid =
-    if pchunk_is_full side then begin
-      sides.(ind) <- pwchunk_create default;
-      (* let mid = psek_get_mid d s.p_mid in
-         Some (psek_weighted_push pov mid side) *)
-      Some (psek_weighted_push pov (
-        match s.p_mid with
-        | None -> psek_create (pwchunk_create default)
-        | Some m -> m
-      ) side (pwchunk_weight side))
-    end else s.p_mid
-  in
-  sides.(ind) <- pchunk_push pov sides.(ind) (mk_weighted x w);
-  (* populate *) { p_sides = sides;
+let mk_pwsek_pov v front mid back w =
+  let front', back' = view_exchange v (front, back) in {
+    p_sides = [| front'; back' |];
     p_mid = mid;
-    p_weight = s.p_weight + w }
-(* todo
-  sides.(ind) <- pchunk_push pov sides.(ind) x;
-  { p_sides = sides; p_mid = mid; p_weight = s.p_weight + weight x }
-*)
+    p_weight = w }
 
-let rec psek_pop : 'a. view -> 'a psek -> 'a psek * 'a = fun pov s ->
-  let ind = view_index pov in
-  let w = s.p_weight in
-  let sides = [| s.p_sides.(0); s.p_sides.(1) |] in
+let pwsek_is_empty s =
+  pwchunk_is_empty s.p_sides.(0) && pwchunk_is_empty s.p_sides.(1)
 
-  if pchunk_is_empty sides.(ind) then begin
-    let jnd = view_index (view_swap pov) in
-    let c, x = pchunk_pop pov sides.(jnd) in
-    sides.(jnd) <- c;
-    (* mkseq_onesided (swap pov) *)
-    { p_sides = sides; p_mid = None; p_weight = w - x.weight }, x.elem
+let pwsek_get_mid mo d =
+  match mo with
+  | None -> pwsek_create (pwchunk_create d)
+  | Some m -> m
+
+let pwsek_mk_mid m =
+  if pwsek_is_empty m then
+    None
+  else
+    Some m
+  
+
+let rec pwsek_pop : 'a. view -> 'a pwsek -> 'a pwsek * 'a weighted = fun v s ->
+  let vi = view_index v in
+  let vj = view_index (view_swap v) in
+  let sides = s.p_sides in
+  let sd = sides.(vi) in
+  let othersd = sides.(vj) in
+
+  if pwchunk_is_empty sd then begin
+    let othersd1, x = pwchunkw_pop v othersd in
+    let w = s.p_weight - weight x in
+    mk_pwsek_pov v sd None othersd1 w, x
   end else begin
-    let c, x = pchunk_pop pov sides.(ind) in (* c -> side *)
-    (* call mksed_onesided c *)
-      replace all with populate *)
-    let s' =
-      if pchunk_is_empty c then begin
-        match s.p_mid with
-        | None ->
-          sides.(ind) <- c;
-          { p_sides = sides; p_mid = None; p_weight = w - x.weight }
+    let sd1, x = pwchunkw_pop v sd in
+    let w = s.p_weight - weight x in
+
+    let mid = s.p_mid in
+    let s1 =
+      if pwchunk_is_empty sd1 then begin
+        match mid with
+        | None -> mk_pwsek_pov v sd1 None othersd w
         | Some m ->
-          let m', c' = psek_pop pov m in
-          sides.(ind) <- c';
-          { p_sides = sides; p_mid = (if psek_is_empty m' then None else Some m'); p_weight = w - x.weight }
-      end else begin
-        sides.(ind) <- c;
-        { p_sides = sides; p_mid = s.p_mid; p_weight = w - x.weight }
-      end
-    in
-    s', x.elem
+          let m1, sd2 = pwsek_pop v m in
+          let m2 = pwsek_mk_mid m1 in
+          mk_pwsek_pov v sd2 m2 othersd w
+      end else
+        mk_pwsek_pov v sd1 mid othersd w
+    in s1, x
   end
+
+let pwsek_populate v s =
+  let vi = view_index v in
+  let vj = view_index (view_swap v) in
+  let sides = s.p_sides in
+  let sd = sides.(vi) in
+  let othersd = sides.(vj) in
+
+  if pwchunk_is_empty sd then begin
+    match s.p_mid with
+    | None -> s
+    | Some m ->
+      let m1, sd1 = pwsek_pop v m in
+      let m2 = pwsek_mk_mid m1 in
+      mk_pwsek_pov v sd1 m2 othersd s.p_weight
+  end else
+    s
+
+let rec pwsek_push : 'a. view -> 'a pwsek -> 'a weighted -> 'a pwsek = fun v s x ->
+  let vi = view_index v in
+  let d = pwsek_default s in
+  let sides = s.p_sides in
+  let side = sides.(vi) in
+
+  let sd, mid =
+    if pwchunk_is_full side then begin
+      pwchunkw_create d,
+      let m = pwsek_get_mid s.p_mid d in
+      Some (pwsek_push v m side)
+    end else
+      side, s.p_mid
+  in
+  let sd' = pwchunkw_push v sd x in
+  
+  let vj = view_index (view_swap v) in
+  let othersd = sides.(vj) in
+  let s' = mk_pwsek_pov v sd' mid othersd (s.p_weight + weight x) in
+  pwsek_populate (view_swap v) s'
 
 (* LATER
 let psek_peek pov s =
@@ -126,30 +177,32 @@ let psek_peek pov s =
 *)
 
 let psek_absorb s c = (* c1, c2, c12 *)
-  if psek_is_empty s then
-    psek_push Back s c
+  if pwsek_is_empty s then
+    pwsek_push Back s c
   else
-    let s', c' = psek_pop Back s in
-    if pchunk_size c' + pchunk_size c <= capacity then begin
-      let c'' = pchunk_concat c' c in
-      psek_push Back s' c''
+    let s', c' = pwsek_pop Back s in
+    if pwchunk_size c' + pwchunk_size c <= capacity then begin
+      let c'' = pwchunkw_concat c' c in
+      pwsek_push Back s' c''
     end else
-      psek_push Back s c
+      pwsek_push Back s c
 
-let rec psek_concat : 'a. 'a psek -> 'a psek -> 'a psek = fun s s' -> (* s1 s2 *)
-  let indf = view_index Front in
-  let indb = view_index Back in
+let rec psek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
+  let d = pwsek_default s1 in
 
-  let default = psek_default s in
-  let sfront = s.p_sides.(indf) in (* front1, back1   front2, back2 *)
-  let sback = s.p_sides.(indb) in
-  let s'front = s'.p_sides.(indf) in
-  let s'back = s'.p_sides.(indb) in
+  let vf = view_index Front in
+  let vb = view_index Back in
+  let sides1 = s1.p_sides in
+  let front1 = sides1.(vf) in
+  let back1 = sides1.(vb) in
+  let sides2 = s2.p_sides in
+  let front2 = sides2.(vf) in
+  let back2 = sides2.(vb) in
 
   let absorbed =
-    match s.p_mid with
+    match s1.p_mid with
     | None ->
-        if pchunk_is_empty sback && pchunk_is_empty s'front then None
+        if pchunk_is_empty back1 && pchunk_is_empty front2 then None
         else Some (psek_absorb (psek_absorb (psek_create (pwchunk_create default)) sback) s'front)
     | Some m -> Some (psek_absorb (psek_absorb m sback) s'front)
   in
@@ -168,4 +221,4 @@ let rec psek_split : 'a. 'a psek -> int -> 'a psek * 'a psek = fun s ->
 (* psek *)
 
 let psek_push pov s x =
-  psek_weighted_push pov s x 1
+  pwsek_push pov s (mk_weighted x 1)

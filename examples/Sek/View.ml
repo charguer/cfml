@@ -8,3 +8,6 @@ let view_swap v =
 
 let view_xor v w =
   match v with Front -> w | Back -> view_swap w
+
+let view_exchange v (a, b) =
+  match v with Front -> (a, b) | Back -> (b, a)

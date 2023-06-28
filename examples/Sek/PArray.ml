@@ -1,5 +1,4 @@
-(** Type pour un tableau persistant *)
-
+(** Persistent arrays. *)
 type 'a parray = {
   mutable data : 'a parray_desc;
   mutable maxdist : int }
@@ -11,8 +10,10 @@ and 'a parray_desc =
 let dist_bound a =
   Array.length a
 
-let parray_create size d =
-  let a = Array.make size d in
+(** [parray_create sz d]
+  creates a fresh persistent array of size [sz] filled with default value [d]. *)
+let parray_create sz d =
+  let a = Array.make sz d in
   { data = PArray_Base a; maxdist = 0 }
 
 (* On coupe la chaîne avec un nouveau tableau contenant toutes les modifications de la version. *)
@@ -55,4 +56,8 @@ let parray_copy pa =
   let a = parray_base_copy pa in
   { data = PArray_Base a; maxdist = 0 }
 
-(* TODO: parray_of_array *)
+(** [parray_of_array a]
+  returns a persistent version of [a].
+  This function is destructive and [a] may not be used again after calling it. *)
+let parray_of_array a =
+  { data = PArray_Base a; maxdist = 0 }
