@@ -140,6 +140,40 @@ Axiom init_spec : forall A `{EA:Enc A} (F : list A -> hprop) (n : int) (f : func
            \exists xs, t ~> Array xs \* \[n = length xs] \* F xs).
 (* TODO *)
 
+
+(* -------------------------------------------------------------------------- *)
+
+(* Immutable arrays *)
+
+(* [Farray L p] asserts that [p] stores a array with values [L] that will
+   never be modified. This assertion can only be obtained by giving away
+   permanently a [p ~> Array L] assertion. Doing so guarantees that the 
+   array values can never be mutated. *)
+
+Parameter FArray : forall A `{EA:Enc A} (L : list A) (t : loc), Prop.
+
+Parameter FArray_intro :  forall A `{EA:Enc A} (L : list A) (t : loc), 
+  (t ~> Array L) ==> \[FArray L t].
+
+Lemma of_list_spec_farray : forall A `{EA:Enc A} (L:list A),
+  SPEC (Array_ml.of_list L)
+    PRE \[]
+    POST (fun t => \[FArray L t]).
+Proof using. intros. xapp. xchanges* FArray_intro. Qed.
+
+Axiom get_spec_farray : forall A `{EA:Enc A} `{Inhab A} (L:list A) t i,
+  index L i ->
+  FArray L t ->
+  SPEC (Array_ml.get t i)
+    PRE \[]
+    POST \[= L[i] ].
+
+Module FarraySpec.
+Hint Extern 1 (RegisterSpec Array_ml.of_list) => Provide of_list_spec_farray.
+Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec_farray.
+End FarraySpec.
+
+
 (* TODO: complete
 (* -------------------------------------------------------------------------- *)
 
