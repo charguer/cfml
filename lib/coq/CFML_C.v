@@ -584,7 +584,12 @@ Section Semantics.
       Q v ->
       G / s / (trm_val v) ⇓ Q
   (* variables *)
+  | cfml_omnibig_expr_var_heap : forall i (x : var) l ty Q,
+      G ! i = Some ((val_loc l), heap, ty) ->
+      G / s / <{! l}> ⇓ Q ->
+      G / s / trm_var (x, Some i) ⇓ Q
   | cfml_omnibig_expr_var : forall i (x : var) v d ty Q,
+      d <> heap ->
       G ! i = Some (v, d, ty) ->
       Q v ->
       G / s / trm_var (x, Some i) ⇓ Q
@@ -624,11 +629,11 @@ Section Semantics.
       cfml_omnibig_lvalue G s (trm_var (x, Some i)) Q
   | cfml_omnibig_lvalue_deref : forall e Q1 Q,
       cfml_omnibig_expr G s e Q1 ->
-      (forall v, Q1 v -> (exists l, v = val_loc l
+      (forall v, Q1 v -> (exists l v', v = val_loc l
                          /\ Fmap.indom s l
-                         /\ v = Fmap.read s l
-                         /\ Q v)) ->
-      cfml_omnibig_lvalue G s e Q.
+                         /\ v' = Fmap.read s l
+                         /\ Q v')) ->
+      cfml_omnibig_lvalue G s (<{! e}>) Q.
 
 
   (** eval a list of expressions to a list of postconditions *)
@@ -923,11 +928,26 @@ Section Semantics.
                     F / (f, G, Fmap.update s l (val_loc l'), t, k) ==> Qb) ->
       F / (f, G, s, trm_let (binding_var (x, Some i) ty heap) e t, k) ==> Qb
 
-  | cfml_omnibig_let_const : forall f G s x i ty v t k Qb,
-      v <> val_uninitialized ->
-      (forall l, v <> val_loc l) ->
-      F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb ->
-      F / (f, G, s, <{let ({(x, Some i)} : ty # const) = v in t}>, k) ==> Qb
+  (* | cfml_omnibig_let_const : forall f G s x i ty v t k Qb, *)
+  (*     v <> val_uninitialized -> *)
+  (*     (forall l, v <> val_loc l) -> *)
+  (*     F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb -> *)
+  (*     F / (f, G, s, <{let ({(x, Some i)} : ty # const) = v in t}>, k) ==> Qb *)
+
+  | cfml_omnibig_let_const_expr : forall f G s x i ty e t k Qe Qb,
+      is_expr e ->
+      typeof_expr E e = OK ty ->
+      G / s / e ⇓ Qe ->
+      (forall v, Qe v -> F / (f, PTree.set i (v, const, ty) G, s, t, k) ==> Qb) ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty # const) = e in t }>, k) ==> Qb
+
+  | cfml_omnibig_let_const_app : forall f f' G s x i ty es t k Qb1 Qb,
+      F / (f, G, s, (trm_apps f' es), k) ==> Qb1 ->
+      (forall f1 G1 s1 v1 k1,
+          Qb1 (f1, G1, s1, v1, k1) ->
+          F / (f, PTree.set i (v1, const, ty) G, s, t, k) ==> Qb) ->
+      F / (f, G, s, <{let ({(x, Some i)} : ty # const) =
+                            {(trm_apps f' es)} in t}>, k) ==> Qb
 
   | cfml_omnibig_is_return : forall x f G s e k Qe Qb,
       is_expr e ->
