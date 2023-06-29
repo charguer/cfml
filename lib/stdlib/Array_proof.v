@@ -169,7 +169,9 @@ Axiom get_spec_farray : forall A `{EA:Enc A} `{Inhab A} (L:list A) t i,
     POST \[= L[i] ].
 
 Module FarraySpec.
+#[export]
 Hint Extern 1 (RegisterSpec Array_ml.of_list) => Provide of_list_spec_farray.
+#[export]
 Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec_farray.
 End FarraySpec.
 
