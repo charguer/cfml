@@ -1,10 +1,10 @@
 (**
-  Type pour un tableau persistant
+  Type pour un tableau persistant  TODO: rename to SIMPLE_PArray.ml
 *)
 type 'a parray = {
   mutable data : 'a parray_desc
-   } 
- 
+   }
+
  and 'a parray_desc =
 | PArray_Base of 'a array
 | PArray_Diff of 'a parray * int * 'a

@@ -1,8 +1,8 @@
 open Capacity
 
-(** Type pour des buffers circulaires de capacité fixe K *)
+(** Type pour des buffers circulaires de capacité fixe K   TODO TRANSLATE ALL*)
 
-type 'a echunk = {
+type 'a echunk = { (* TODO: remove prefixes *)
   e_data : 'a array;
   mutable e_front : int;
   mutable e_size : int;

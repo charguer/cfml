@@ -67,8 +67,8 @@ let pchunk_pop_back c =
 (** [pchunk_push_back c x]
   returns a pchunk with all elements of [c] and [x] added at the back. *)
 let pchunk_push_back c x =
-  let i = wrap_up (c.p_front + c.p_size) in {
-    p_data = parray_set c.p_data i x;
+  let i = wrap_up (c.p_front + c.p_size) in
+  { p_data = parray_set c.p_data i x;
     p_front = c.p_front;
     p_size = c.p_size + 1;
     p_default = c.p_default }
@@ -91,12 +91,12 @@ let pchunk_pop_front c =
     p_default = c.p_default } in
   (c', x)
 
-
 (** [pchunk_push_front c x]
   returns a pchunk with all elements of [c] and [x] added at the front. *)
 let pchunk_push_front c x =
-  let new_front = wrap_down (c.p_front - 1) in {
-    p_data = parray_set c.p_data new_front x;
+  let new_front = wrap_down (c.p_front - 1) in
+  let pa = parray_set c.p_data new_front x in
+  { p_data = pa;
     p_front = new_front;
     p_size = c.p_size + 1;
     p_default = c.p_default }
@@ -113,8 +113,8 @@ let pchunk_get c i =
 let pchunk_set c i x =
   let front = c.p_front in
   let j = wrap_up (front + i) in
-  let pa = parray_set c.p_data j x in {
-    p_data = pa;
+  let pa = parray_set c.p_data j x in
+  { p_data = pa;
     p_front = front;
     p_size = c.p_size;
     p_default = c.p_default }
@@ -156,9 +156,9 @@ let pchunk_split c k =
   let c0 = pchunk_create c.p_default in
   pchunk_displace c c0 k
 
-(* TODO pchunk_of_echunk using parray_of_array *)
+(** [pchunk_of_echunk ec] consumes an [echunk] for producing a [pchunk]. *)
 let pchunk_of_echunk ec = {
-  p_data = parray_of_array ec.e_data; (* TODO: disambiguate *)
+  p_data = parray_of_array ec.e_data;
   p_front = ec.e_front;
   p_size = ec.e_size;
   p_default = ec.e_default }

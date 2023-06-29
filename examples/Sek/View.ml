@@ -1,13 +1,21 @@
 type view = Front | Back
 
 let view_index v =
-  match v with Front -> 0 | Back -> 1
+  match v with
+  | Front -> 0
+  | Back -> 1
 
 let view_swap v =
-  match v with Front -> Back | Back -> Front
+  match v with
+  | Front -> Back
+  | Back -> Front
 
-let view_xor v w =
-  match v with Front -> w | Back -> view_swap w
+let view_xor v1 v2 =
+  match v1 with
+  | Front -> v2
+  | Back -> view_swap v2
 
-let view_exchange v (a, b) =
-  match v with Front -> (a, b) | Back -> (b, a)
+let view_exchange v (x, y) =
+  match v with
+  | Front -> (x, y)
+  | Back -> (y, x)

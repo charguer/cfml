@@ -57,10 +57,10 @@ Hint Extern 1 (_ \in dom _) => rew_map; saturate_indom; set_prove.
 Hint Extern 1 (@is_in _ (set _) (in_inst _) ?x (@dom (map _ _) (set _) (dom_inst _ _) ?E)) =>
  rew_map; set_prove.
 
-Hint Extern 1 (?x <> ?y :> loc) => 
-	match goal with 
-	| H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false 
-	| H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false 
+Hint Extern 1 (?x <> ?y :> loc) =>
+	match goal with
+	| H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false
+	| H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false
 	end.
 
 Import HintArith.
@@ -124,7 +124,7 @@ Implicit Types p q: loc.
 
 (* parray_desc *)
 Inductive Desc A :=
-  |	Desc_Base : list A -> Desc A 
+  |	Desc_Base : list A -> Desc A
   |	Desc_Diff : loc -> int -> A -> Desc A.
 
 #[global]
@@ -431,7 +431,7 @@ Proof using.
 Qed.
 
 Lemma Shared_add_fresh_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
-  pa ~> PArray (Desc_Base L) \* Shared M 
+  pa ~> PArray (Desc_Base L) \* Shared M
   ==> Shared (M[pa := Desc_Base L]) \* \[pa \notindom M].
 Proof using.
 	intros. unfold Shared. xchanges* Group_add_fresh.
@@ -529,7 +529,7 @@ Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz:
 		PRE \[]
 		POST (fun M' pa => \[IsPArray M' (make sz d) pa]).
 Proof using.
-	introv Hsz. xcf*. simpl. xpay_fake.
+	introv Hsz. xcf*. simpl. xpay_skip.
 	xapp*. intros a L ->.
 	xapp*. intros pa.
 	xchange* PArray_Base_close.
@@ -554,7 +554,7 @@ Lemma parray_base_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (
 Proof using.
 	introv Rpa. lets (n & Rpas): IsPArray_sized_of_unsized Rpa.
 	gen pa L. induction_wf IH: wf_lt n.
-	introv Rpa. xcf*. xpay_fake.
+	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_inv_focus. intros I.
 	xopen* pa. intros D. xapp*. xmatch.
 	{ xchange* PArray_Desc_eq_Base. intros L' E.
@@ -589,7 +589,7 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: 
 			Group (PArray (A := A)) (M \-- pa) \*
 			\[Inv M]).
 Proof using.
-	introv Rpa. xcf*. xpay_fake.
+	introv Rpa. xcf*. xpay_skip.
 	xchange* Shared_eq. intros I. xchange* Group_rem pa M.
 	xopen* pa. intros D. xapp*. xmatch.
 	{ xvals*. xchange* PArray_Desc_eq_Base. intros L' E'.
@@ -611,7 +611,7 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		PRE \[]
 		POST (fun M' x => \[x = L[i]]).
 Proof using.
-	introv Rpa Hind. xcf*. simpl. xpay_fake.
+	introv Rpa Hind. xcf*. simpl. xpay_skip.
 	xapp*. intros a Points. xapp*.
 	xchange* PArray_Base_close.
 	xchange* Group_add_again.
@@ -639,7 +639,7 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: pa
 		PRE \[]
 		POST (fun M' q => \[IsPArray M' (L[i := x]) q]).
 Proof using.
-	introv Rpa Hi. xcf*. simpl. xpay_fake.
+	introv Rpa Hi. xcf*. simpl. xpay_skip.
 	xapp*. intros a Points. xapp*. xapp*.
 	xapp*. intros pb.
 	xapp*. xval*.
@@ -653,7 +653,7 @@ Proof using.
 		{ applys* Extend_add_fresh.
 			intros H. false Hpb. rew_map*.
 			set_prove2.
-			(* rew_map i *. set_prove_setup true. 
+			(* rew_map i *. set_prove_setup true.
 			(* 3 lignes suivantes automatisable ? *)
 			rewrites* (>> eq_union_single_remove_one (dom M)).
 			intros* [|]; auto.
@@ -681,7 +681,7 @@ Lemma parray_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 		PRE \[]
 		POST (fun M' q => \[IsPArray M' L q]).
 Proof using.
-	introv Rpa. xcf*. simpl. xpay_fake.
+	introv Rpa. xcf*. simpl. xpay_skip.
 	xapp*. intros a. xapp*. intros q.
 	xchange* PArray_Base_close.
 	xchanges* Shared_add_fresh_Base; intros Hdom.
