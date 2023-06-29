@@ -1,123 +1,122 @@
 open PArray
 open Capacity
-open EChunkImpl
 
 (** Fixed capacity persistent circular buffers. *)
 type 'a pchunk = {
-  p_data : 'a parray;
-  p_front : int;
-  p_size : int;
-  p_default : 'a }
+  data : 'a parray;
+  front : int;
+  size : int;
+  default : 'a }
 
 (** [pchunk_default c]
   returns the defaut value of pchunk [c]. *)
 let pchunk_default c =
-  c.p_default
+  c.default
 
 let pchunk_dummy d = {
-  p_data = parray_create 0 d;
-  p_front = 0;
-  p_size = 0;
-  p_default = d }
+  data = parray_create 0 d;
+  front = 0;
+  size = 0;
+  default = d }
 
 (** [pchunk_create d]
   returns an empty pchunk with default value [d]. *)
 let pchunk_create d = {
-  p_data = parray_create capacity d;
-  p_front = 0;
-  p_size = 0;
-  p_default = d }
+  data = parray_create capacity d;
+  front = 0;
+  size = 0;
+  default = d }
 
 (** [pchunk_is_empty c]
   checks whether [c] is empty. *)
 let pchunk_is_empty c =
-  c.p_size = 0
+  c.size = 0
 
 (** [pchunk_is_full c]
   checks whether [c] is full. *)
 let pchunk_is_full c =
-  c.p_size = capacity
+  c.size = capacity
 
 (** [pchunk_size c]
   returns the number of elements in [c]. *)
 let pchunk_size c =
-  c.p_size
+  c.size
 
 (** [pchunk_peek_back c]
   returns the back element of [c]. *)
 let pchunk_peek_back c =
-  let back = wrap_up (c.p_front + c.p_size - 1) in
-  parray_get c.p_data back
+  let back = wrap_up (c.front + c.size - 1) in
+  parray_get c.data back
 
 (** [pchunk_pop_back c]
   returns the pair of a pchunk with all elements of [c] except the back one,
   and of the back element. *)
 let pchunk_pop_back c =
   let x = pchunk_peek_back c in
-  let new_size = c.p_size - 1 in
-  let i = wrap_up (c.p_front + new_size) in
-  let pa = parray_set c.p_data i c.p_default in
+  let new_size = c.size - 1 in
+  let i = wrap_up (c.front + new_size) in
+  let pa = parray_set c.data i c.default in
   let c' = {
-    p_data = pa;
-    p_front = c.p_front;
-    p_size = new_size;
-    p_default = c.p_default } in
+    data = pa;
+    front = c.front;
+    size = new_size;
+    default = c.default } in
   (c', x)
 
 (** [pchunk_push_back c x]
   returns a pchunk with all elements of [c] and [x] added at the back. *)
 let pchunk_push_back c x =
-  let i = wrap_up (c.p_front + c.p_size) in
-  { p_data = parray_set c.p_data i x;
-    p_front = c.p_front;
-    p_size = c.p_size + 1;
-    p_default = c.p_default }
+  let i = wrap_up (c.front + c.size) in
+  { data = parray_set c.data i x;
+    front = c.front;
+    size = c.size + 1;
+    default = c.default }
 
 (** [pchunk_peek_front c]
   returns the front element of [c]. *)
 let pchunk_peek_front c =
-  parray_get c.p_data c.p_front
+  parray_get c.data c.front
 
 (** [pchunk_pop_front c]
   returns the pair of a pchunk with all elements of [c] except the front one,
   and of the front element. *)
 let pchunk_pop_front c =
   let x = pchunk_peek_front c in
-  let pa = parray_set c.p_data c.p_front c.p_default in
+  let pa = parray_set c.data c.front c.default in
   let c' = {
-    p_data = pa;
-    p_front = wrap_up (c.p_front + 1);
-    p_size = c.p_size - 1;
-    p_default = c.p_default } in
+    data = pa;
+    front = wrap_up (c.front + 1);
+    size = c.size - 1;
+    default = c.default } in
   (c', x)
 
 (** [pchunk_push_front c x]
   returns a pchunk with all elements of [c] and [x] added at the front. *)
 let pchunk_push_front c x =
-  let new_front = wrap_down (c.p_front - 1) in
-  let pa = parray_set c.p_data new_front x in
-  { p_data = pa;
-    p_front = new_front;
-    p_size = c.p_size + 1;
-    p_default = c.p_default }
+  let new_front = wrap_down (c.front - 1) in
+  let pa = parray_set c.data new_front x in
+  { data = pa;
+    front = new_front;
+    size = c.size + 1;
+    default = c.default }
 
 (** [pchunk_get c i]
   returns the element stored in [i]-th position in [c]. *)
 let pchunk_get c i =
-  let j = wrap_up (c.p_front + i) in
-  parray_get c.p_data j
+  let j = wrap_up (c.front + i) in
+  parray_get c.data j
 
 (** [pchunk_set c i x]
   returns a pchunk with all elements of [c],
   except the one in the [i]-th position which is replaced by [x]. *)
 let pchunk_set c i x =
-  let front = c.p_front in
+  let front = c.front in
   let j = wrap_up (front + i) in
-  let pa = parray_set c.p_data j x in
-  { p_data = pa;
-    p_front = front;
-    p_size = c.p_size;
-    p_default = c.p_default }
+  let pa = parray_set c.data j x in
+  { data = pa;
+    front = front;
+    size = c.size;
+    default = c.default }
 
 (** [pchunk_concat c0 c1]
   returns a pchunk that contains all elements of [c0] and of [c1].
@@ -153,12 +152,13 @@ let rec pchunk_displace c0 c1 k =
   the [k] front elements from [c] and [c2] contains
   the remaining [size c - k] elements. *)
 let pchunk_split c k =
-  let c0 = pchunk_create c.p_default in
+  let c0 = pchunk_create c.default in
   pchunk_displace c c0 k
 
 (** [pchunk_of_echunk ec] consumes an [echunk] for producing a [pchunk]. *)
-let pchunk_of_echunk ec = {
-  p_data = parray_of_array ec.e_data;
-  p_front = ec.e_front;
-  p_size = ec.e_size;
-  p_default = ec.e_default }
+let pchunk_of_echunk ec =
+  let dat, f, s, d = EChunkImpl.echunk_fields ec in
+  { data = parray_of_array dat;
+  front = f;
+  size = s;
+  default = d }

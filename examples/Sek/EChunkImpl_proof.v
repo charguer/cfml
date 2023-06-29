@@ -33,20 +33,20 @@ Hint Rewrite plus_minus: rew_maths.
 (*************************************************)
 (** EChunks *)
 
-Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (e_front: int) (e_size: int) (e_default: A) : Prop :=
+Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (front: int) (size: int) (default: A) : Prop :=
 	mkEChunk_inv {
-		echunk_in : forall (i: int), 0 <= i < e_size -> D[Wrap_up (e_front + i)] = L[i];
-		echunk_out : forall (i: int), e_size <= i < K -> D[Wrap_up (e_front + i)] = e_default;
-		echunk_length : length L = e_size;
+		echunk_in : forall (i: int), 0 <= i < size -> D[Wrap_up (front + i)] = L[i];
+		echunk_out : forall (i: int), size <= i < K -> D[Wrap_up (front + i)] = default;
+		echunk_length : length L = size;
 		echunk_capa : length D = K;
-		echunk_front : 0 <= e_front < K;
-		echunk_size : 0 <= e_size <= K }.
+		echunk_front : 0 <= front < K;
+		echunk_size : 0 <= size <= K }.
 
 Definition EChunk A {IA: Inhab A} {EA: Enc A} (L: list A) (c: echunk_ A) : hprop :=
-  \exists (e_data: loc) (D: list A) (e_front: int) (e_size: int) (e_default: A),
-  	c ~~~> `{ e_data' := e_data; e_front' := e_front; e_size' := e_size; e_default' := e_default }
- 		\* e_data ~> Array D
-  	\* \[EChunk_inv L D e_front e_size e_default].
+  \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
+  	c ~~~> `{ data' := data; front' := front; size' := size; default' := default }
+ 		\* data ~> Array D
+  	\* \[EChunk_inv L D front size default].
 
 Lemma haffine_Echunk : forall A (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
     haffine (c ~> EChunk L).
@@ -64,10 +64,10 @@ Hint Resolve haffine_Echunk haffine_repr_Echunk : haffine.
 
 Lemma EChunk_eq : forall c A {IA: Inhab A} {EA: Enc A} (L: list A),
   c ~> EChunk L =
-  \exists (e_data: loc) (D: list A) (e_front: int) (e_size: int) (e_default: A),
-    c ~~~> `{ e_data' := e_data; e_front' := e_front; e_size' := e_size; e_default' := e_default }
-  	\* e_data ~> Array D
-  	\* \[EChunk_inv L D e_front e_size e_default].
+  \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
+    c ~~~> `{ data' := data; front' := front; size' := size; default' := default }
+  	\* data ~> Array D
+  	\* \[EChunk_inv L D front size default].
 Proof. auto. Qed.
 
 Hint Extern 1 (RegisterOpen EChunk) => Provide EChunk_eq.
@@ -93,6 +93,16 @@ Qed.
 
 (*************************************************)
 (** Specifications *)
+
+Lemma echunk_fields_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+	SPEC (echunk_fields c)
+		PRE (\$1 \* c ~> EChunk L)
+		POST (fun f => \exists data D front size default,
+			\[f = (data, front, size, default)] \*
+			c ~~~> `{ data' := data; front' := front; size' := size; default' := default } \*
+			data ~> Array D \*
+			\[EChunk_inv L D front size default]).
+Proof. xcf*. xpay. xopen c ;=> data D front size default I. xappn*. xvals*. Qed.
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (a: A),
   SPEC (echunk_create a)
@@ -147,13 +157,13 @@ Proof.
   introv HL.
   xcf*.
 	lets (x & q & ->): list_neq_nil_inv_last L HL.
-	xopen* c. intros e_data D e_front e_size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xpay. xappn*.
 	{ unwrap_up. }
 	{ rew_list in *.
 		xsimpl.
 		{ fequals. fequals.
-			forwards* E: Iin (e_size - 1). rew_array in E.
+			forwards* E: Iin (size - 1). rew_array in E.
 			case_if*; [rew_maths; auto | math]. }
 		{ xclose* c. xsimpl. } }
 Qed.
@@ -169,7 +179,7 @@ Proof.
   introv HL.
   xcf*.
 	xpay. xapp*. intros x q E. subst.
-	xopen* c. intros e_data D e_front e_size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xapp*. xlets. xappn*.
 	{ unwrap_up. }
 	{ rew_list in *.
@@ -194,7 +204,7 @@ Lemma echunk_push_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: ech
 Proof.
   introv HL. unfolds IsFull.
   xcf*.
-	xopen* c. intros e_data D e_front e_size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
   xpay. xappn*.
 	{ unwrap_up. }
 	{ xclose* c (L & x).
@@ -216,7 +226,7 @@ Proof.
 	introv HL.
 	xcf*.
 	lets (x & q & ->): list_neq_nil_inv_cons L HL.
-	xopen* c. intros e_data D e_front e_size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front size d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xpay. xappn*. xclose* c (x :: q).
 	{ constructors*; auto. }
 	{ xsimpl*. fequals.
@@ -235,7 +245,7 @@ Proof.
 	introv HL.
 	xcf*.
 	xpay. xapp*. intros x q E. subst.
-	xopen* c. intros e_data D e_front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xappn*. xval. xclose* c q.
 	{ rew_list in *. constructors*.
 		{ intros i Hi.
@@ -267,7 +277,7 @@ Lemma echunp_push_front_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: ec
 Proof.
 	introv HL. unfolds IsFull.
 	xcf*.
-	xopen* c. intros e_data D e_front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
+	xopen* c. intros data D front start d Inv. lets [Iin Iout Ilen Icapa Ifront Isz]: Inv.
 	xpay. xappn*.
 	{ unwrap_down. }
 	{ xclose* c (x :: L).
