@@ -158,7 +158,7 @@ let pchunk_split c k =
 
 (* TODO pchunk_of_echunk using parray_of_array *)
 let pchunk_of_echunk ec = {
-  p_data = parray_of_array ec.data; (* TODO: disambiguate *)
-  p_front = ec.front;
-  p_size = ec.size;
-  p_default = ec.default }
+  p_data = parray_of_array ec.e_data; (* TODO: disambiguate *)
+  p_front = ec.e_front;
+  p_size = ec.e_size;
+  p_default = ec.e_default }

@@ -10,15 +10,18 @@ let pchunk_is_empty = PChunkImpl.pchunk_is_empty
 let pchunk_is_full = PChunkImpl.pchunk_is_full
 let pchunk_size = PChunkImpl.pchunk_size
 
-let pchunk_peek = function
+let pchunk_peek v =
+  match v with
   | Front -> PChunkImpl.pchunk_peek_front
   | Back -> PChunkImpl.pchunk_peek_back
 
-let pchunk_pop = function
+let pchunk_pop v =
+  match v with
   | Front -> PChunkImpl.pchunk_pop_front
   | Back -> PChunkImpl.pchunk_pop_back
 
-let pchunk_push = function
+let pchunk_push v =
+  match v with
   | Front -> PChunkImpl.pchunk_push_front
   | Back -> PChunkImpl.pchunk_push_back
 
