@@ -143,6 +143,10 @@ let pwsek_populate v s =
   end else
     s
 
+let pwsek_populate_both s =
+  let s' = pwsek_populate Front s in
+  pwsek_populate Back s'
+
 let rec pwsek_push : 'a. view -> 'a pwsek -> 'a weighted -> 'a pwsek = fun v s x ->
   let vi = view_index v in
   let d = pwsek_default s in
@@ -176,18 +180,20 @@ let psek_peek pov s =
     pchunk_peek pov side).elem
 *)
 
-let psek_absorb s c = (* c1, c2, c12 *)
-  if pwsek_is_empty s then
-    pwsek_push Back s c
+let pwsek_absorb s1 c2 =
+  if pwchunk_is_empty c2 then
+    s1
+  else if pwsek_is_empty s1 then
+    pwsek_push Back s1 c2
   else
-    let s', c' = pwsek_pop Back s in
-    if pwchunk_size c' + pwchunk_size c <= capacity then begin
-      let c'' = pwchunkw_concat c' c in
-      pwsek_push Back s' c''
+    let s1', c1 = pwsek_pop Back s1 in
+    if pwchunk_size c1 + pwchunk_size c2 <= capacity then begin
+      let c12 = pwchunkw_concat c1 c2 in
+      pwsek_push Back s1' c12
     end else
-      pwsek_push Back s c
+      pwsek_push Back s1 c2
 
-let rec psek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
+let rec pwsek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
   let d = pwsek_default s1 in
 
   let vf = view_index Front in
@@ -199,22 +205,26 @@ let rec psek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
   let front2 = sides2.(vf) in
   let back2 = sides2.(vb) in
 
-  let absorbed =
-    match s1.p_mid with
-    | None ->
-        if pchunk_is_empty back1 && pchunk_is_empty front2 then None
-        else Some (psek_absorb (psek_absorb (psek_create (pwchunk_create default)) sback) s'front)
-    | Some m -> Some (psek_absorb (psek_absorb m sback) s'front)
-  in
-  let mid = (* use psek_get_mid *) (* todo: if mid2 not empty, pop its front, and absorb it as well *)
-    match absorbed, s'.p_mid with
-    | None, _ -> s'.p_mid
-    | _, None -> absorbed
-    | Some m, Some m' -> Some (psek_concat m m')
-  in
-  { p_sides = [| sfront; s'back |]; p_mid = mid; p_weight = s.p_weight + s'.p_weight }
+  let m = pwsek_get_mid s1.p_mid d in
+  let mb1 = pwsek_absorb m back1 in
+  let mb1f2 = pwsek_absorb mb1 front2 in
+  let mid1 = pwsek_mk_mid mb1f2 in
+  let mid2 = s2.p_mid in
 
-let rec psek_split : 'a. 'a psek -> int -> 'a psek * 'a psek = fun s ->
+  let mid = (* use psek_get_mid *) (* todo: if mid2 not empty, pop its front, and absorb it as well *)
+    match mid1, mid2 with
+    | None, _ -> mid2
+    | _, None -> mid1
+    | Some m1, Some m2 ->
+      let m2', c2 = pwsek_pop Front m2 in
+      let m1' = pwsek_absorb m1 c2 in
+      Some (pwsek_concat m1' m2')
+  in
+  let s12 = mk_pwsek_pov Front front1 mid back2 (s1.p_weight + s2.p_weight) in
+  pwsek_populate_both s12
+
+(* LATER *)
+let rec psek_split : 'a. 'a pwsek -> int -> 'a pwsek * 'a pwsek = fun s ->
   assert false
 
 
