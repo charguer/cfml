@@ -750,41 +750,40 @@ Section Compil_correct.
 
 
 
+  (* Definition match_temp_env (G : val_env) (te : Clight.temp_env) *)
+  (*   (M : map_loc) : Prop := *)
+  (*       forall i v ty, *)
+  (*         PTree.get i G = Some (v, const, ty) -> *)
+  (*         (exists vt, PTree.get i te = Some vt /\ match_values M ty v vt). *)
+
+
   Definition match_temp_env (G : val_env) (te : Clight.temp_env)
     (M : map_loc) : Prop :=
-        forall i v ty,
-          PTree.get i G = Some (v, const, ty) ->
-          (exists vt, PTree.get i te = Some vt /\ match_values M ty v vt).
+    ptree_relate (fun '(v, d, ty) => d = const)
+                 (fun '(vs, d, ty) vt => match_values M ty vs vt)
+                 G te.
 
-        (* -> PTree_relate P R p1 p2
-         R : relat entre valeurs
-         P : filtre
 
-         Lems:
-         ptree_relate_add_out (on ne vérifie pas P)
-         ptree_relate_add_in (on fait les deux add)
 
-Lemma ptree_relate_add :
-ptree_relate P R p1 p2 ->
-if (P x) then ()
-ptree_relate P R (add x p1) p2'
-
-         *)
-
-        (* M [l] = ty,, -> typeof (m [l]) ty *)
-
+  (* Definition match_static_env (G : val_env) (e : Clight.env) *)
+  (*   (M : map_loc) : Prop := *)
+  (*   forall i l d ty, *)
+  (*     d = stack \/ d = heap ->    (* d <> const *) *)
+  (*     PTree.get i G = Some (val_loc l, d, ty) -> *)
+  (*     (exists b, *)
+  (*         (* l \indom M -> *) *)
+  (*         (* M [l] = (ty, b, Integers.Ptrofs.zero) *) *)
+  (*         match_values M (type_ref ty) l (Values.Vptr b (Integers.Ptrofs.zero)) *)
+  (*         /\ PTree.get i e = Some (b, tr_types ty)). *)
 
 
   Definition match_static_env (G : val_env) (e : Clight.env)
     (M : map_loc) : Prop :=
-    forall i l d ty,
-      d = stack \/ d = heap ->    (* d <> const *)
-      PTree.get i G = Some (val_loc l, d, ty) ->
-      (exists b,
-          (* l \indom M -> *)
-          (* M [l] = (ty, b, Integers.Ptrofs.zero) *)
-          match_values M (type_ref ty) l (Values.Vptr b (Integers.Ptrofs.zero))
-          /\ PTree.get i e = Some (b, tr_types ty)).
+    ptree_relate (fun '(v, d, ty) => d <> const)
+      (fun '(l, d, ty) '(b, ty') =>
+         ty' = tr_types ty /\ match_values M (type_ref ty) l
+                               (Values.Vptr b Integers.Ptrofs.zero))
+      G e.
 
 
   Definition match_mem_vals (s : CFML_C.state) (m : Memory.Mem.mem)
@@ -982,10 +981,12 @@ ptree_relate P R (add x p1) p2'
                              /\ s' = Fmap.update s l (val_loc l')))).
       set (Q1 := (fun ft => exists fs, Qi1 fs /\ match_final_states FT E e0 fs ft)).
 
-      forwards *(b&Hmatch&Hie0): Henv.
+      forwards *((b&ty0)&Hbine0&Hmatch): Henv.
+      { congruence. }
       forwards *(vt & Heval_e & vs & HQevs & Hmatchvsvt):
         forward_expr E M (f, G, s, e, k) e0 te. constructors*.
-      inverts keep Hmatch.
+      inverts Hmatch as Hmatchl.
+      inverts keep Hmatchl as _ HldomM HMl.
       forwards *(Hldom & Hperm & v & Hload & Hmatchvals): Hmemvals l b.
       forwards *(m2 & Hstore):Memory.Mem.valid_access_store.
       { applys Memory.Mem.valid_access_implies. apply Hperm. constructor. }
@@ -1004,17 +1005,17 @@ ptree_relate P R (add x p1) p2'
         splits*. splits*. exists lvs; intuition congruence.
         constructors*.
         eapply assign_correct. eauto.
-        eauto. apply Hmatch. eapply Hmatchvsvt. congruence.
+        eauto. apply Hmatchl. eapply Hmatchvsvt. congruence.
         cbn. eauto. eauto.
         constructors*.
-      + intros. (* destruct (H3 vs HQevs) as (lve & ?); subst. *)
-        inversion H7 as (?&?&?). destruct x2 as ((((f'&G')&s')&t')&k').
-        unfold Qi1 in H9. destruct H9 as (?&?&?&?&?); subst.
-        destruct H16 as (lv'&HQelv'&Hs').
+      + introv HQ1. (* destruct (H3 vs HQevs) as (lve & ?); subst. *)
+        inversion HQ1 as (cfc & HQ1cfc & Hmatchf). destruct cfc as ((((f'&G')&s')&t')&k').
+        unfold Qi1 in HQ1cfc. destruct HQ1cfc as (?&?&?&?&?); subst.
+        destruct H12 as (lv'&HQelv'&->).
         apply H6 with lv'; eauto.
-        inversion H10. subst. constructors*.
+        inverts* Hmatchf. constructors*.
         introv ? ?.
-        forwards * : Hmemenv l0 d ty0 H8 H9.
+        forwards * : Hmemenv l0 d ty0.
         unfold Fmap.update. applys* Fmap.indom_union_r.
     - forwards*Hcompset:tr_let_expr_to_set H.
       rewrites* Hcompset in Hcomp. monadInv Hcomp.
@@ -1023,7 +1024,7 @@ ptree_relate P R (add x p1) p2'
                     f' = f
                     /\ k' = k
                     /\ s' = s
-                    /\ (exists v, Qe v -> G' = PTree.set x0 (v, const, ty) G)
+                    /\ (exists v, Qe v /\ G' = PTree.set x0 (v, const, ty) G)
                     /\ v' = val_unit)).
       set (Q1 := (fun ft => exists fs, Qi1 fs /\ match_final_states FT E e0 fs ft)).
       forwards *Htyx0: expr_compil_preserves_type.
@@ -1033,7 +1034,23 @@ ptree_relate P R (add x p1) p2'
       constructors*.
       + exists (f, PTree.set x0 (vs, const, ty) G, s, val_unit, k). splits*.
         { splits*. }
-        constructors*.          (* add lemma about adding stuff to envs. *)
+        constructors*.
+        applys* ptree_relate_add_in. congruence. eauto.
+        applys* ptree_relate_add_out. congruence.
+        constructor.
+      + introv (cfc & HcfcQi1 & Rfs). destruct cfc as ((((f2&G2)&s2)&v2)&k2).
+        destructs HcfcQi1; subst.
+        destruct H7 as (v0 & HQev0 & ->).
+        applys* H3. inverts * Rfs. constructors*.
+        introv HG2i Hd.
+        destruct (Pos.eq_dec x0 i).
+        { rewrite e1 in HG2i. rewrite PTree.gss in HG2i. inverts* HG2i.
+          branches Hd; discriminate. }
+        forwards* HGiG:PTree.gso i x0.
+        rewrites* HGiG in HG2i.
+
+
+
 
 End Compil_correct.
 
