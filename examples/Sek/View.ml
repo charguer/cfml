@@ -19,3 +19,8 @@ let view_exchange v (x, y) =
   match v with
   | Front -> (x, y)
   | Back -> (y, x)
+
+let view_sides v sides =
+  match v with
+  | Front -> sides.(0), sides.(1)
+  | Back -> sides.(1), sides.(0)

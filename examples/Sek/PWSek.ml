@@ -44,6 +44,18 @@ let pwchunkw_concat c0 c1 =
   let el = pchunk_concat (elem c0) (elem c1) in
   mk_weighted el (weight c0 + weight c1)
 
+(* [pwchunkw_split c w] returns [(c1, c2)] such that [c1 ++ c2 = c] and [c1] is
+  maximal such that [weight c1 <= w] *)
+let pwchunkw_split c w =
+  let uw = elem c in
+  let b = weight c - w in
+  let i, a = ref (pchunk_size uw), ref 0 in
+  while !i > 0 && !a < b do
+    decr i;
+    a := !a + weight (pchunk_get uw !i);
+  done;
+  let uw1, uw2 = pchunk_split uw !i in
+  mk_weighted uw1 !a, mk_weighted uw2 (weight c - !a)
 
 (*-----------------------------------------------------------------------------*)
 
@@ -85,6 +97,11 @@ let pwsek_get_mid d mo =
   | None -> pwsek_create (pwchunk_create d)
   | Some m -> m
 
+let pwsek_mid_weight mo =
+  match mo with
+  | None -> 0
+  | Some m -> m.p_weight
+
 (*-----------------------------------------------------------------------------*)
 (* Invariant: if one of the side is empty, then mid must be empty.
    Auxiliary functions*)
@@ -97,114 +114,51 @@ let pwsek_mk_mid m =
   else
     Some m
 
-(* TODO rename to sd othersd
-
-    side = sides.(i) --> bof
-    oside = sides.(oi)
-
-    mside = sides.(im) --> bof
-    oside = sides.(io)
-
-    fside = sides.(fi)  --> bof
-    bside = sides.(bi)
-
-    fside = sides.(if)
-    bside = sides.(ib)
-
-    front = sides.(if)
-    back = sides.(ib)
- *)
 let mk_pwsek_pov v front mid back w =
   let front', back' = view_exchange v (front, back) in
   { p_sides = [| front'; back' |];
     p_mid = mid;
     p_weight = w }
 
-(*
-   let if,ib = view_indices v in
-
-   let front,back = view_sides v side in
-
-   let view_sides v side =
-
-*)
-
 (*-----------------------------------------------------------------------------*)
 (* Pop, which is needed to restore the invariant *)
 
 let rec pwsek_pop : 'a. view -> 'a pwsek -> 'a pwsek * 'a weighted = fun v s ->
-  let vi = view_index v in
-  let vj = view_index (view_swap v) in
-  let sides = s.p_sides in
-  let sd = sides.(vi) in
-  let othersd = sides.(vj) in
-  (* TODO:   let front,back = view_sides v side in *)
+  let front, back = view_sides v s.p_sides in
+  let mid = s.p_mid in
 
-  if pwchunk_is_empty sd then begin
-    let othersd1, x = pwchunkw_pop v othersd in
-    let w = s.p_weight - weight x in
-    mk_pwsek_pov v sd None othersd1 w, x
-  end else begin
-    let sd1, x = pwchunkw_pop v sd in
-    let w = s.p_weight - weight x in
-
-    let mid = s.p_mid in
-    let s1 =
-      if pwchunk_is_empty sd1 then begin
-        match mid with
-        | None -> mk_pwsek_pov v sd1 None othersd w
-        | Some m ->
-          let m1, sd2 = pwsek_pop v m in
-          let m2 = pwsek_mk_mid m1 in
-          mk_pwsek_pov v sd2 m2 othersd w
-      end else
-        mk_pwsek_pov v sd1 mid othersd w
-    in s1, x
-
-    (*
-  let x, sd', mid', othersd' =
-    if pwchunk_is_empty sd then begin
-      let othersd1, x = pwchunkw_pop v othersd in
-      x, sd, mid, othersd1
+  let x, front', mid', back' =
+    if pwchunk_is_empty front then begin
+      let back1, x = pwchunkw_pop v back in
+      x, front, mid, back1
     end else begin
-      let sd1, x = pwchunkw_pop v sd in
-      let mid = s.p_mid in
-      let s1 =
-        if pwchunk_is_empty sd1 then begin
-          match mid with
-          | None -> mk_pwsek_pov v sd1 None othersd w
-          | Some m ->
-            let m1, sd2 = pwsek_pop v m in
-            let m2 = pwsek_mk_mid m1 in
-            ... TODO mk_pwsek_pov v sd2 m2 othersd w
-        end else
-          ... TODO mk_pwsek_pov v sd1 mid othersd w
-      in s1, x
-    in
-   let w = s.p_weight - weight x in
-   mk_pwsek_pov v sd' mid' othersd' w, x
-
-
-    *)
-  end
+      let front1, x = pwchunkw_pop v front in
+      if pwchunk_is_empty front1 then begin
+        match mid with
+        | None -> x, front1, None, back
+        | Some m ->
+          let m1, front2 = pwsek_pop v m in
+          let m2 = pwsek_mk_mid m1 in
+          x, front2, m2, back
+      end else
+        x, front1, mid, back
+    end
+  in
+  let w = s.p_weight - weight x in
+  mk_pwsek_pov v front' mid' back' w, x
 
 (*-----------------------------------------------------------------------------*)
 (* Auxiliary functions for invariant, continued *)
 
 let pwsek_populate v s =
-  let vi = view_index v in
-  let vj = view_index (view_swap v) in
-  let sides = s.p_sides in
-  let sd = sides.(vi) in
-  let othersd = sides.(vj) in
-
-  if pwchunk_is_empty sd then begin
+  let front, back = view_sides v s.p_sides in
+  if pwchunk_is_empty front then begin
     match s.p_mid with
     | None -> s
     | Some m ->
-      let m1, sd1 = pwsek_pop v m in
+      let m1, front1 = pwsek_pop v m in
       let m2 = pwsek_mk_mid m1 in
-      mk_pwsek_pov v sd1 m2 othersd s.p_weight
+      mk_pwsek_pov v front m2 back s.p_weight
   end else
     s
 
@@ -213,40 +167,36 @@ let pwsek_populate_both s =
   let s' = pwsek_populate Front s in
   pwsek_populate Back s'
 
+let mk_pwsek_populated v front mid back w =
+  let s = mk_pwsek_pov v front mid back w in
+  pwsek_populate_both s
 
 (*-----------------------------------------------------------------------------*)
 (* Push *)
 
 let rec pwsek_push : 'a. view -> 'a pwsek -> 'a weighted -> 'a pwsek = fun v s x ->
-  let vi = view_index v in
   let d = pwsek_default s in
-  let sides = s.p_sides in
-  let side = sides.(vi) in
+  let front, back = view_sides v s.p_sides in
+  let mid = s.p_mid in
 
-  let sd, mid = (* side->front  sd->front *)
-    if pwchunk_is_full side then begin
-      let front = pwchunkw_create d in
+  let front1, mid1 =
+    if pwchunk_is_full front then begin
+      let front' = pwchunkw_create d in
+      let m = pwsek_get_mid d mid in
+      front', Some (pwsek_push v m front)
+
+      (* TODO: would it be useful to define pwsek_push_into_mid v s c ? not so sure
       let m = pwsek_get_mid d s.p_mid in
-      front, Some (pwsek_push v m side)
+      Some (pwsek_push v m side)
 
-        (*  TODO would it be useful to define  pwsek_push_into_mid v s c
-      let m = pwsek_get_mid d s.p_mid in
-       Some (pwsek_push v m side)
-
-       code dessus devient
-       (pwchunkw_create d), (pwsek_push_into_mid v s front)
-       *)
-
+      code dessus devient
+      (pwchunkw_create d), (pwsek_push_into_mid v s front)
+      *)
     end else
-      side, s.p_mid
+      front, mid
     in
-  let sd' = pwchunkw_push v sd x in
-
-  let vj = view_index (view_swap v) in
-  let othersd = sides.(vj) in
-  let s' = mk_pwsek_pov v sd' mid othersd (s.p_weight + weight x) in
-  pwsek_populate (view_swap v) s'
-  (* TODO : mk_pwsek_populated *)
+  let front2 = pwchunkw_push v front1 x in
+  mk_pwsek_populated v front2 mid1 back (s.p_weight + weight x)
 
 
 (* LATER
@@ -282,15 +232,8 @@ let pwsek_absorb_back s1 c2 =
 
 let rec pwsek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
   let d = pwsek_default s1 in
-
-  let vf = view_index Front in
-  let vb = view_index Back in
-  let sides1 = s1.p_sides in
-  let front1 = sides1.(vf) in
-  let back1 = sides1.(vb) in
-  let sides2 = s2.p_sides in
-  let front2 = sides2.(vf) in
-  let back2 = sides2.(vb) in
+  let front1, back1 = view_sides Front s1.p_sides in
+  let front2, back2 = view_sides Front s2.p_sides in
 
   let m = pwsek_get_mid d s1.p_mid in
   let mb1 = pwsek_absorb_back m back1 in
@@ -308,11 +251,34 @@ let rec pwsek_concat : 'a. 'a pwsek -> 'a pwsek -> 'a pwsek = fun s1 s2 ->
       Some (pwsek_concat m1' m2')
     in
   let w = s1.p_weight + s2.p_weight in
-  let s12 = mk_pwsek_pov Front front1 mid back2 w in
-  pwsek_populate_both s12
+  mk_pwsek_populated Front front1 mid back2 w
 
-  (* TODO : mk_pwsek_populated *)
+(* [pwsek_split s w] returns [(s1, s2)] such that [s1 ++ s2 = s] and [s1] is
+  maximal such that [weight s1 <= w] *)
+let rec pwsek_split : 'a. 'a pwsek -> int -> 'a pwsek * 'a pwsek = fun s w ->
+  let d = pwsek_default s in
+  let front, back = view_sides Front s.p_sides in
+  let mid = s.p_mid in
+  let empty = pwchunkw_create d in
+  let wf = weight front in
+  let wm = pwsek_mid_weight mid in
 
-(* LATER *)
-let rec psek_split : 'a. 'a pwsek -> int -> 'a pwsek * 'a pwsek = fun s ->
-  assert false
+  let front1, mid1, back1, front2, mid2, back2 =
+    if w <= wf then
+      let b, f = pwchunkw_split front w in
+      empty, None, b, f, mid, back
+    else if w - wf < wm then
+      match mid with
+      | None -> assert false (* Impossible as wm > 1 *)
+      | Some m ->
+        let m1, m2 = pwsek_split m (w - wf) in
+        let m2', f2 = pwsek_pop Front m in (* non empty as m1.p_weight <= w - wf < wm so m2.p_weight > 0 *)
+        let b, f = pwchunkw_split f2 (w - m1.p_weight) in
+        front, pwsek_mk_mid m1, b, f, pwsek_mk_mid m2', back
+    else
+      let b, f = pwchunkw_split back (w - wf - wm) in
+      front, mid, b, f, None, empty
+  in
+  let w1 = weight front1 + (pwsek_mid_weight mid1) + weight back1 in
+  let w2 = weight front2 + (pwsek_mid_weight mid2) + weight back2 in
+  mk_pwsek_populated Front front1 mid1 back1 w1, mk_pwsek_populated Front front2 mid2 back2 w2
