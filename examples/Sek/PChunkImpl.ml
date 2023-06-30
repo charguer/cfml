@@ -153,7 +153,7 @@ let rec pchunk_displace c0 c1 k =
   the remaining [size c - k] elements. *)
 let pchunk_split c k =
   let c0 = pchunk_create c.default in
-  pchunk_displace c c0 k
+  pchunk_displace c c0 (c.size - k)
 
 (** [pchunk_of_echunk ec] consumes an [echunk] for producing a [pchunk]. *)
 let pchunk_of_echunk ec =

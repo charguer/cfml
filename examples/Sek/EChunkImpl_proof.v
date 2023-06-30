@@ -80,16 +80,6 @@ Proof.
   xclose* c. xsimpl*.
 Qed.
 
-Definition IsFull A (c:list A) : Prop :=
-  length c = K.
-
-Lemma NotFull_of_nil : forall A,
-  ~ IsFull (@nil A).
-Proof.
-  hint capacity_spec.
-  intros. unfold IsFull. rew_list*.
-Qed.
-
 
 (*************************************************)
 (** Specifications *)
@@ -97,12 +87,13 @@ Qed.
 Lemma echunk_fields_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
 	SPEC (echunk_fields c)
 		PRE (\$1 \* c ~> EChunk L)
-		POST (fun f => \exists data D front size default,
-			\[f = (data, front, size, default)] \*
+		POST (fun '(data, front, size, default) => \exists D,
 			c ~~~> `{ data' := data; front' := front; size' := size; default' := default } \*
 			data ~> Array D \*
 			\[EChunk_inv L D front size default]).
 Proof. xcf*. xpay. xopen c ;=> data D front size default I. xappn*. xvals*. Qed.
+
+Hint Extern 1 (RegisterSpec echunk_fields) => Provide echunk_fields_spec.
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (a: A),
   SPEC (echunk_create a)

@@ -664,6 +664,10 @@ Lemma IsPArray_Extend : forall A (IA: Inhab A) (EA: Enc A) (M M': Memory A) p L,
   IsPArray M' L p.
 Proof using. introv [_ H] Arr. auto. Qed.
 
+Lemma Extend_refl : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A),
+	Extend M M.
+Proof using. unfold Extend. auto. Qed.
+
 Lemma Extend_trans : forall A (IA: Inhab A) (EA: Enc A) (M2 M1 M3: Memory A),
 	Extend M1 M2 -> 
   Extend M2 M3 -> 
@@ -832,7 +836,7 @@ Qed.
 
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
 
-Definition parray_rebase_and_get_array_cost A {IA: Inhab A} {EA: Enc A}  (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A) : hprop := 
+Definition parray_rebase_and_get_array_cost A {IA: Inhab A} {EA: Enc A} (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A) : hprop := 
   if ishd then IsHead M pa \* \$1 else \$(length L + bound L + 2).
 
 Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A),
@@ -960,3 +964,17 @@ Proof using.
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.	
+
+Lemma parray_of_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (a: array A) (L: list A),
+	SPEC (parray_of_array a)
+		MONO M
+		PRE (\$1 \* a ~> Array L)
+		POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa).
+Proof using.
+	xcf~. simpl. xpay. xapp ;=> pa. xchange~ PArray_Base_close.
+	xchanges~ Shared_add_fresh_Base L ;=> Hpa.
+	{ applys~ IsPArray_Base; rew_map~. }
+	{ rewrites (>> IsHead_eq_base L); rew_map~. xsimpl. }
+Qed.
+
+Hint Extern 1 (RegisterSpec parray_of_array) => Provide parray_of_array_spec.
