@@ -34,6 +34,9 @@ let echunk_is_empty c =
 let echunk_is_full c =
   c.size = capacity
 
+let echunk_size c =
+  c.size
+
 let echunk_peek_back c =
   let back = wrap_up (c.front + c.size - 1) in
   c.data.(back)
@@ -68,6 +71,13 @@ let echunk_push_front c x =
   c.size <- c.size + 1;
   c.front <- new_front;
   c.data.(new_front) <- x
+
+let echunk_copy c =
+  let data = Array.copy c.data in
+  { data = data;
+    front = c.front;
+    size = c.size;
+    default = c.default }
 
 (* let echunk_get c i =
   c.data.(i)

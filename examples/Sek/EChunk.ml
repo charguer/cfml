@@ -1,11 +1,15 @@
 open EChunkImpl
 open View
 
+type 'a echunk = 'a EChunkImpl.echunk
+
 let echunk_default = echunk_default
 let echunk_dummy = echunk_dummy
 let echunk_create = echunk_create
+
 let echunk_is_empty = echunk_is_empty
 let echunk_is_full = echunk_is_full
+let echunk_size = echunk_size
 
 let echunk_peek = function
   | Front -> echunk_peek_front
@@ -18,3 +22,5 @@ let echunk_pop = function
 let echunk_push = function
   | Front -> echunk_push_front
   | Back -> echunk_push_back
+
+let echunk_copy = echunk_copy

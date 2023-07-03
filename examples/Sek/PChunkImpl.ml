@@ -52,9 +52,9 @@ let pchunk_peek_back c =
   returns the pair of a pchunk with all elements of [c] except the back one,
   and of the back element. *)
 let pchunk_pop_back c =
-  let x = pchunk_peek_back c in
   let new_size = c.size - 1 in
   let i = wrap_up (c.front + new_size) in
+  let x = parray_get c.data i in
   let pa = parray_set c.data i c.default in
   let c' = {
     data = pa;
@@ -81,7 +81,7 @@ let pchunk_peek_front c =
   returns the pair of a pchunk with all elements of [c] except the front one,
   and of the front element. *)
 let pchunk_pop_front c =
-  let x = pchunk_peek_front c in
+  let x = parray_get c.data c.front in
   let pa = parray_set c.data c.front c.default in
   let c' = {
     data = pa;
@@ -162,3 +162,11 @@ let pchunk_of_echunk ec =
   front = f;
   size = s;
   default = d }
+
+(** [echunk_of_pchunk pc] creates an ephemeral copy of [pc]. *)
+let echunk_of_pchunk pc =
+  let dat = parray_base_copy pc.data in
+  { EChunkImpl.data = dat;
+    EChunkImpl.front = pc.front;
+    EChunkImpl.size = pc.size;
+    EChunkImpl.default = pc.default }
