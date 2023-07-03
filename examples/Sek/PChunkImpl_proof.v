@@ -272,7 +272,7 @@ Lemma pchunk_concat_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: M
 	length L0 + length L1 <= K ->
 	SPEC (pchunk_concat c0 c1)
 		MONO M
-		PRE (if ishd then \$(16 * length L1) \* IsHead M c0 \* IsHead M c1)
+		PRE (if ishd then \$(16 * length L1) \* IsHead M c0 \* IsHead M c1 else \[])
 		POST (fun M' c' => \[IsPChunk M' (L0 ++ L1) c']).
 Proof.
 	introv Rc0 Rc1 Hlen. gen c0 L0 c1. induction_wf IH: list_sub L1.

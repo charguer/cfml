@@ -273,7 +273,7 @@ Record Node A : Type := make_Node {
 	maxdist : int }.
 
 Definition PArray A {IA: Inhab A} {EA: Enc A} (n: Node A) (pa: parray_ A) : hprop :=
-	\exists d, pa ~~~> `{ data' := d ; maxdist' := maxdist n } \* d ~> PArray_Desc (desc n).
+	\exists d, pa ~~~> `{ desc' := d ; maxdist' := maxdist n } \* d ~> PArray_Desc (desc n).
 
 
 Instance Desc_inhab A : Inhab A -> Inhab (Desc A).
@@ -391,16 +391,16 @@ Proof using. auto. Qed.
 
 Lemma PArray_eq : forall A (IA: Inhab A) (EA: Enc A) (pa: parray_ A) (n: Node A),
 	pa ~> PArray n =
-	\exists d, pa ~~~> `{ data' := d ; maxdist' := maxdist n } \* d ~> PArray_Desc (desc n).
+	\exists d, pa ~~~> `{ desc' := d ; maxdist' := maxdist n } \* d ~> PArray_Desc (desc n).
 Proof using. auto. Qed.
 
 Lemma PArray_Base_close : forall A (IA: Inhab A) (EA: Enc A) (pa: parray_ A) (a: array A) (md: int) (L: list A),
-	pa ~~~> `{ data' := PArray_Base a; maxdist' := md } \* a ~> Array L ==>
+	pa ~~~> `{ desc' := PArray_Base a; maxdist' := md } \* a ~> Array L ==>
 	pa ~> PArray {| desc := Desc_Base L; maxdist := md |}.
 Proof using. intros. xchange~ <- PArray_Desc_eq_Base. xchange~ <- PArray_eq pa. Qed.
 
 Lemma PArray_Diff_close : forall A (IA: Inhab A) (EA: Enc A) (pa: parray_ A) (md: int) q i x,
-	pa ~~~> `{ data' := PArray_Diff q i x; maxdist' := md } ==>
+	pa ~~~> `{ desc' := PArray_Diff q i x; maxdist' := md } ==>
 	pa ~> PArray {| desc := Desc_Diff q i x; maxdist := md |}.
 Proof using. intros. xchange~ <- PArray_Desc_eq_Diff q i x. xchange~ <- PArray_eq pa. Qed.
 
@@ -844,7 +844,7 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ish
 	SPEC (parray_rebase_and_get_array pa)
 		PRE (Shared M \* parray_rebase_and_get_array_cost ishd M pa L)
 		POST (fun a =>
-			pa ~~~> `{ data' := (PArray_Base (B_ := A)) a; maxdist' := maxdist (M[pa]) } \*
+			pa ~~~> `{ desc' := (PArray_Base (B_ := A)) a; maxdist' := maxdist (M[pa]) } \*
 			a ~> Array L \*
 			Group (PArray (A := A)) (M \-- pa) \*
 			\[Inv M] \*

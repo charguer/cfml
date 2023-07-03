@@ -1,4 +1,5 @@
 open PChunk
+open SChunkImpl
 open Capacity
 open Weighted
 open View
@@ -45,17 +46,19 @@ let pwchunkw_concat c0 c1 =
   mk_weighted el (weight c0 + weight c1)
 
 (* [pwchunkw_split c w] returns [(c1, c2)] such that [c1 ++ c2 = c] and [c1] is
-  maximal such that [weight c1 <= w] *)
+  maximal such that [weight c1 <= w]
+  works only if weights are all positive... not very elegant to *)
 let pwchunkw_split c w =
   let uw = elem c in
   let b = weight c - w in
-  let i, a = ref (pchunk_size uw), ref 0 in
+  let i = ref (pchunk_size uw) in
+  let a = ref 0 in
   while !i > 0 && !a < b do
     decr i;
     a := !a + weight (pchunk_get uw !i);
   done;
   let uw1, uw2 = pchunk_split uw !i in
-  mk_weighted uw1 !a, mk_weighted uw2 (weight c - !a)
+  mk_weighted uw1 (weight c - !a), mk_weighted uw2 !a
 
 (*-----------------------------------------------------------------------------*)
 
@@ -259,14 +262,14 @@ let rec pwsek_split : 'a. 'a pwsek -> int -> 'a pwsek * 'a pwsek = fun s w ->
   let d = pwsek_default s in
   let front, back = view_sides Front s.p_sides in
   let mid = s.p_mid in
-  let empty = pwchunkw_create d in
+  let empty () = pwchunkw_create d in
   let wf = weight front in
   let wm = pwsek_mid_weight mid in
 
   let front1, mid1, back1, front2, mid2, back2 =
     if w <= wf then
       let b, f = pwchunkw_split front w in
-      empty, None, b, f, mid, back
+      empty (), None, b, f, mid, back
     else if w - wf < wm then
       match mid with
       | None -> assert false (* Impossible as wm > 1 *)
@@ -277,7 +280,7 @@ let rec pwsek_split : 'a. 'a pwsek -> int -> 'a pwsek * 'a pwsek = fun s w ->
         front, pwsek_mk_mid m1, b, f, pwsek_mk_mid m2', back
     else
       let b, f = pwchunkw_split back (w - wf - wm) in
-      front, mid, b, f, None, empty
+      front, mid, b, f, None, empty ()
   in
   let w1 = weight front1 + (pwsek_mid_weight mid1) + weight back1 in
   let w2 = weight front2 + (pwsek_mid_weight mid2) + weight back2 in
