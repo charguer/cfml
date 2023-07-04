@@ -4,7 +4,9 @@ open EChunk
 open PChunk
 
 type 'a schunk =
-  | MaybeOwned of { support : 'a echunk; id : owner }
+  | MaybeOwned of {
+      support : 'a echunk;
+      id : owner }
   | Shared of 'a pchunk
 
 let schunk_match_id o c =
@@ -42,6 +44,11 @@ let schunk_create_shared d =
   let pc = pchunk_create d in
   Shared pc
 
+let schunk_create d oo =
+  match oo with
+  | Some o -> schunk_create_maybe_owned d o
+  | None -> schunk_create_shared d
+
 let schunk_is_empty c =
   match c with
   | MaybeOwned { support = ec; _ } -> echunk_is_empty ec
@@ -56,6 +63,11 @@ let schunk_size c =
   match c with
   | MaybeOwned { support = ec; _ } -> echunk_size ec
   | Shared pc -> pchunk_size pc
+
+let schunk_peek v c =
+  match c with
+  | MaybeOwned { support = ec; _ } -> echunk_peek v ec
+  | Shared pc -> pchunk_peek v pc
 
 let schunk_pop v o c =
   let oc = schunk_match_id o c in

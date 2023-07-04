@@ -141,6 +141,7 @@ let pchunk_to_echunk pc = {
   EChunkImpl.default = pc.default }
 
 
+(*---------------------------------------------------------------------------*)
 (* Migrate to SChunk.ml? *)
 
 (*
