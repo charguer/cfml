@@ -29,8 +29,7 @@ let pchunk_push v =
 let pchunk_get = pchunk_get
 let pchunk_set = pchunk_set
 
-let pchunk_concat = pchunk_concat
-let pchunk_split = pchunk_split
+let pchunk_copy = pchunk_copy
 
 let pchunk_of_echunk = pchunk_of_echunk
-let echunk_of_pchunk = echunk_of_pchunk
+let pchunk_to_echunk = pchunk_to_echunk

@@ -8,7 +8,8 @@ type 'a echunk = {
   default : 'a }
 
 (** [echunk_fields c]
-  returns the 4-tuple of the fields of [c].*)
+  returns the 4-tuple of the fields of [c].
+  Hopefully we can get rid of this later... *)
 let echunk_fields c =
   c.data, c.front, c.size, c.default
 
@@ -16,7 +17,8 @@ let echunk_fields c =
   returns the default value of c. *)
 let echunk_default c =
   c.default
-  
+
+(* Useful? *)
 let echunk_dummy d = {
   data = [||];
   front = 0;
@@ -24,7 +26,7 @@ let echunk_dummy d = {
   default = d }
 
 (** [echunk_create d]
-  returns a fresh [echunk] with default value [d]. *)
+  returns an empty fresh [echunk] with default value [d]. *)
 let echunk_create d = {
   data = Array.make capacity d;
   front = 0;
@@ -42,7 +44,7 @@ let echunk_is_full c =
   c.size = capacity
 
 (** [echunk_size c]
-  returns the size of [c]. *)
+  returns the number of elements in [c]. *)
 let echunk_size c =
   c.size
 
@@ -113,6 +115,10 @@ let echunk_copy c =
     front = c.front;
     size = c.size;
     default = c.default }
+
+
+(*****************************************************************************)
+(* LATER? *)
 
 (*
 let echunk_sub c size =

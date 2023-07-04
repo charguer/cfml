@@ -14,7 +14,7 @@ let schunk_match_id o c =
       let pc = pchunk_of_echunk ec in
       Shared pc
   | Some o, Shared pc ->
-      let ec = echunk_of_pchunk pc in
+      let ec = pchunk_to_echunk pc in
       MaybeOwned { support = ec; id = o }
   | Some o, MaybeOwned { support = ec; id = i } ->
       if o = i then

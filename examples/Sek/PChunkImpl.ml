@@ -9,10 +9,11 @@ type 'a pchunk = {
   default : 'a }
 
 (** [pchunk_default c]
-  returns the defaut value of pchunk [c]. *)
+  returns the defaut value of [c]. *)
 let pchunk_default c =
   c.default
 
+(* Useful? *)
 let pchunk_dummy d = {
   data = parray_create 0 d;
   front = 0;
@@ -20,7 +21,7 @@ let pchunk_dummy d = {
   default = d }
 
 (** [pchunk_create d]
-  returns an empty pchunk with default value [d]. *)
+  returns an empty [pchunk] with default value [d]. *)
 let pchunk_create d = {
   data = parray_create capacity d;
   front = 0;
@@ -49,7 +50,7 @@ let pchunk_peek_back c =
   parray_get c.data back
 
 (** [pchunk_pop_back c]
-  returns the pair of a pchunk with all elements of [c] except the back one,
+  returns the pair of a [pchunk] with all elements of [c] except the back one,
   and of the back element. *)
 let pchunk_pop_back c =
   let new_size = c.size - 1 in
@@ -64,7 +65,7 @@ let pchunk_pop_back c =
   (c', x)
 
 (** [pchunk_push_back c x]
-  returns a pchunk with all elements of [c] and [x] added at the back. *)
+  returns a [pchunk] with all elements of [c] and [x] added at the back. *)
 let pchunk_push_back c x =
   let i = wrap_up (c.front + c.size) in
   { data = parray_set c.data i x;
@@ -78,7 +79,7 @@ let pchunk_peek_front c =
   parray_get c.data c.front
 
 (** [pchunk_pop_front c]
-  returns the pair of a pchunk with all elements of [c] except the front one,
+  returns the pair of a [pchunk] with all elements of [c] except the front one,
   and of the front element. *)
 let pchunk_pop_front c =
   let x = parray_get c.data c.front in
@@ -91,7 +92,7 @@ let pchunk_pop_front c =
   (c', x)
 
 (** [pchunk_push_front c x]
-  returns a pchunk with all elements of [c] and [x] added at the front. *)
+  returns a [pchunk] with all elements of [c] and [x] added at the front. *)
 let pchunk_push_front c x =
   let new_front = wrap_down (c.front - 1) in
   let pa = parray_set c.data new_front x in
@@ -107,7 +108,7 @@ let pchunk_get c i =
   parray_get c.data j
 
 (** [pchunk_set c i x]
-  returns a pchunk with all elements of [c],
+  returns a [pchunk] with all elements of [c],
   except the one in the [i]-th position which is replaced by [x]. *)
 let pchunk_set c i x =
   let front = c.front in
@@ -118,10 +119,35 @@ let pchunk_set c i x =
     size = c.size;
     default = c.default }
 
-(** [pchunk_concat c0 c1]
-  returns a pchunk that contains all elements of [c0] and of [c1].
+let pchunk_copy c = {
+  data = parray_copy c.data;
+  front = c.front;
+  size = c.size;
+  default = c.default }
 
-  Implemented by growing a pchunk starting from [c0], thus the
+(** [pchunk_of_echunk ec] consumes an [echunk] to produce a [pchunk]. *)
+let pchunk_of_echunk ec =
+  let dat, f, s, d = EChunkImpl.echunk_fields ec in
+  { data = parray_of_array dat;
+    front = f;
+    size = s;
+    default = d }
+
+(** [pchunk_to_echunk pc] creates an ephemeral copy of [pc]. *)
+let pchunk_to_echunk pc = {
+  EChunkImpl.data = parray_to_array pc.data;
+  EChunkImpl.front = pc.front;
+  EChunkImpl.size = pc.size;
+  EChunkImpl.default = pc.default }
+
+
+(* Migrate to SChunk.ml? *)
+
+(*
+(** [pchunk_concat c0 c1]
+  returns a [pchunk] that contains all elements of [c0] and of [c1].
+
+  Implemented by growing a [pchunk] starting from [c0], thus the
   cost is proportional to the size of [c1].
   Requires the combined sizes of [c0] and [c1] to not exceed capacity. *)
 let rec pchunk_concat c0 c1 =
@@ -148,25 +174,10 @@ let rec pchunk_displace c0 c1 k =
   end
 
 (** [pchunk_split c k]
-  returns a pair of pchunks [(c1, c2)] such that [c1] contains
+  returns a pair of [pchunk]s [(c1, c2)] such that [c1] contains
   the [k] front elements from [c] and [c2] contains
   the remaining [size c - k] elements. *)
 let pchunk_split c k =
   let c0 = pchunk_create c.default in
   pchunk_displace c c0 (c.size - k)
-
-(** [pchunk_of_echunk ec] consumes an [echunk] for producing a [pchunk]. *)
-let pchunk_of_echunk ec =
-  let dat, f, s, d = EChunkImpl.echunk_fields ec in
-  { data = parray_of_array dat;
-  front = f;
-  size = s;
-  default = d }
-
-(** [echunk_of_pchunk pc] creates an ephemeral copy of [pc]. *)
-let echunk_of_pchunk pc =
-  let dat = parray_base_copy pc.data in
-  { EChunkImpl.data = dat;
-    EChunkImpl.front = pc.front;
-    EChunkImpl.size = pc.size;
-    EChunkImpl.default = pc.default }
+*)

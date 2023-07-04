@@ -23,4 +23,7 @@ let echunk_push = function
   | Front -> echunk_push_front
   | Back -> echunk_push_back
 
+let echunk_get = echunk_get
+let echunk_set = echunk_set
+
 let echunk_copy = echunk_copy
