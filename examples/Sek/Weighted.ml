@@ -1,16 +1,16 @@
 type 'a weighted = {
-  elem : 'a;
+  unweighted : 'a;
   weight : int }
 
-let mk_weighted e w =
-  { elem = e;
-    weight = w }
+let mk_weighted uw w = {
+  unweighted = uw;
+  weight = w }
 
-let dummy_weighted e =
-  mk_weighted e 0
+let dummy_weighted uw =
+  mk_weighted uw 0
 
-let elem x =
-  x.elem
+let unweighted x =
+  x.unweighted
 
 let weight x =
   x.weight
