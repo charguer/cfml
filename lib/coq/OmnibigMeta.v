@@ -4,27 +4,27 @@ Set Implicit Arguments.
 
 From TLC Require Import LibString LibList LibCore LibInt.
 
-Section Omni_and_big_correction.
+Section Omni_big_correction.
 
   Variable sTrm : Type.           (* source terms *)
   Variable sVal : Type.           (* source values *)
   Variable tTrm : Type.           (* target terms *)
   Variable tVal : Type.           (* target values *)
 
-  Definition pc : Type := sVal -> Prop. (* postconditions *)
+  Definition s_pc : Type := sVal -> Prop. (* postconditions *)
+  Definition t_pc : Type := tVal -> Prop.
 
-
-  (* Variable comp_values : sVal -> tVal. *)
-  (* Variable comp_values_inv : tVal -> sVal. *)
 
   Definition bigstep (trm : Type) (val : Type) :=
     trm -> val -> Prop : Type.
 
-  Variable sOmniBig : bigstep sTrm pc.
+  Variable sOmniBig : bigstep sTrm s_pc.
   Variable sBig : bigstep sTrm sVal.
+  Variable tOmniBig : bigstep tTrm t_pc.
   Variable tBig : bigstep tTrm tVal.
 
-  Definition sp (t : sTrm) := fun v => sBig t v.
+  Definition s_sp (t : sTrm) := fun v => sBig t v.
+  Definition t_sp (t : tTrm) := fun v => tBig t v.
 
   Definition terminates {trm : Type} {val : Type} {exec : bigstep trm val}
     (t : trm) : Prop :=
@@ -32,7 +32,7 @@ Section Omni_and_big_correction.
 
 
   Definition post_not_empty : Prop :=
-    forall (s : sTrm) (Q : pc),
+    forall (s : sTrm) (Q : s_pc),
       sOmniBig s Q ->
       exists v, Q v.
 
@@ -42,48 +42,38 @@ Section Omni_and_big_correction.
 
   Variable Rval : sVal -> tVal -> Prop.
 
-  Definition lift_R (R : sVal -> tVal -> Prop) : ((sVal -> Prop) -> tVal -> Prop) :=
-    fun P vt => exists vs, P vs /\ R vs vt.
+  Definition lift_R (R : sVal -> tVal -> Prop)
+    (Qs : s_pc) (Qt : t_pc) : Prop :=
+    forall vt, Qt vt -> exists vs, Qs vs /\ R vs vt.
 
 
-  Hypothesis forward : forall (src_t : sTrm) (tgt_t : tTrm) (P : pc),
+  Hypothesis forward : forall (src_t : sTrm) (tgt_t : tTrm) (Qs : s_pc),
       R src_t tgt_t ->
-      sOmniBig src_t P ->
-      @terminates _ _ tBig tgt_t /\
-        (forall v, tBig tgt_t v -> lift_R Rval P v).
+      sOmniBig src_t Qs ->
+      exists Qt, tOmniBig tgt_t Qt /\ lift_R Rval Qs Qt.
 
 
-  Hypothesis omnibig_iff_terminates_and_correct : forall t P,
+
+  Hypothesis s_omnibig_iff_terminates_and_correct : forall t P,
       sOmniBig t P <-> @terminates _ _ sBig t /\ forall v, sBig t v -> P v.
 
-  (* Hypothesis tBig_deter : forall t v v', *)
-  (*     tBig t v -> tBig t v' -> v = v'. *)
+  Hypothesis t_omnibig_iff_terminates_and_correct : forall t P,
+      tOmniBig t P <-> @terminates _ _ tBig t /\ forall v, tBig t v -> P v.
 
 
-  (* Lemma correction : forall (t : sTrm), *)
-  (*     @terminates _ _ sBig t -> *)
-  (*     @terminates _ _ tBig (compile t) *)
-  (*     /\ forall vt, tBig (compile t) vt -> *)
-  (*             exists vs, Rval vs vt /\ sBig t vs. *)
-  (*     (* /\ forall v, tBig (compile t) v -> *) *)
-  (*     (*        exists P, sOmniBig t P /\ P (comp_values_inv v). *) *)
-  (* Proof using forward omnibig_iff_terminates_and_correct. *)
-  (*   introv Hterm. *)
-  (*   specialize (@omnibig_iff_terminates_and_correct t (sp t)). *)
-  (*   (* simpl in omnibig_iff_terminates_and_correct. *) *)
-  (*   assert (sOmniBig t (sp t)). now apply omnibig_iff_terminates_and_correct. *)
-  (*   specialize (@forward t (sp t) H). *)
-  (*   destruct forward as (Htermcomp&Hcomps). *)
-  (*   unfold terminates in Htermcomp. destruct Htermcomp as (vt & Hvt). *)
-  (*   split. unfold terminates. exists vt. apply Hvt. *)
-  (*   intros. forwards * : Hcomps vt0 H0. *)
-  (*   unfold lift_R in H1. *)
-  (*   destruct H1 as (vs & Hvsinsp & HRv'). *)
-  (*   exists vs. split. auto. *)
-  (*   apply Hvsinsp. *)
-  (* Qed.*)
+  Lemma correction : forall (t_s : sTrm) (t_t : tTrm),
+      R t_s t_t ->
+      @terminates _ _ sBig t_s ->
+      @terminates _ _ tBig t_t
+      /\ forall vt, tBig t_t vt ->
+              exists vs, Rval vs vt /\ sBig t_s vs.
+  Proof using forward s_omnibig_iff_terminates_and_correct
+    t_omnibig_iff_terminates_and_correct.
+    introv HR Hterminates.
+    setoid_rewrite s_omnibig_iff_terminates_and_correct in forward.
+    setoid_rewrite t_omnibig_iff_terminates_and_correct in forward.
+    forwards *Hforward: forward t_s t_t (s_sp t_s).
+    firstorder.
+  Qed.
 
-
-
-
-End Omni_and_big_correction.
+End Omni_big_correction.
