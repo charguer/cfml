@@ -61,14 +61,15 @@ let pchunk_pop_back c =
     data = pa;
     front = c.front;
     size = new_size;
-    default = c.default } in
+    default = c.default } in (* { c with ... } *)
   (c', x)
 
 (** [pchunk_push_back c x]
   returns a [pchunk] with all elements of [c] and [x] added at the back. *)
 let pchunk_push_back c x =
   let i = wrap_up (c.front + c.size) in
-  { data = parray_set c.data i x;
+  let pa = parray_set c.data i x in
+  { data = pa;
     front = c.front;
     size = c.size + 1;
     default = c.default }
@@ -133,12 +134,10 @@ let pchunk_of_echunk ec =
     size = s;
     default = d }
 
-(** [pchunk_to_echunk pc] creates an ephemeral copy of [pc]. *)
-let pchunk_to_echunk pc = {
-  EChunkImpl.data = parray_to_array pc.data;
-  EChunkImpl.front = pc.front;
-  EChunkImpl.size = pc.size;
-  EChunkImpl.default = pc.default }
+(** [echunk_of_pchunk pc] creates a fresh ephemeral copy of [pc]. *)
+let echunk_of_pchunk pc =
+  let a = array_of_parray pc.data in
+  EChunkImpl.echunk_of_fields a pc.front pc.size pc.default
 
 
 (*---------------------------------------------------------------------------*)

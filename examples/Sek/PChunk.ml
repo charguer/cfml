@@ -32,4 +32,4 @@ let pchunk_set = pchunk_set
 let pchunk_copy = pchunk_copy
 
 let pchunk_of_echunk = pchunk_of_echunk
-let pchunk_to_echunk = pchunk_to_echunk
+let echunk_of_pchunk = echunk_of_pchunk

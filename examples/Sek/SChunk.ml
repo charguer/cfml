@@ -16,7 +16,7 @@ let schunk_match_id o c =
       let pc = pchunk_of_echunk ec in
       Shared pc
   | Some o, Shared pc ->
-      let ec = pchunk_to_echunk pc in
+      let ec = echunk_of_pchunk pc in
       MaybeOwned { support = ec; id = o }
   | Some o, MaybeOwned { support = ec; id = i } ->
       if o = i then
@@ -89,13 +89,27 @@ let schunk_push v o c x =
       let pc' = pchunk_push v pc x in
       Shared pc'
 
-let rec schunk_concat o c0 c1 =
+let rec schunk_concat oo c0 c1 =
   if schunk_is_empty c1 then
     c0
   (* else if schunk_is_empty oc0 then
     c1 *)
   else begin
-    let c1', x = schunk_pop Front o c1 in
-    let c0' = schunk_push Back o c0 x in
-    schunk_concat o c0' c1'
+    let c1', x = schunk_pop Front oo c1 in
+    let c0' = schunk_push Back oo c0 x in
+    schunk_concat oo c0' c1'
   end
+
+let schunk_of_echunk o ec =
+  MaybeOwned {
+    support = ec;
+    id = o }
+
+let echunk_of_schunk o sc =
+  match sc with
+  | MaybeOwned { support = ec; id = i } ->
+      if o = i then
+        ec
+      else
+        echunk_copy ec
+  | Shared pc -> echunk_of_pchunk pc

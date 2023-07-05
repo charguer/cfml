@@ -89,4 +89,4 @@ let parray_of_array = parray_mk_base
 
 (** [parray_to_array pa]
   returns an ephemeral copy of [pa]. *)
-let parray_to_array = parray_base_copy
+let array_of_parray = parray_base_copy

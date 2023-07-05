@@ -13,6 +13,14 @@ type 'a echunk = {
 let echunk_fields c =
   c.data, c.front, c.size, c.default
 
+(** [echunk_of_fields a f s d]
+  makes an [echunk] with the specified fields. *)
+let echunk_of_fields a f s d = {
+  data = a;
+  front = f;
+  size = s;
+  default = d }
+
 (** [echunk_default c]
   returns the default value of c. *)
 let echunk_default c =

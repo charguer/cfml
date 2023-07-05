@@ -30,3 +30,21 @@ let echunk_get = echunk_get
 let echunk_set = echunk_set
 
 let echunk_copy = echunk_copy
+
+(** [echunk_carve v c0 c1 i]
+  moves the first [i] element of [c0] at the side pointed by [v] to the other side of [c1] *)
+let rec echunk_carve v c0 c1 i =
+  if i > 0 then begin
+    let x = echunk_pop v c0 in
+    echunk_push (view_swap v) c1 x;
+    echunk_carve v c0 c1 (i - 1)
+  end
+
+(** [echunk_split c i]
+  moves the [i] first elements of [c] to another fresh chunk [c0].
+  [c0 ++ c = old c]*)
+let echunk_split c i =
+  let d = echunk_default c in
+  let c0 = echunk_create d in
+  echunk_carve Front c c0 i;
+  c0, c

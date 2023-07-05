@@ -47,18 +47,16 @@ let swchunk_concat o (c0: 'a swchunk) (c1: 'a swchunk) : 'a swchunk =
 (** [swchunk_carve v o c0 c1 w]
   moves the element of [c0] at the side pointed by v to the other side of [c1]
   as long as the combined weight of moved elements does not exceed [w].
-  Returns the pair of the shrunk [c0] and the extended [c1] *)
+  We want [w] to not exceed the total weight stored.
+  Returns the pair the extended [c1] and of the shrunk [c0] *)
 let rec swchunk_carve v o (c0: 'a swchunk) (c1: 'a swchunk) w =
-  if swchunk_is_empty c0 then
-    c0, c1
+  (* assert (not (swchunk_is_empty c0)) *)
+  let c0', x = swchunk_pop v o c0 in
+  if weight x > w then
+    c1, c0
   else begin
-    let c0', x = swchunk_pop v o c0 in
-    if weight x > w then
-      c0, c1
-    else begin
-      let c1' = swchunk_push (view_swap v) o c1 x in
-      swchunk_carve v o c0' c1' (w - weight x)
-    end
+    let c1' = swchunk_push (view_swap v) o c1 x in
+    swchunk_carve v o c0' c1' (w - weight x)
   end
 
 (** [swchunk_split o c w]
@@ -66,8 +64,7 @@ let rec swchunk_carve v o (c0: 'a swchunk) (c1: 'a swchunk) w =
   and of its complementary suffix. *)
 let swchunk_split o (c: 'a swchunk) w =
   let c0 = swchunk_create (swchunk_default c) o in
-  let cback, cfront = swchunk_carve Front o c c0 w in
-  cfront, cback
+  swchunk_carve Front o c c0 w
 
 (* [swchunk_split c w] returns [(c1, c2)] such that [c1 ++ c2 = c] and [c1] is
   maximal such that [weight c1 <= w]
