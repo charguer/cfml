@@ -1,5 +1,5 @@
 open Weighted
-open PWSek
+open SWSek
 
 type 'a psek = 'a swsek
 

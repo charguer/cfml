@@ -5,7 +5,7 @@ open Owner
 open EChunk
 open SChunk
 open SWChunk
-open PWSek
+open SWSek
 
 (* ideally, we want to have 'a instead of 'a weighted as all weights are 1 *)
 
