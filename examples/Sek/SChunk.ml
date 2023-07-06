@@ -4,31 +4,29 @@ open EChunk
 open PChunk
 
 type 'a schunk =
-  | MaybeOwned of {
-      support : 'a echunk;
-      id : owner }
+  | MaybeOwned of 'a echunk * owner
   | Shared of 'a pchunk
 
 let schunk_match_id o c =
   match o, c with
   | None, Shared pc -> c
-  | None, MaybeOwned { support = ec; _ } ->
+  | None, MaybeOwned  (ec, _) ->
       let pc = pchunk_of_echunk ec in
       Shared pc
   | Some o, Shared pc ->
       let ec = echunk_of_pchunk pc in
-      MaybeOwned { support = ec; id = o }
-  | Some o, MaybeOwned { support = ec; id = i } ->
+      MaybeOwned (ec, o)
+  | Some o, MaybeOwned (ec, i) ->
       if o = i then
         c
       else begin
         let ec' = echunk_copy ec in
-        MaybeOwned { support = ec'; id = o }
+        MaybeOwned (ec', o)
       end
 
 let schunk_default c =
   match c with
-  | MaybeOwned { support = ec; _ } -> echunk_default ec
+  | MaybeOwned (ec, _) -> echunk_default ec
   | Shared pc -> pchunk_default pc
 
 let schunk_dummy d =
@@ -36,9 +34,7 @@ let schunk_dummy d =
 
 let schunk_create_maybe_owned d o =
   let ec = echunk_create d in
-  MaybeOwned {
-    support = ec;
-    id = o }
+  MaybeOwned (ec, o)
 
 let schunk_create_shared d =
   let pc = pchunk_create d in
@@ -51,28 +47,28 @@ let schunk_create d oo =
 
 let schunk_is_empty c =
   match c with
-  | MaybeOwned { support = ec; _ } -> echunk_is_empty ec
+  | MaybeOwned (ec, _) -> echunk_is_empty ec
   | Shared pc -> pchunk_is_empty pc
 
 let schunk_is_full c =
   match c with
-  | MaybeOwned { support = ec; _ } -> echunk_is_full ec
+  | MaybeOwned (ec, _) -> echunk_is_full ec
   | Shared pc -> pchunk_is_full pc
 
 let schunk_size c =
   match c with
-  | MaybeOwned { support = ec; _ } -> echunk_size ec
+  | MaybeOwned (ec, _) -> echunk_size ec
   | Shared pc -> pchunk_size pc
 
 let schunk_peek v c =
   match c with
-  | MaybeOwned { support = ec; _ } -> echunk_peek v ec
+  | MaybeOwned (ec, _) -> echunk_peek v ec
   | Shared pc -> pchunk_peek v pc
 
 let schunk_pop v o c =
   let oc = schunk_match_id o c in
   match oc with
-  | MaybeOwned { support = ec; id = i } ->
+  | MaybeOwned (ec, i) ->
       let x = echunk_pop v ec in
       oc, x
   | Shared pc ->
@@ -82,7 +78,7 @@ let schunk_pop v o c =
 let schunk_push v o c x =
   let oc = schunk_match_id o c in
   match oc with
-  | MaybeOwned { support = ec; id = i } ->
+  | MaybeOwned (ec, i) ->
       echunk_push v ec x;
       oc
   | Shared pc ->
@@ -101,13 +97,11 @@ let rec schunk_concat oo c0 c1 =
   end
 
 let schunk_of_echunk o ec =
-  MaybeOwned {
-    support = ec;
-    id = o }
+  MaybeOwned (ec, o)
 
 let echunk_of_schunk o sc =
   match sc with
-  | MaybeOwned { support = ec; id = i } ->
+  | MaybeOwned (ec, i) ->
       if o = i then
         ec
       else

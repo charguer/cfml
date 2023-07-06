@@ -12,7 +12,7 @@ open PWSek
 type 'a esek = {
   sides : (('a weighted) echunk) array; (* weights are all 1, of size 2 *)
   buffers : (('a weighted) echunk) array; (* one for each side, a buffer is either empty or full *)
-  mutable mid : ('a partial_swchunk) pwsek option;
+  mutable mid : ('a partial_swchunk) swsek option;
   id : owner }
 
 (*-----------------------------------------------------------------------------*)
@@ -71,8 +71,8 @@ let esek_populate v s =
           end
       | Some m ->
         let id = s.id in
-        let m1, front1 = pwsek_pop v (Some id) m in
-        let m2 = pwsek_wrap_mid m1 in
+        let m1, front1 = swsek_pop v (Some id) m in
+        let m2 = swsek_wrap_mid m1 in
         let front2 = ewchunk_of_swchunk id front1 in
         sides.(fi) <- front2;
         s.mid <- m2
@@ -111,9 +111,9 @@ let esek_push_into_mid v s c =
   let d = esek_default s in
   let id = s.id in
   let o = Some id in
-  let m = pwsek_extract_mid d o s.mid in
+  let m = swsek_extract_mid d o s.mid in
   let c' = swchunk_of_ewchunk id c in
-  let m' = pwsek_push v o m c' in
+  let m' = swsek_push v o m c' in
   s.mid <- Some m'
 
 let rec esek_push v s x =
@@ -186,11 +186,11 @@ let rec esek_concat s1 s2 =
 
   let id = s1.id in
   let o = Some id in
-  let m = pwsek_extract_mid d o s1.mid in
-  let mb1 = pwsek_absorb Back o m (swchunk_of_ewchunk id back1) in
-  let mb1f2 = pwsek_absorb Back o mb1 (swchunk_of_ewchunk id front2) in
-  let mid1 = pwsek_wrap_mid mb1f2 in
-  let mid = pwsek_merge_middle pwsek_concat o mid1 s2.mid in
+  let m = swsek_extract_mid d o s1.mid in
+  let mb1 = swsek_absorb Back o m (swchunk_of_ewchunk id back1) in
+  let mb1f2 = swsek_absorb Back o mb1 (swchunk_of_ewchunk id front2) in
+  let mid1 = swsek_wrap_mid mb1f2 in
+  let mid = swsek_merge_middle swsek_concat o mid1 s2.mid in
   mk_esek_populated Front front1 mid back2 id
 
 (* [esek_split s i] returns [(s1, s2)] such that [s1 ++ s2 = s] and [s1] has i elements *)
@@ -204,7 +204,7 @@ let esek_split s i =
   let id = s.id in
   let o = Some id in
   let wf = echunk_size front in
-  let wm = pwsek_mid_weight s.mid in
+  let wm = swsek_mid_weight s.mid in
 
   let front1, mid1, back1, front2, mid2, back2 =
     if i <= wf then
@@ -216,11 +216,11 @@ let esek_split s i =
         match mid with
         | None -> assert false (* Impossible as wm > 1 *)
         | Some m ->
-          let m1, m2 = pwsek_split o m i' in
-          let m2', f2 = pwsek_pop Front o m2 in (* non empty as m1.p_weight <= w - wf < wm so m2.p_weight > 0 *)
+          let m1, m2 = swsek_split o m i' in
+          let m2', f2 = swsek_pop Front o m2 in (* non empty as m1.p_weight <= w - wf < wm so m2.p_weight > 0 *)
           let f2' = ewchunk_of_swchunk id f2 in
           let b, f = echunk_split f2' (i' - m1.p_weight) in
-          front, pwsek_wrap_mid m1, b, f, pwsek_wrap_mid m2', back
+          front, swsek_wrap_mid m1, b, f, swsek_wrap_mid m2', back
       end else begin
         let b, f = echunk_split back (i' - wm) in
         front, mid, b, f, None, empty ()

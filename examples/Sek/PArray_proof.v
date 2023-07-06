@@ -1006,10 +1006,21 @@ Qed.
 
 Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.	
 
-Definition parray_of_array_spec := parray_mk_base_spec.
+Lemma parray_of_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (a: array A) (L: list A),
+SPEC (parray_of_array a)
+	MONO M
+	PRE (a ~> Array L \* \$1)
+	POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa \* IsHeadExtend M M').
+Proof using. xcf~. xtriple. xapp ;=> pa M' HE Rpa. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec parray_of_array) => Provide parray_of_array_spec.
 
-Definition array_of_parray_spec := parray_base_copy_spec.
+Lemma array_of_parray_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (L: list A),
+	IsPArray M L pa ->
+	SPEC (array_of_parray pa)
+		PRE (\$(length L + bound L + 1))
+		INV (Shared M)
+		POST (fun a => a ~> Array L).
+Proof using. xcf~. xtriple. xchange Shared_inv_Inv ;=> I. xapp~ ;=> a. xsimpl~. forwards~: Inv_dist_pos. Qed.
 
 Hint Extern 1 (RegisterSpec array_of_parray) => Provide array_of_parray_spec.
