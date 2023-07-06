@@ -1,4 +1,3 @@
-open Capacity
 open Weighted
 open View
 open Owner
@@ -217,9 +216,9 @@ let esek_split s i =
         | None -> assert false (* Impossible as wm > 1 *)
         | Some m ->
           let m1, m2 = swsek_split o m i' in
-          let m2', f2 = swsek_pop Front o m2 in (* non empty as m1.p_weight <= w - wf < wm so m2.p_weight > 0 *)
+          let m2', f2 = swsek_pop Front o m2 in (* non empty as m1.s_weight <= w - wf < wm so m2.s_weight > 0 *)
           let f2' = ewchunk_of_swchunk id f2 in
-          let b, f = echunk_split f2' (i' - m1.p_weight) in
+          let b, f = echunk_split f2' (i' - m1.s_weight) in
           front, swsek_wrap_mid m1, b, f, swsek_wrap_mid m2', back
       end else begin
         let b, f = echunk_split back (i' - wm) in
@@ -235,4 +234,16 @@ let esek_split s i =
 (*---------------------------------------------------------------------------*)
 
 (* Conversions *)
+let esek_of_swsek s =
+  let id = fresh_id () in
+  let front, back = view_sides Front s.s_sides in
+  let front' = ewchunk_of_swchunk id front in
+  let back' = ewchunk_of_swchunk id back in
+  mk_esek_pov Front front' s.s_mid back' id
 
+let swsek_of_esek s =
+  esek_normalize s;
+  let front, back = view_sides Front s.sides in
+  let front' = swchunk_of_ewchunk s.id front in
+  let back' = swchunk_of_ewchunk s.id back in
+  mk_swsek_pov_weight Front front' s.mid back'

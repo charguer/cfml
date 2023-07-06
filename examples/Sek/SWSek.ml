@@ -5,26 +5,26 @@ open Owner
 open SWChunk
 
 type 'a swsek = { (* a sequence of ['a weighted] elements *)
-  p_sides : ('a swchunk) array; (* array of 2 items of type [(('a weighted) schunk) weighted] *)
-  p_mid : ('a partial_swchunk) swsek option; (* a sequence of weighted chunks of weighted elements *)
-  p_weight : int
+  s_sides : ('a swchunk) array; (* array of 2 items of type [(('a weighted) schunk) weighted] *)
+  s_mid : ('a partial_swchunk) swsek option; (* a sequence of weighted chunks of weighted elements *)
+  s_weight : int
 }
 
 (*-----------------------------------------------------------------------------*)
 
 let swsek_default s =
-  swchunk_default s.p_sides.(0)
+  swchunk_default s.s_sides.(0)
 
 let swsek_create d oo =
   (* note: if oo = None, we could have pa0 for both sides *)
   let empty () = swchunk_create d oo in
-  { p_sides = [| empty (); empty () |];
-    p_mid = None;
-    p_weight = 0 }
+  { s_sides = [| empty (); empty () |];
+    s_mid = None;
+    s_weight = 0 }
 
 let swsek_is_empty s =
-  swchunk_is_empty s.p_sides.(0) &&
-  swchunk_is_empty s.p_sides.(1)
+  swchunk_is_empty s.s_sides.(0) &&
+  swchunk_is_empty s.s_sides.(1)
 
 (*---------------------------------------------------------------------------*)
 
@@ -36,7 +36,7 @@ let swsek_extract_mid d oo mo =
   | Some m -> m
   
 (** [swsek_wrap_mid] takes a possibly empty middle sequence [m], and returns it
-  as an option for storage in the [p_mid] record field. *)
+  as an option for storage in the [s_mid] record field. *)
 let swsek_wrap_mid m =
   if swsek_is_empty m then
     None
@@ -48,7 +48,7 @@ let swsek_wrap_mid m =
 let swsek_mid_weight mo =
   match mo with
   | None -> 0
-  | Some m -> m.p_weight
+  | Some m -> m.s_weight
 
 
 (*---------------------------------------------------------------------------*)
@@ -57,9 +57,9 @@ let swsek_mid_weight mo =
 
 let mk_swsek_pov v front mid back w =
   let front', back' = view_exchange v (front, back) in
-  { p_sides = [| front'; back' |];
-    p_mid = mid;
-    p_weight = w }
+  { s_sides = [| front'; back' |];
+    s_mid = mid;
+    s_weight = w }
 
 
 let mk_swsek_pov_weight v front mid back =
@@ -70,8 +70,8 @@ let mk_swsek_pov_weight v front mid back =
 (* Pop, which is needed to restore the invariant *)
 
 let rec swsek_pop : 'a. view -> owner option -> 'a swsek -> 'a swsek * 'a weighted = fun v o s ->
-  let front, back = view_sides v s.p_sides in
-  let mid = s.p_mid in
+  let front, back = view_sides v s.s_sides in
+  let mid = s.s_mid in
 
   let x, front', mid', back' =
     if swchunk_is_empty front then begin (* note: assert (not (swchunk_is_empty back)) *)
@@ -92,7 +92,7 @@ let rec swsek_pop : 'a. view -> owner option -> 'a swsek -> 'a swsek * 'a weight
   in
   mk_swsek_pov_weight v front' mid' back', x
   (* optimized as:
-  let w = s.p_weight - weight x in
+  let w = s.s_weight - weight x in
   mk_swsek_pov v front' mid' back' w, x *)
 
 
@@ -100,14 +100,14 @@ let rec swsek_pop : 'a. view -> owner option -> 'a swsek -> 'a swsek * 'a weight
 (* Auxiliary functions for invariant, continued *)
 
 let swsek_populate v o s =
-  let front, back = view_sides v s.p_sides in
+  let front, back = view_sides v s.s_sides in
   if swchunk_is_empty front then begin
-    match s.p_mid with
+    match s.s_mid with
     | None -> s
     | Some m ->
       let m1, front1 = swsek_pop v o m in
       let m2 = swsek_wrap_mid m1 in
-      mk_swsek_pov v front1 m2 back s.p_weight
+      mk_swsek_pov v front1 m2 back s.s_weight
   end else
     s
 
@@ -129,8 +129,8 @@ let mk_swsek_weight_populated v o front mid back =
 
 let rec swsek_push : 'a. view -> owner option -> 'a swsek -> 'a weighted -> 'a swsek = fun v o s x ->
   let d = swsek_default s in
-  let front, back = view_sides v s.p_sides in
-  let mid = s.p_mid in
+  let front, back = view_sides v s.s_sides in
+  let mid = s.s_mid in
 
   let front1, mid1 =
     if swchunk_is_full front then begin
@@ -139,7 +139,7 @@ let rec swsek_push : 'a. view -> owner option -> 'a swsek -> 'a weighted -> 'a s
       front', Some (swsek_push v o m front)
 
       (* TODO: would it be useful to define swsek_push_into_mid v s c ? not so sure
-      let m = swsek_extract_mid d s.p_mid in
+      let m = swsek_extract_mid d s.s_mid in
       Some (swsek_push v m side)
 
       code dessus devient
@@ -150,13 +150,13 @@ let rec swsek_push : 'a. view -> owner option -> 'a swsek -> 'a weighted -> 'a s
     in
   let front2 = swchunk_push v o front1 x in
   mk_swsek_weight_populated v o front2 mid1 back
-  (* optimized as: mk_swsek_populated v o front2 mid1 back (s.p_weight + weight x) *)
+  (* optimized as: mk_swsek_populated v o front2 mid1 back (s.s_weight + weight x) *)
 
 
 (* LATER
 let psek_peek pov s =
   let ind = view_index pov in
-  let sides = s.p_sides in
+  let sides = s.s_sides in
   let side = sides.(ind) in
 
   (if schunk_is_empty side then
@@ -197,26 +197,26 @@ let swsek_merge_middle concat o mid1 mid2 =
 
 let rec swsek_concat : 'a. owner option -> 'a swsek -> 'a swsek -> 'a swsek = fun o s1 s2 ->
   let d = swsek_default s1 in
-  let front1, back1 = view_sides Front s1.p_sides in
-  let front2, back2 = view_sides Front s2.p_sides in
+  let front1, back1 = view_sides Front s1.s_sides in
+  let front2, back2 = view_sides Front s2.s_sides in
 
-  let m = swsek_extract_mid d o s1.p_mid in
+  let m = swsek_extract_mid d o s1.s_mid in
   let mb1 = swsek_absorb Back o m back1 in
   let mb1f2 = swsek_absorb Back o mb1 front2 in
   let mid1 = swsek_wrap_mid mb1f2 in
-  let mid = swsek_merge_middle swsek_concat o mid1 s2.p_mid in
+  let mid = swsek_merge_middle swsek_concat o mid1 s2.s_mid in
     
   mk_swsek_weight_populated Front o front1 mid back2
   (* optimized as:
-  let w = s1.p_weight + s2.p_weight in
+  let w = s1.s_weight + s2.s_weight in
   mk_swsek_populated Front o front1 mid back2 w *)
 
 (* [swsek_split s w] returns [(s1, s2)] such that [s1 ++ s2 = s] and [s1] is
   maximal such that [weight s1 <= w] *)
 let rec swsek_split : 'a. owner option -> 'a swsek -> int -> 'a swsek * 'a swsek = fun o s w ->
   let d = swsek_default s in
-  let front, back = view_sides Front s.p_sides in
-  let mid = s.p_mid in
+  let front, back = view_sides Front s.s_sides in
+  let mid = s.s_mid in
   let empty () = swchunk_create d o in
   let wf = weight front in
   let wm = swsek_mid_weight mid in
@@ -232,8 +232,8 @@ let rec swsek_split : 'a. owner option -> 'a swsek -> int -> 'a swsek * 'a swsek
         | None -> assert false (* Impossible as wm > 1 *)
         | Some m ->
           let m1, m2 = swsek_split o m w' in
-          let m2', f2 = swsek_pop Front o m2 in (* non empty as m1.p_weight <= w - wf < wm so m2.p_weight > 0 *)
-          let b, f = swchunk_split o f2 (w' - m1.p_weight) in
+          let m2', f2 = swsek_pop Front o m2 in (* non empty as m1.s_weight <= w - wf < wm so m2.s_weight > 0 *)
+          let b, f = swchunk_split o f2 (w' - m1.s_weight) in
           front, swsek_wrap_mid m1, b, f, swsek_wrap_mid m2', back
       end else begin
         let b, f = swchunk_split o back (w' - wm) in

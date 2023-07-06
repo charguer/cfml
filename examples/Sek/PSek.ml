@@ -1,5 +1,6 @@
 open Weighted
 open SWSek
+open ESek
 
 type 'a psek = 'a swsek
 
@@ -22,3 +23,7 @@ let psek_concat c0 c1 =
 
 let psek_split c i =
   swsek_split None c i
+
+let psek_of_esek = swsek_of_esek
+
+let esek_of_psek = esek_of_swsek
