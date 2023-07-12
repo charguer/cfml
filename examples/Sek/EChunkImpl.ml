@@ -27,19 +27,14 @@ let echunk_default c =
   c.default
 
 (* Useful? *)
-let echunk_dummy d = {
-  data = [||];
-  front = 0;
-  size = 0;
-  default = d }
+let echunk_dummy d =
+  echunk_of_fields [||] 0 0 d
 
 (** [echunk_create d]
   returns an empty fresh [echunk] with default value [d]. *)
-let echunk_create d = {
-  data = Array.make capacity d;
-  front = 0;
-  size = 0;
-  default = d }
+let echunk_create d =
+  let a = Array.make capacity d in    
+  echunk_of_fields a 0 0 d
 
 (** [echunk_is_empty c]
   checks for emptiness of [c]. *)

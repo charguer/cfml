@@ -507,7 +507,7 @@ Proof using. intros. rewrite IsHead_eq. xaffine~. Qed.
 Hint Resolve haffine_IsHead : haffine.
 
 
-Instance Heapdata_PArray : forall A (IA: Inhab A) (EA: Enc A),
+Global Instance Heapdata_PArray : forall A (IA: Inhab A) (EA: Enc A),
 	Heapdata (PArray (A := A)).
 Proof using.
 	intros. apply Heapdata_intro. intros.
@@ -515,7 +515,7 @@ Proof using.
 	xchange~ Heapdata_record.
 Qed.
 
-Hint Resolve Heapdata_PArray.
+Hint Resolve Heapdata_PArray : core.
 
 
 Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
