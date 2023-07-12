@@ -96,6 +96,7 @@ let rec schunk_concat oo c0 c1 =
     schunk_concat oo c0' c1'
   end
 
+(* Note: if needed, variant which creates a shared from ec *)
 let schunk_of_echunk o ec =
   MaybeOwned (ec, o)
 

@@ -1,7 +1,7 @@
 (** Persistent arrays. *)
 type 'a parray = {
   mutable desc : 'a parray_desc;
-  mutable dist : int }
+  dist : int }
 
 and 'a parray_desc =
   | PArray_Base of 'a array
