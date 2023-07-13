@@ -113,7 +113,7 @@ Proof. introv I. xcf. xpay. xapp ;=> c. xchanges~ <- EChunk_eq. Qed.
 
 Hint Extern 1 (RegisterSpec echunk_of_fields) => Provide echunk_of_fields_spec.
 
-(* echunk_default spec? *)
+(* echunk_default_spec *)
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (d: A),
   SPEC (echunk_create d)
@@ -133,7 +133,7 @@ Hint Extern 1 (RegisterSpec echunk_create) => Provide echunk_create_spec.
 Lemma echunk_is_empty_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   SPEC (echunk_is_empty c)
     PRE (\$1 \* c ~> EChunk L)
-    POST (fun b => c ~> EChunk L \* \[ b = isTrue (L = nil)]).
+    POST (fun b => c ~> EChunk L \* \[b = isTrue (L = nil)]).
 Proof.
   xcf*.
   xopen c; introv Inv. lets []: Inv.
@@ -142,7 +142,7 @@ Proof.
   now rewrite* length_zero_eq_eq_nil. (* now? *)
 Qed.
 
-Hint Extern 1 (RegisterSpec echunk_create) => Provide echunk_create_spec.
+Hint Extern 1 (RegisterSpec echunk_is_empty) => Provide echunk_is_empty_spec.
 
 Lemma echunk_is_full_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   SPEC (echunk_is_full c)
@@ -156,6 +156,8 @@ Proof.
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
+
+(* echunk_size_spec *)
 
 Lemma echunk_peek_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil ->

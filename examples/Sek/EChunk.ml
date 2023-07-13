@@ -11,20 +11,20 @@ let echunk_is_empty = echunk_is_empty
 let echunk_is_full = echunk_is_full
 let echunk_size = echunk_size
 
-let echunk_peek v =
+let echunk_peek v c =
   match v with
-  | Front -> echunk_peek_front
-  | Back -> echunk_peek_back
+  | Front -> echunk_peek_front c
+  | Back -> echunk_peek_back c
 
-let echunk_pop v =
+let echunk_pop v c =
   match v with
-  | Front -> echunk_pop_front
-  | Back -> echunk_pop_back
+  | Front -> echunk_pop_front c
+  | Back -> echunk_pop_back c
 
-let echunk_push v =
+let echunk_push v c x =
   match v with
-  | Front -> echunk_push_front
-  | Back -> echunk_push_back
+  | Front -> echunk_push_front c x
+  | Back -> echunk_push_back c x
 
 let echunk_get = echunk_get
 let echunk_set = echunk_set
