@@ -73,7 +73,6 @@ Definition access_cost A {IA: Inhab A} {EA: Enc A} (ishd: bool) (M: Memory A) (c
 	if ishd then IsHead M c \* \$1 else \$(2 * K + 2).
 
 Lemma access_cost_eq : forall A {IA: Inhab A} {EA: Enc A} (ishd: bool) (M: Memory A) (c: pchunk_ A) (L D: list A),
-	IsPChunk M L c ->
 	IsPArray M D (data' c) ->
 		access_cost ishd M c =
 		parray_rebase_and_get_array_cost ishd M (data' c) D.
@@ -105,7 +104,7 @@ Hint Extern 1 (RegisterSpec pchunk_default) => Provide pchunk_default_spec.
 Lemma pchunk_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (a: A),
 	SPEC (pchunk_create a)
 		MONO M
-		PRE (\$(K + 2))
+		PRE (\$(K + 3))
 		POST (fun M' c => \[IsPChunk M' nil c] \* IsHead M' c).
 Proof.
 	xcf. xpay. xapp~ ;=> data M' HM' Rdata.
@@ -157,28 +156,31 @@ Lemma pchunk_pop_back_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M:
 	L <> nil -> 
 	SPEC (pchunk_pop_back c)
 		MONO M
-		PRE (\$11 \* access_cost ishd M c)
+		PRE (\$7 \* access_cost ishd M c)
 		POST (fun M' '(c', x) => \exists L',
 			IsHead M' c' \*
 			\[IsPChunk M' L' c'] \*
 			\[L = L' & x]).
 Proof.
 	introv Rc HL. xcf. xpay.
-	xapp~ ;=> x L' ->. xlets. xapp.
-	destruct c; simpls. lets~ [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc.
-	unfold IsHead; simpl. xchange~ <- rebase_cost_true D.
-	xapp~ (>> parray_set_spec true M data' D).
-	{ unwrap_up; math. }
-	{	intros pa M' E Rpa. xlets. xvals~.
-		rew_list~ in *.
-		unfold IsPChunk. exists. split~.
-		{ constructors* ;=> i Hi.
-			{ applys_eq* Iin; list_cases*.
-				{ unwrap_up in C; false; math. }
-				{ unwrap_up. } }
-			{ list_cases*.
-				{ applys_eq* Iout. unwrap_up in C. }
-				{ unwrap_up. } } } }
+	lets (x & q & ->): list_neq_nil_inv_last L HL.
+	xlets. xapp. destruct c; simpls. lets~ [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc. rew_list in Ilen.
+	unfold IsHead; simpl. rewrites~ (>> access_cost_eq D); simpl.
+	xapp~; simpl.
+	{ unwrap_up. }
+	{	intros x' M' E ->. xchange~ <- rebase_cost_true D. xapp~.
+		{ unwrap_up. }
+		{ intros pa M'' E' Rpa. xlets. xvals~.
+			unfold IsPChunk. exists. split~.
+			{ constructors* ;=> i Hi.
+				{ applys_eq* Iin; list_cases*.
+					{ unwrap_up in C; false; math. }
+					{ unwrap_up. } }
+				{ list_cases*.
+					{ applys_eq* Iout. unwrap_up in C. }
+					{ unwrap_up. } } }
+			{ fequals. fequals. forwards* H: Iin (size' - 1).
+				rew_array in H. case_if~. false. math. } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec pchunk_pop_back) => Provide pchunk_pop_back_spec.
@@ -265,66 +267,6 @@ Proof.
 Qed.
 
 Hint Extern 1 (RegisterSpec pchunk_set) => Provide pchunk_set_spec.
-
-Lemma pchunk_concat_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memory A) (c0 c1: pchunk_ A) (L0 L1: list A),
-	IsPChunk M L0 c0 ->
-	IsPChunk M L1 c1 ->
-	length L0 + length L1 <= K ->
-	SPEC (pchunk_concat c0 c1)
-		MONO M
-		PRE (if ishd then \$(16 * length L1) \* IsHead M c0 \* IsHead M c1 else \[])
-		POST (fun M' c' => \[IsPChunk M' (L0 ++ L1) c']).
-Proof.
-	introv Rc0 Rc1 Hlen. gen c0 L0 c1. induction_wf IH: list_sub L1.
-	introv Rc0 Hlen; introv Rc1. xcf; simpl. xpay.
-	xapp~. xif ;=> C.
-	(* TODO: update specs for PArray, operations on pa which extend M MUST preserve IsHead predicates for all pa' <> pa
-	Else bad complexity analysis *)
-	skip.
-Qed.
-
-(* If one is empty, we do not get heads necessarily (but always constant time).
-Function parray_touch which rebases (thus giving IsHead predicate), which we call
-in the base case to ensure that we always return a head version ? *)
-
-Hint Extern 1 (RegisterSpec pchunk_concat) => Provide pchunk_concat_spec.
-
-Lemma pchunk_displace_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (c0 c1: pchunk_ A) (L0 L1: list A) (k: int),
-	IsPChunk M L0 c0 ->
-	IsPChunk M L1 c1 ->
-	0 <= k <= length L0 ->
-	length L1 + k <= K ->
-	SPEC (pchunk_displace c0 c1 k)
-		MONO M
-		PRE (\$(2 * K + 2 + k))
-		POST (fun M' '(c0', c1') =>
-			(If k > 0 then IsHead M' c0 \* IsHead M' c1 else \[]) \*
-			\exists L0' L1',
-			\[L0 = L0' ++ L1'] \*
-			\[length L1' = k] \*
-			\[IsPChunk M' L0' c0'] \*
-			\[IsPChunk M' (L1' ++ L1) c1']).
-Admitted.
-
-Hint Extern 1 (RegisterSpec pchunk_displace) => Provide pchunk_displace_spec.
-
-Lemma pchunk_split_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (c: pchunk_ A) (L: list A) (k: int),
-	IsPChunk M L c ->
-	0 <= k <= length L ->
-	SPEC (pchunk_split c k)
-		MONO M
-		PRE \[]
-		POST (fun M' '(c0, c1) =>
-			IsHead M' c1 \*
-			(If k <> length L then IsHead M' c0 else \[]) \*
-			\exists L0 L1,
-			\[L0 = L0 ++ L1] \*
-			\[length L0 = k] \*
-			\[IsPChunk M' L0 c0] \*
-			\[IsPChunk M' L1 c1]).
-Admitted.
-
-Hint Extern 1 (RegisterSpec pchunk_displace) => Provide pchunk_displace_spec.
 
 Lemma pchunk_of_echunk_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (ec: EChunkImpl_ml.echunk_ A) (L: list A),
 	SPEC (pchunk_of_echunk ec)

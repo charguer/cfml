@@ -347,12 +347,6 @@ Definition IsBase A {IA: Inhab A} {EA: Enc A} (M: Memory A) (pa: parray_ A) : Pr
 Definition IsHead A {IA: Inhab A} {EA: Enc A} (M: Memory A) (pa: parray_ A) : hprop :=
 	\[IsBase M pa] \* \$(dist (M[pa])).
 
-Definition IsHeadExtend A {IA: Inhab A} {EA: Enc A} (M M': Memory A) : hprop :=
-	\forall p,
-		IsHead M p \-*
-		\[M[p] = M'[p]] \-*
-		IsHead M' p.
-
 
 (* ******************************************************* *)
 (** ** Open-close lemmas about representation predicates *)
@@ -518,6 +512,7 @@ Qed.
 Hint Resolve Heapdata_PArray : core.
 
 
+#[global]
 Instance MonType_Memory A {IA: Inhab A} {EA: Enc A} :
 	MonType (Memory A) :=	make_MonType (Shared) (Extend).
 
@@ -743,14 +738,11 @@ Qed.
 Hint Resolve IsPArray_Extend Extend_trans Extend_add_fresh Extend_update_Base Extend_update_Diff.
 
 
-Lemma IsHeadExtend_tauto : forall A (IA: Inhab A) (EA: Enc A) (M M': Memory A),
-	\[] ==> IsHeadExtend M M'.
-Proof using.
-	unfold IsHeadExtend. xsimpl. introv E.
-	unfold IsHead. unfold IsBase. rewrites~ E.
-Qed.
+Lemma IsHead_mem_eq : forall A (IA: Inhab A) (EA: Enc A) (M M': Memory A) (pa: parray_ A),
+	IsHead M pa \* \[M[pa] = M'[pa]] ==> IsHead M' pa.
+Proof using. intros. do 2 rewrite IsHead_eq. xpull ;=> [L HL] <-. xsimpl~. Qed.
 
-Hint Resolve IsHeadExtend_tauto.
+Hint Resolve IsHead_mem_eq.
 
 
 (* ******************************************************* *)
@@ -801,14 +793,13 @@ Lemma parray_mk_base_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (a:
 	SPEC (parray_mk_base a)
 		MONO M
 		PRE (a ~> Array L \* \$1)
-		POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa \* IsHeadExtend M M').
+		POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa).
 Proof using.
 	xcf~; simpl. xpay. xapp ;=> pa.
 	xchange~ PArray_Base_close.
 	xchanges~ Shared_add_fresh_Base L ;=> Hpa.
 	{ apply~ IsPArray_Base; rew_map~. }
-	{ xchanges~ IsHeadExtend_tauto.
-		rewrites~ IsHead_eq. rew_map~. xsimpl~. simple~. (* TODO: auto_star could do simpl *) }
+	{ rewrites~ IsHead_eq. rew_map~. xsimpl~. simple~. (* TODO: auto_star could do simpl *) }
 Qed.
 
 Hint Extern 1 (RegisterSpec parray_mk_base) => Provide parray_mk_base_spec.
@@ -818,7 +809,7 @@ Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz:
 	SPEC (parray_create sz d)
 		MONO M
 		PRE (\$(sz + 2))
-		POST (fun M' pa => \[IsPArray M' (make sz d) pa] \* IsHead M' pa \* IsHeadExtend M M').
+		POST (fun M' pa => \[IsPArray M' (make sz d) pa] \* IsHead M' pa).
 Proof using.
 	introv Hsz. xcf~; simpl. xpay.
 	xapp~ ;=> a L ->. xapp~ ;=> pa M' HE Rpa. xsimpl~.
@@ -895,7 +886,7 @@ Lemma parray_touch_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Me
 	SPEC (parray_touch pa)
 		MONO M
 		PRE (\$1 \* parray_rebase_and_get_array_cost ishd M pa L)
-		POST (fun M' (_: unit) => IsHead M' pa \* IsHeadExtend M M').
+		POST (fun M' (_: unit) => IsHead M' pa).
 Proof using.
 	introv Rpa. xcf~; simpl. xpay.
 	xapp~ ;=> a I. xval.
@@ -904,8 +895,7 @@ Proof using.
 	xchanges~ <- Shared_eq.
 	{ constructors~.
 	  { intros p Hp. rew_map in Hp. rew_map_upd~; applys~ Inv_dist_pos_inv. } }
-  { xchanges~ IsHeadExtend_tauto.
-		setoid_rewrite IsHead_eq_base at 2; rew_map~; simple~. case_if~.
+  { setoid_rewrite IsHead_eq_base at 2; rew_map~; simple~. case_if~.
 		{	rewrites~ IsHead_eq. xsimpl~. }
 		{ xsimpl~. } }
 Qed.
@@ -916,7 +906,7 @@ Lemma parray_get_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 	SPEC (parray_get pa i)
 		MONO M
 		PRE (\$1 \* parray_rebase_and_get_array_cost ishd M pa L)
-		POST (fun M' x => \[x = L[i]] \* IsHead M' pa \* IsHeadExtend M M').
+		POST (fun M' x => \[x = L[i]] \* IsHead M' pa).
 Proof using.
 	introv Rpa Hind. xcf~; simpl. xpay.
 	xapp~ ;=> a I. xapp~.
@@ -925,8 +915,7 @@ Proof using.
 	xchanges~ <- Shared_eq.
 	{ constructors~.
 	  { intros p Hp. rew_map in Hp. rew_map_upd~; applys~ Inv_dist_pos_inv. } }
-  { xchanges~ IsHeadExtend_tauto.
-		setoid_rewrite IsHead_eq_base at 2; rew_map~; simple~. case_if~.
+  { setoid_rewrite IsHead_eq_base at 2; rew_map~; simple~. case_if~.
 		{	rewrites~ IsHead_eq. xsimpl~. }
 		{ xsimpl~. } }
 Qed.
@@ -939,7 +928,7 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 	SPEC (parray_set pa i x)
 		MONO M
 		PRE (\$3 \* parray_rebase_and_get_array_cost ishd M pa L)
-		POST (fun M' q => \[IsPArray M' (L[i := x]) q] \* IsHead M' q \* IsHeadExtend M M').
+		POST (fun M' q => \[IsPArray M' (L[i := x]) q] \* IsHead M' q).
 Proof using.
 	introv Rpa Hi. xcf~; simpl. xpay.
 	xapp~ ;=> a I. xapp~. xapp~.
@@ -953,8 +942,7 @@ Proof using.
 			{ rew_map~. intros p Hp. rew_map_upd~; rew_map_upd~. applys~ Inv_dist_pos. set_prove2. } }
 		{ applys~ Extend_trans. applys~ Extend_update_Base. }
 		{ applys~ IsPArray_Base; rew_map~. }
-		{ xchanges~ IsHeadExtend_tauto.
-			setoid_rewrite IsHead_eq_base at 2; rew_map~. case_if~; xsimpl~. simple~. } }
+		{ setoid_rewrite IsHead_eq_base at 2; rew_map~. case_if~; xsimpl~. simple~. } }
 	{ xapp~. xapp~. xapp~. xapp~ ;=> pb. xapp~. xval~.
 		xchange~ PArray_Diff_close. xchange~ PArray_Base_close.
 		xchange~ (heapdata pa pb) ;=> Diff.
@@ -983,8 +971,7 @@ Proof using.
 					{ applys~ index_update. }
 					{ applys~ IsPArray_Base; rew_map~. simple~. forwards*: IsPArray_inv_dist pa. } }
 			{ subst n. applys~ IsPArray_Base; rewrites~ read_update_neq; rew_map~. forwards*: IsPArray_inv_dist pa. }
-			{ xchanges~ IsHeadExtend_tauto.
-				subst n. setoid_rewrite IsHead_eq_base at 2; rewrites~ read_update_neq; rew_map~; simple~. case_if~.
+			{ subst n. setoid_rewrite IsHead_eq_base at 2; rewrites~ read_update_neq; rew_map~; simple~. case_if~.
 				{ rewrite IsHead_eq. xsimpl~. }
 				{ xsimpl~. } } } }
 Qed.
@@ -996,7 +983,7 @@ Lemma parray_copy_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: p
 	SPEC (parray_copy pa)
 		MONO M
 		PRE (\$(length L + bound L + 3))
-		POST (fun M' q => \[IsPArray M' L q] \* IsHead M' q \* IsHeadExtend M M').
+		POST (fun M' q => \[IsPArray M' L q] \* IsHead M' q).
 Proof using.
 	introv Rpa. xcf~. simpl. xpay.
 	xchange~ Shared_inv_Inv ;=> I. (* Needed later *)
@@ -1010,7 +997,7 @@ Lemma parray_of_array_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (a
 SPEC (parray_of_array a)
 	MONO M
 	PRE (a ~> Array L \* \$1)
-	POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa \* IsHeadExtend M M').
+	POST (fun M' pa => \[IsPArray M' L pa] \* IsHead M' pa).
 Proof using. xcf~. xtriple. xapp ;=> pa M' HE Rpa. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec parray_of_array) => Provide parray_of_array_spec.
