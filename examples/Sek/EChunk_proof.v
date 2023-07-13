@@ -23,7 +23,14 @@ Require Import EChunkImpl_proof.
 
 (* ******************************************************* *)
 
-(* echunk_default_spec *)
+Lemma echunk_default_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+	SPEC (echunk_default c)
+		PRE (\$1)
+		INV (c ~> EChunk L)
+		POST (fun (d: A) => \[]).
+Proof. xcf. xtriple. xapp. xsimpl~. Qed.
+
+Hint Extern 1 (RegisterSpec echunk_default) => Provide echunk_default_spec.
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (d: A),
   SPEC (echunk_create d)
@@ -49,7 +56,14 @@ Proof. xcf. xtriple. xapp. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
 
-(* echunk_size_spec *)
+Lemma echunk_size_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+	SPEC (echunk_size c)
+		PRE (\$1)
+		INV (c ~> EChunk L)
+		POST \[= length L].
+Proof. xcf. xtriple. xapp. xsimpl~. Qed.
+
+Hint Extern 1 (RegisterSpec echunk_size) => Provide echunk_size_spec.
 
 Lemma echunk_peek_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (v: view_) (L: list A) (c: echunk_ A),
 	L <> nil ->
@@ -106,3 +120,45 @@ Lemma echunk_copy_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ 
 Proof. xcf. xtriple. xapp. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec echunk_copy) => Provide echunk_copy_spec.
+
+Lemma echunk_carve_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (v: view_) (c0 c1: echunk_ A) (L0 L1: list A) (i: int),
+	0 <= i <= length L0 ->
+	length L1 + i <= K ->
+	SPEC (echunk_carve v c0 c1 i)
+		PRE (c0 ~> EChunk L0 \* c1 ~> EChunk L1 \* \$(1 + 8 * i))
+		POSTUNIT (\exists L0' L1',
+			\[L0 = vapp v L1' L0'] \*
+			\[length L1' = i] \*
+			c0 ~> EChunk L0' \*
+			c1 ~> EChunk (vapp (vswap v) L1' L1)).
+Proof.
+	introv. gen c0 c1 L0 L1. induction_wf IH: (downto 0) i.
+	introv Hi. xcf. xpay. xif ;=> c.
+	{ xapp.
+		{ applys length_neq_inv. rew_list~. }
+		{ intros x L0' ->. rew_list in Hi.
+			xapp. xapp.
+			{ unfolds~ IsFull. }
+			{ xapp~.
+				{ rew_list~. }
+				{ intros L0'' L1'' -> HL0''. xsimpl~; do 2 rew_list~. } } } }
+	{ xval. xsimpl~ L0 (@nil A); rew_list~. }
+Qed.
+
+Hint Extern 1 (RegisterSpec echunk_carve) => Provide echunk_carve_spec.
+
+Lemma echunk_split_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_ A) (L: list A) (i: int),
+	0 <= i <= length L ->
+	SPEC (echunk_split c i)
+		PRE (c ~> EChunk L \* \$(5 + 8 * i + K))
+		POST (fun '(c0, c1) => \exists L0 L1,
+			\[L = L0 ++ L1] \*
+			\[length L0 = i] \*
+			c0 ~> EChunk L0 \*
+			c1 ~> EChunk L1).
+Proof.
+	introv Hi. xcf. xpay. xchange echunk_inv_length ;=> HL.
+	xapp ;=> d. xapp ;=> c0. xapp~.
+	{ rew_list~. }
+	{ intros L0 L1 EL HL1. xvals~. }
+Qed.

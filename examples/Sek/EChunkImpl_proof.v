@@ -44,12 +44,12 @@ Hint Extern 1 (RegisterSpec Array_ml.copy) => Provide Array_copy_spec.
 
 Record EChunk_inv A {IA: Inhab A} (L: list A) (D: list A) (front: int) (size: int) (default: A) : Prop :=
 	mkEChunk_inv {
-		echunk_in : forall (i: int), 0 <= i < size -> D[Wrap_up (front + i)] = L[i];
-		echunk_out : forall (i: int), size <= i < K -> D[Wrap_up (front + i)] = default;
-		echunk_length : length L = size;
-		echunk_capa : length D = K;
-		echunk_front : 0 <= front < K;
-		echunk_size : 0 <= size <= K }.
+		ecinv_in : forall (i: int), 0 <= i < size -> D[Wrap_up (front + i)] = L[i];
+		ecinv_out : forall (i: int), size <= i < K -> D[Wrap_up (front + i)] = default;
+		ecinv_length : length L = size;
+		ecinv_capa : length D = K;
+		ecinv_front : 0 <= front < K;
+		ecinv_size : 0 <= size <= K }.
 
 Definition EChunk A {IA: Inhab A} {EA: Enc A} (L: list A) (c: echunk_ A) : hprop :=
   \exists (data: loc) (D: list A) (front: int) (size: int) (default: A),
@@ -113,7 +113,14 @@ Proof. introv I. xcf. xpay. xapp ;=> c. xchanges~ <- EChunk_eq. Qed.
 
 Hint Extern 1 (RegisterSpec echunk_of_fields) => Provide echunk_of_fields_spec.
 
-(* echunk_default_spec *)
+Lemma echunk_default_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+	SPEC (echunk_default c)
+		PRE (\$1)
+		INV (c ~> EChunk L)
+		POST (fun (d: A) => \[]).
+Proof. xcf. xpay. xopen c ;=> a D f s d I. xapp. xclose* c. xsimpl. Qed.
+
+Hint Extern 1 (RegisterSpec echunk_default) => Provide echunk_default_spec.
 
 Lemma echunk_create_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (d: A),
   SPEC (echunk_create d)
@@ -157,7 +164,14 @@ Qed.
 
 Hint Extern 1 (RegisterSpec echunk_is_full) => Provide echunk_is_full_spec.
 
-(* echunk_size_spec *)
+Lemma echunk_size_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
+	SPEC (echunk_size c)
+		PRE (\$1)
+		INV (c ~> EChunk L)
+		POST \[= length L].
+Proof. xcf~. xpay. xopen c ;=> a D f s d I. xapp. xclose* c. xsimpl. forwards*: ecinv_length. Qed.
+
+Hint Extern 1 (RegisterSpec echunk_size) => Provide echunk_size_spec.
 
 Lemma echunk_peek_back_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (L: list A) (c: echunk_ A),
   L <> nil ->
@@ -361,7 +375,7 @@ Proof.
 	xcf. xpay.
 	xopen c ;=> data D front size d I.
 	xapp. xapp ;=> a. xappn ;=> c'.
-	xclose* c. xchanges~ <- EChunk_eq. forwards*: echunk_capa.
+	xclose* c. xchanges~ <- EChunk_eq. forwards*: ecinv_capa.
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_copy) => Provide echunk_copy_spec.
