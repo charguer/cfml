@@ -121,6 +121,10 @@ Proof. xcf. xtriple. xapp. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec echunk_copy) => Provide echunk_copy_spec.
 
+(* To avoid a few rew_list. *)
+Ltac auto_tilde ::=
+	rew_list; auto_tilde_default.
+
 Lemma echunk_carve_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (v: view_) (c0 c1: echunk_ A) (L0 L1: list A) (i: int),
 	0 <= i <= length L0 ->
 	length L1 + i <= K ->
@@ -135,14 +139,12 @@ Proof.
 	introv. gen c0 c1 L0 L1. induction_wf IH: (downto 0) i.
 	introv Hi. xcf. xpay. xif ;=> c.
 	{ xapp.
-		{ applys length_neq_inv. rew_list~. }
+		{ applys~ length_neq_inv. }
 		{ intros x L0' ->. rew_list in Hi.
 			xapp. xapp.
 			{ unfolds~ IsFull. }
-			{ xapp~.
-				{ rew_list~. }
-				{ intros L0'' L1'' -> HL0''. xsimpl~; do 2 rew_list~. } } } }
-	{ xval. xsimpl~ L0 (@nil A); rew_list~. }
+			{ xapp~ ;=> L0'' L1'' -> HL0''. xsimpl~. rew_list~. } } }
+	{ xval. xsimpl~ L0 (@nil A). }
 Qed.
 
 Hint Extern 1 (RegisterSpec echunk_carve) => Provide echunk_carve_spec.
@@ -158,7 +160,5 @@ Lemma echunk_split_spec : forall (A: Type) (IA: Inhab A) (EA: Enc A) (c: echunk_
 			c1 ~> EChunk L1).
 Proof.
 	introv Hi. xcf. xpay. xchange echunk_inv_length ;=> HL.
-	xapp ;=> d. xapp ;=> c0. xapp~.
-	{ rew_list~. }
-	{ intros L0 L1 EL HL1. xvals~. }
+	xapp ;=> d. xapp ;=> c0. xapp~ ;=> L0 L1 EL HL1. xvals~.
 Qed.
