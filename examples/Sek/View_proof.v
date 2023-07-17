@@ -20,22 +20,28 @@ Require Import View_ml.
 (* ******************************************************* *)
 (** ** Definitions *)
 
-Definition vswap (v: view_) :=
+Definition vswap (v: view_) : view_ :=
 	match v with
 	|	Front => Back
 	|	Back => Front
 	end.
 
-Definition vcons A (v: view_) (x: A) (L: list A) :=
+Definition vcons A (v: view_) (x: A) (L: list A) : list A :=
 	match v with
 	|	Front => x :: L
 	|	Back => L & x
 	end.
 
-Definition vapp A (v: view_) (L1 L2: list A) :=
+Definition vapp A (v: view_) (L1 L2: list A) : list A :=
 	match v with
 	|	Front => L1 ++ L2
 	|	Back => L2 ++ L1
+	end.
+
+Definition vindex (v: view_) : int :=
+	match v with
+	|	Front => 0
+	|	Back => 1
 	end.
 
 

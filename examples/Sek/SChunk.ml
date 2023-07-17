@@ -7,8 +7,8 @@ type 'a schunk =
   | MaybeOwned of 'a echunk * owner
   | Shared of 'a pchunk
 
-let schunk_match_id o c =
-  match o, c with
+let schunk_match_id oo c =
+  match oo, c with
   | None, Shared pc -> c
   | None, MaybeOwned  (ec, _) ->
       let pc = pchunk_of_echunk ec in
@@ -65,8 +65,8 @@ let schunk_peek v c =
   | MaybeOwned (ec, _) -> echunk_peek v ec
   | Shared pc -> pchunk_peek v pc
 
-let schunk_pop v o c =
-  let oc = schunk_match_id o c in
+let schunk_pop v oo c =
+  let oc = schunk_match_id oo c in
   match oc with
   | MaybeOwned (ec, i) ->
       let x = echunk_pop v ec in
@@ -75,8 +75,8 @@ let schunk_pop v o c =
       let pc', x = pchunk_pop v pc in
       Shared pc', x
 
-let schunk_push v o c x =
-  let oc = schunk_match_id o c in
+let schunk_push v oo c x =
+  let oc = schunk_match_id oo c in
   match oc with
   | MaybeOwned (ec, i) ->
       echunk_push v ec x;
