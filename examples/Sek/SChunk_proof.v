@@ -32,12 +32,12 @@ Require Import PChunk_proof.
 (* ******************************************************* *)
 (** ** Representation predicates *)
 
-Notation "'EChunkMap' A" := (map (echunk_ A) (list A)) (at level 69).
+Notation "'EChunkMem' A" := (map (echunk_ A) (list A)) (at level 69).
 
-Record ChunkMemory (A: Type) : Type :=
-	mk_ChunkMemory {
-		cm_a : Memory A;
-		cm_c : EChunkMap A }.
+Record SChunkMem (A: Type) : Type :=
+	mk_SChunkMem {
+		scm_a : PArrayMem A;
+		scm_c : EChunkMem A }.
 
 (* Definition IsMaybeOwner A {IA: Inhab A} {EA: Enc A} (oo: option owner_) (c: schunk_ A) : Prop :=
 	match c with
@@ -51,10 +51,10 @@ Definition SChunk_IsOwner A {IA: Inhab A} {EA: Enc A} (oo: option owner_) (c: sc
 	|	Shared _ => False
 	end.
 
-Definition SChunk_Shared A {IA: Inhab A} {EA: Enc A} (M: ChunkMemory A) (L: list A) (c: schunk_ A) : Prop :=
+Definition SChunk_Shared A {IA: Inhab A} {EA: Enc A} (M: SChunkMem A) (L: list A) (c: schunk_ A) : Prop :=
 	match c with
-	|	MaybeOwned ec _ => ec \indom (cm_c M) /\ (cm_c M)[ec] = L
-	|	Shared pc => IsPChunk (cm_a M) L pc
+	|	MaybeOwned ec _ => ec \indom (scm_c M) /\ (scm_c M)[ec] = L
+	|	Shared pc => IsPChunk (scm_a M) L pc
 	end.
 
 Definition SChunk_UniquelyOwned A {IA: Inhab A} {EA: Enc A} (L: list A) (c: schunk_ A) : hprop :=
@@ -63,35 +63,41 @@ Definition SChunk_UniquelyOwned A {IA: Inhab A} {EA: Enc A} (L: list A) (c: schu
 	|	Shared _ => \[False]
 	end.
 
-Definition SChunk_MaybeOwned A {IA: Inhab A} {EA: Enc A} (M: ChunkMemory A) (oo: option owner_) (L: list A) (c: schunk_ A) : hprop :=
+Definition SChunk_MaybeOwned A {IA: Inhab A} {EA: Enc A} (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A) : hprop :=
 	If SChunk_IsOwner oo c then
 		c ~> SChunk_UniquelyOwned L
 	else
 		\[SChunk_Shared M L c].
 
-Definition CMSharedRepr A {IA: Inhab A} {EA: Enc A} (M: ChunkMemory A) : hprop :=
-	SharedRepr (cm_a M) \*
-	Group (EChunk (A := A)) (cm_c M).
+Definition SChunkMemory A {IA: Inhab A} {EA: Enc A} (M: SChunkMem A) : hprop :=
+	PArrayMemory (scm_a M) \*
+	Group (EChunk (A := A)) (scm_c M).
 
-Definition CMExtend A {IA: Inhab A} {EA: Enc A} (M M': ChunkMemory A) : Prop :=
-	Extend (cm_a M) (cm_a M') /\
-	(cm_c M) \c (cm_c M') /\
-	forall sc L, SChunk_Shared M L sc ->
-		SChunk_Shared M' L sc.
+Definition SChunkExtend A {IA: Inhab A} {EA: Enc A} (M M': SChunkMem A) : Prop :=
+	PArrayExtend (scm_a M) (scm_a M') /\
+	(scm_c M) \c (scm_c M') /\
+	forall sc L, SChunk_Shared M L sc -> SChunk_Shared M' L sc.
 
 
 (* ******************************************************* *)
 (** ** Lemmas *)
 
 #[global]
-Instance MonType_ChunkMemory A {IA: Inhab A} {EA: Enc A} :
-	MonType (ChunkMemory A) := make_MonType (@CMSharedRepr A IA EA) (@CMExtend A IA EA).
+Instance MonType_SChunkMem A {IA: Inhab A} {EA: Enc A} :
+	MonType (SChunkMem A) := make_MonType (SChunkMemory (A := A)) (SChunkExtend (A := A)).
+
+Lemma SChunk_MaybeOwned_Mono : forall A {IA: Inhab A} {EA: Enc A}
+	(M M': SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
+	SChunkExtend M M' ->
+	~ SChunk_IsOwner oo c ->
+	(SChunk_MaybeOwned M oo L c ==> SChunk_MaybeOwned M' oo L c).
+Admitted.
 
 
 (* ******************************************************* *)
 (** ** Specs *)
 
-Lemma schunk_match_id_spec : forall A (IA: Inhab A) (EA: Enc A) (M: ChunkMemory A) (oo: option owner_) (L: list A) (c: schunk_ A),
+Lemma schunk_match_id_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SPEC (schunk_match_id oo c)
 		MONO M
 		PRE \[]
@@ -101,7 +107,7 @@ Admitted.
 
 Hint Extern 1 (RegisterSpec schunk_match_id) => Provide schunk_match_id_spec.
 
-Lemma schunk_default_spec : forall A (IA: Inhab A) (EA: Enc A) (M: ChunkMemory A) (oo: option owner_) (L: list A) (c: schunk_ A),
+Lemma schunk_default_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SPEC (schunk_default c)
 		PRE \[]
 		INV (c ~> SChunk_MaybeOwned M oo L)
@@ -110,7 +116,7 @@ Admitted.
 
 Hint Extern 1 (RegisterSpec schunk_default) => Provide schunk_default_spec.
 
-Lemma schunk_is_empty_spec : forall A (IA: Inhab A) (EA: Enc A) (M: ChunkMemory A) (oo: option owner_) (L: list A) (c: schunk_ A),
+Lemma schunk_is_empty_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SPEC (schunk_is_empty c)
 		PRE \[]
 		INV (c ~> SChunk_MaybeOwned M oo L)
@@ -119,7 +125,7 @@ Admitted.
 
 Hint Extern 1 (RegisterSpec schunk_is_empty) => Provide schunk_is_empty_spec.
 
-Lemma schunk_is_full_spec : forall A (IA: Inhab A) (EA: Enc A) (M: ChunkMemory A) (oo: option owner_) (L: list A) (c: schunk_ A),
+Lemma schunk_is_full_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SPEC (schunk_is_full c)
 		PRE \[]
 		INV (c ~> SChunk_MaybeOwned M oo L)
@@ -127,3 +133,12 @@ Lemma schunk_is_full_spec : forall A (IA: Inhab A) (EA: Enc A) (M: ChunkMemory A
 Admitted.
 
 Hint Extern 1 (RegisterSpec schunk_is_full) => Provide schunk_is_full_spec.
+
+Lemma schunk_push_spec : forall A (IA: Inhab A) (EA: Enc A)
+	(v: view_) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A) (x: A),
+	SPEC (schunk_push v c x)
+	MONO M
+	PRE (c ~> SChunk_MaybeOwned M oo L)
+	POST (fun M' c' => c' ~> SChunk_MaybeOwned M' oo (vcons v x L)).
+Admitted.
+

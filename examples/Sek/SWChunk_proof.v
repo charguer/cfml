@@ -32,7 +32,7 @@ Require Import SChunk_proof.
 Definition list_sum A (W: A -> int) (L: list A) : int :=
   LibList.fold_left (fun x acc => acc + W x) 0 L.
 
-Notation "'WChunkMemory' A" := (ChunkMemory (weighted_ A)) (at level 69).
+Notation "'SWChunkMem' A" := (SChunkMem (weighted_ A)) (at level 69).
 Notation "'Wlist' A" := (list (weighted_ A)) (at level 69).
 
 Record SWChunk_inv A (L: list (weighted_ A)) (w: int) : Prop :=
@@ -43,20 +43,33 @@ Record SWChunk_inv A (L: list (weighted_ A)) (w: int) : Prop :=
 Definition SWChunk_IsOwner A {IA: Inhab A} {EA: Enc A} (oo: option owner_) (s: swchunk_ A) : Prop :=
 	SChunk_IsOwner oo (unweighted' s).
 
-Definition SWChunk_Shared A {IA: Inhab A} {EA: Enc A} (M: WChunkMemory A) (L: Wlist A) (s: swchunk_ A) : Prop :=
-	SChunk_Shared M L (unweighted' s) /\
-	SWChunk_inv L (weight' s).
+(* Definition SWChunk_Shared A {IA: Inhab A} {EA: Enc A} (M: WChunkMemory A) (L: Wlist A) (s: swchunk_ A) : Prop :=
+	let '(c, w) := s in
+	SChunk_Shared M L c /\
+	SWChunk_inv L w.
 
 Definition SWChunk_UniquelyOwned A {IA: Inhab A} {EA: Enc A} (L: Wlist A) (s: swchunk_ A) : hprop :=
-	(unweighted' s) ~> SChunk_UniquelyOwned L \*
-	\[SWChunk_inv L (weight' s)].
+	let '(c, w) := s in
+	c ~> SChunk_UniquelyOwned L \*
+	\[SWChunk_inv L w].
 
 Definition SWChunk_MaybeOwned A {IA: Inhab A} {EA: Enc A}	(M: WChunkMemory A) (oo: option owner_) (L: Wlist A) (s: swchunk_ A) : hprop :=
 	If SWChunk_IsOwner oo s then
 		s ~> SWChunk_UniquelyOwned L
 	else
-		\[SWChunk_Shared M L s].
+		\[SWChunk_Shared M L s]. *)
 
+Definition SWChunk_MaybeOwned A {IA: Inhab A} {EA: Enc A}	(M: SWChunkMem A) (oo: option owner_) (L: Wlist A) (s: swchunk_ A) : hprop :=
+	let (c, w) := s in
+	c ~> SChunk_MaybeOwned M oo L \*
+	\[SWChunk_inv L w].
+
+Lemma SWChunk_MaybeOwned_Mono : forall A {IA: Inhab A} {EA: Enc A}
+	(M M': SWChunkMem A) (oo: option owner_) (L: Wlist A) (c: swchunk_ A),
+	SChunkExtend M M' ->
+	~ SWChunk_IsOwner oo c ->
+	(SWChunk_MaybeOwned M oo L c ==> SWChunk_MaybeOwned M' oo L c).
+Admitted.
 
 (* ******************************************************* *)
 (** ** Lemmas *)
@@ -72,3 +85,37 @@ Hint Resolve partial_swchunk_inhab swchunk_inhab.
 
 (* ******************************************************* *)
 (** ** Specifications *)
+
+
+
+
+
+(* ******************************************************* *)
+(** ** To put in SWChunkOf *)
+
+
+Definition Repr_weighted a A (R: htype A a) :=
+	fun (X: weighted_ A) (x: weighted_ a) =>
+		let (UW, W) := X in
+		let (uw, w) := x in
+		uw ~> R UW \*
+		\[W = w].
+
+(* Cf MList_proof.v *)
+Notation "'Whtype' A a" := (htype (weighted_ A) (weighted_ a)) (at level 69, A at level 0).
+
+
+Definition SWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
+	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (s: swchunk_ a) : hprop :=
+	\exists l,
+		s ~> SWChunk_MaybeOwned M oo l \*
+		hfold_list2 R L l.
+
+(* Pour passer aux spec avec of *)
+Lemma swchunk_push_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+	(v: view_) (M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a) (X: weighted_ A) (x: weighted_ a),
+	SPEC (schunk_push v c x)
+	MONO M
+	PRE (c ~> SWChunkOf_MaybeOwned R M oo L \* R X x)
+	POST (fun M' c' => c' ~> SWChunkOf_MaybeOwned R M' oo (vcons v X L)).
+Admitted.

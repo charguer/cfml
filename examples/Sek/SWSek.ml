@@ -4,6 +4,12 @@ open View
 open Owner
 open SWChunk
 
+(* note: other solution
+  type 'a swsek =
+    | Empty
+    | Struct of ... 
+*)
+
 type 'a swsek = { (* a sequence of ['a weighted] elements *)
   s_sides : ('a swchunk) array; (* array of 2 items of type [(('a weighted) schunk) weighted] *)
   s_mid : ('a partial_swchunk) swsek option; (* a sequence of weighted chunks of weighted elements *)
@@ -128,15 +134,16 @@ let mk_swsek_weight_populated v o front mid back =
 (* Push *)
 
 let rec swsek_push : 'a. view -> owner option -> 'a swsek -> 'a weighted -> 'a swsek = fun v o s x ->
-  let d = swsek_default s in
-  let front, back = view_sides v s.s_sides in
+  let front, back = view_sides v s.s_sides in (* first prove with v = Front *)
   let mid = s.s_mid in
 
   let front1, mid1 =
     if swchunk_is_full front then begin
+      let d = swchunk_default front in
       let front' = swchunk_create d o in
       let m = swsek_extract_mid d o mid in
-      front', Some (swsek_push v o m front)
+      let m' = swsek_push v o m front in
+      front', Some m'
 
       (* TODO: would it be useful to define swsek_push_into_mid v s c ? not so sure
       let m = swsek_extract_mid d s.s_mid in

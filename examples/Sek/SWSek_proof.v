@@ -125,43 +125,46 @@ Proof. introv M. inverts M as C M. splits~. inverts M as C M. auto. auto. Qed.
 (* ******************************************************* *)
 (** ** Representation predicates *)
 
-Inductive SekMemory (A: Type) {IA: Inhab A} {EA: Enc A} :=
+(* Inductive SekMemory (A: Type) {IA: Inhab A} {EA: Enc A} :=
 	|	BottomMemory : WChunkMemory A -> SekMemory
-	|	LevelMemory : WChunkMemory A -> SekMemory (A := partial_swchunk_ A) -> SekMemory.
+	|	LevelMemory : WChunkMemory A -> SekMemory (A := partial_swchunk_ A) -> SekMemory. *)
 
-Record SWSek_inv A (L Lf Lb: list (weighted_ A)) (Lm : list (list (weighted_ A))) (w: int) : Prop :=
+Inductive SekMem (A: Type) {IA: Inhab A} {EA: Enc A} :=
+|	SM_Empty : SekMem
+|	SM_Level : SWChunkMem A -> SekMem (A := partial_swchunk_ A) -> SekMem.
+
+
+
+Definition List_of_Wlist A (WL: Wlist A) : list A :=
+	LibList.map unweighted' WL.
+
+Record SWSek_inv_gen (popf popb: bool) A (L Lf Lb: Wlist A) (LLm : Wlist (Wlist A)) (w: int) : Prop :=
 	mkSWSek_inv {
-		swsinv_concat : L = Lf ++ concat Lm ++ Lb;
-		swsinv_full : ForallConseq (fun c1 c2 => length c1 + length c2 > K) Lm;
-		swsinv_weight : w = list_sum weight' L }.
+		swsinv_concat : L = Lf ++ concat (List_of_Wlist LLm) ++ Lb;
+		swsinv_full : ForallConseq (fun c1 c2 => length c1 + length c2 > K) (List_of_Wlist LLm);
+		swsinv_weight : w = list_sum weight' L;
+		swsinv_popf : popf -> LLm <> nil -> Lf <> nil;
+		swsinv_popb : popb -> LLm <> nil -> Lb <> nil }.
+	
+Definition SWSek_inv :=
+	SWSek_inv_gen true true.
 
-Definition IsPopulated A {IA: Inhab A} {EA: Enc A}
-	(v: view_) (M: ChunkMemory (weighted_ A)) (oo: option owner_) (s: swsek_ A) sides : Prop :=
-	(s_sides' s) ~> Array sides \* (sides[vindex v]) ~> SWChunk_MaybeOwned M oo nil ==+> \[(s_mid' s) = None].
+Definition WRChunk_of_RChunk a A (RChunk: Wlist A -> swchunk_ a -> hprop) : weighted_ (Wlist A) -> swchunk_ a -> hprop :=
+	fun L c =>
+		c ~> RChunk (unweighted' L) \*
+		\[weight' L = weight' c]. (* = list_sum weight' L *)
 
-Fixpoint SWSek A {IA: Inhab A} {EA: Enc A} (M: SekMemory (A := A)) (oo: option owner_) (L: Wlist A) (s: swsek_ A) : hprop :=
-	match s_mid' s with
-	|	None =>
-			match M with
-			|	BottomMemory CM | LevelMemory CM _ =>
-					\exists sides f b Lf Lb,
-						sides ~> Array ([f; b]) \*
-						f ~> SWChunk_MaybeOwned CM oo Lf \*
-						b ~> SWChunk_MaybeOwned CM oo Lb \*
-						\[SWSek_inv L Lf Lb nil (s_weight' s)]
-			end
-	|	Some m =>
-			match M with
-			|	BottomMemory _ => \[False]
-			| LevelMemory CM M' =>
-					\exists sides f b (* cm *) Lf Lb Lm,
-						sides ~> Array ([f; b]) \*
-						f ~> SWChunk_MaybeOwned CM oo Lf \*
-						b ~> SWChunk_MaybeOwned CM oo Lb \*
-						SWSek M' oo Lm m \*
-						(* Fold2 pour avoir l'état en mémoire de tous les chunks dans mid? *)
-						\[SWSek_inv L Lf Lb nil (s_weight' s)] \*
-						\[Lf <> nil] \* (* Invariant: if middle isn't empty then sides mustn't be empty *)
-						\[Lb <> nil]
-			end
-	end.
+Fixpoint SWSekOf a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
+	(M: SekMem (A := a)) (oo: option owner_) (L: Wlist A) (s: swsek_ a) : hprop :=
+	let (sides, mid, w) := s in
+	\exists f b Lf Lb LLm SWCM M',
+		let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
+		\[M = SM_Level SWCM M'] \*
+		sides ~> Array ([f; b]) \*
+		f ~> RChunk Lf \*
+		b ~> RChunk Lb \*
+		\[SWSek_inv L Lf Lb LLm w] \*
+		match mid with
+		|	None => \[LLm = nil]
+		|	Some m => m ~> SWSekOf (WRChunk_of_RChunk RChunk) M' oo LLm
+		end.
