@@ -18,9 +18,6 @@ type 'a swsek = { (* a sequence of ['a weighted] elements *)
 
 (*-----------------------------------------------------------------------------*)
 
-let swsek_default s =
-  swchunk_default s.s_sides.(0)
-
 let swsek_create d oo =
   (* note: if oo = None, we could have pa0 for both sides *)
   let empty () = swchunk_create d oo in
@@ -203,10 +200,10 @@ let swsek_merge_middle concat o mid1 mid2 =
     Some (concat o m1' m2')
 
 let rec swsek_concat : 'a. owner option -> 'a swsek -> 'a swsek -> 'a swsek = fun o s1 s2 ->
-  let d = swsek_default s1 in
   let front1, back1 = view_sides Front s1.s_sides in
   let front2, back2 = view_sides Front s2.s_sides in
 
+  let d = swchunk_default front1 in
   let m = swsek_extract_mid d o s1.s_mid in
   let mb1 = swsek_absorb Back o m back1 in
   let mb1f2 = swsek_absorb Back o mb1 front2 in
@@ -221,8 +218,8 @@ let rec swsek_concat : 'a. owner option -> 'a swsek -> 'a swsek -> 'a swsek = fu
 (* [swsek_split s w] returns [(s1, s2)] such that [s1 ++ s2 = s] and [s1] is
   maximal such that [weight s1 <= w] *)
 let rec swsek_split : 'a. owner option -> 'a swsek -> int -> 'a swsek * 'a swsek = fun o s w ->
-  let d = swsek_default s in
   let front, back = view_sides Front s.s_sides in
+  let d = swchunk_default front in
   let mid = s.s_mid in
   let empty () = swchunk_create d o in
   let wf = weight front in

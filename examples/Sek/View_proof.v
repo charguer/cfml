@@ -13,6 +13,7 @@ From CFML Require Import LibSepTLCbuffer.
 Import IndexHints.
 
 Require Import ListMisc.
+Import LibListNotation.
 
 Require Import View_ml.
 
@@ -42,6 +43,18 @@ Definition vindex (v: view_) : int :=
 	match v with
 	|	Front => 0
 	|	Back => 1
+	end.
+
+Definition vsides A {IA: Inhab A} (v: view_) (L: list A) : A * A :=
+	match v with
+	|	Front => (L[0], L[1])
+	|	Back => (L[1], L[0])
+	end.
+
+Definition vlist2 A (v: view_) (f b: A) : list A :=
+	match v with
+	|	Front => [f; b]
+	|	Back => [b; f]
 	end.
 
 
@@ -111,6 +124,10 @@ Lemma self_eq_app_r_inv : forall A v (L1 L2: list A),
 Proof. intros. rewrites <- vapp_swap in H. applys* self_eq_vapp_l_inv. Qed.
 
 
+Lemma length_vlist2 : forall A (v: view_) (f b: A),
+	length (vlist2 v f b) = 2.
+Proof. unfold vlist2. intros A []; auto. Qed.
+
 (* ******************************************************* *)
 (** ** Hints *)
 
@@ -119,6 +136,8 @@ Hint Rewrite length_vcons length_vapp : rew_list.
 Hint Rewrite vapp_assoc vapp_swap : rew_list.
 Hint Rewrite vcons_vapp vapp_vcons_l vapp_vcons_swap vapp_vcons_r : rew_list.
 Hint Rewrite vapp_nil_l vapp_nil_r self_eq_vapp_l_inv self_eq_app_r_inv : rew_list.
+Hint Resolve length_vlist2.
+Hint Rewrite length_vlist2 : rew_list.
 
 
 (* ******************************************************* *)
@@ -131,3 +150,13 @@ Lemma view_swap_spec : forall (v: view_),
 Proof. xcf. xpay. xmatch; xvals~. Qed.
 
 Hint Extern 1 (RegisterSpec view_swap) => Provide view_swap_spec.
+
+Lemma view_sides_spec : forall A (IA: Inhab A) (v: view_) (a: array A) (L: list A),
+	length L >= 2 ->
+	SPEC (view_sides v a)
+		PRE \[]
+		INV (a ~> Array L)
+		POST \[= vsides v L].
+Admitted.
+
+Hint Extern 1 (RegisterSpec view_sides) => Provide view_sides_spec.

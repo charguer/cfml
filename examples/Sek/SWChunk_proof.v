@@ -86,36 +86,10 @@ Hint Resolve partial_swchunk_inhab swchunk_inhab.
 (* ******************************************************* *)
 (** ** Specifications *)
 
-
-
-
-
-(* ******************************************************* *)
-(** ** To put in SWChunkOf *)
-
-
-Definition Repr_weighted a A (R: htype A a) :=
-	fun (X: weighted_ A) (x: weighted_ a) =>
-		let (UW, W) := X in
-		let (uw, w) := x in
-		uw ~> R UW \*
-		\[W = w].
-
-(* Cf MList_proof.v *)
-Notation "'Whtype' A a" := (htype (weighted_ A) (weighted_ a)) (at level 69, A at level 0).
-
-
-Definition SWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
-	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (s: swchunk_ a) : hprop :=
-	\exists l,
-		s ~> SWChunk_MaybeOwned M oo l \*
-		hfold_list2 R L l.
-
-(* Pour passer aux spec avec of *)
-Lemma swchunk_push_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
-	(v: view_) (M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a) (X: weighted_ A) (x: weighted_ a),
-	SPEC (schunk_push v c x)
+Lemma swchunk_push_spec : forall A (IA: Inhab A) (EA: Enc A)
+	(v: view_) (M: SWChunkMem A) (oo: option owner_) (L: Wlist A) (c: swchunk_ A) (x: weighted_ A),
+	SPEC (swchunk_push v c x)
 	MONO M
-	PRE (c ~> SWChunkOf_MaybeOwned R M oo L \* R X x)
-	POST (fun M' c' => c' ~> SWChunkOf_MaybeOwned R M' oo (vcons v X L)).
+	PRE (c ~> SWChunk_MaybeOwned M oo L)
+	POST (fun M' c' => c' ~> SWChunk_MaybeOwned M' oo (vcons v x L)).
 Admitted.

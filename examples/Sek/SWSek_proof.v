@@ -27,6 +27,7 @@ Require Import View_proof.
 Require Import Owner_proof.
 Require Import SChunk_proof.
 Require Import SWChunk_proof.
+Require Import SWChunkOf_proof.
 
 
 
@@ -120,6 +121,8 @@ Lemma ForallConseq_cons2_inv : forall A (P:A->A->Prop) x y L,
   ForallConseq P (x::y::L) -> P x y /\ ForallConseq P L.
 Proof. introv M. inverts M as C M. splits~. inverts M as C M. auto. auto. Qed.
 
+End ForallConseqLemmas.
+
 
 
 (* ******************************************************* *)
@@ -133,38 +136,155 @@ Inductive SekMem (A: Type) {IA: Inhab A} {EA: Enc A} :=
 |	SM_Empty : SekMem
 |	SM_Level : SWChunkMem A -> SekMem (A := partial_swchunk_ A) -> SekMem.
 
+Arguments SekMem A {IA} {EA}.
+
+Fixpoint SekMemory A {IA: Inhab A} {EA: Enc A} (M: SekMem A) : hprop :=
+	match M with
+	|	SM_Empty => \[]
+	|	SM_Level SWCM M' => SChunkMemory SWCM \* SekMemory M'
+	end.
+
+Fixpoint SekExtend A {IA: Inhab A} {EA: Enc A} (M1 M2: SekMem A) : Prop :=
+	match M1, M2 with
+	|	SM_Empty, _ => True
+	|	SM_Level SWCM1 M1', SM_Level SWCM2 M2' => SChunkExtend SWCM1 SWCM2 /\ SekExtend M1' M2'
+	|	_, _ => False
+	end.
+
+#[global]
+Instance MonType_SekMem A {IA: Inhab A} {EA: Enc A} :
+	MonType (SekMem A) := make_MonType (SekMemory (A := A)) (SekExtend (A := A)).
+
 
 
 Definition List_of_Wlist A (WL: Wlist A) : list A :=
 	LibList.map unweighted' WL.
 
-Record SWSek_inv_gen (popf popb: bool) A (L Lf Lb: Wlist A) (LLm : Wlist (Wlist A)) (w: int) : Prop :=
-	mkSWSek_inv {
-		swsinv_concat : L = Lf ++ concat (List_of_Wlist LLm) ++ Lb;
-		swsinv_full : ForallConseq (fun c1 c2 => length c1 + length c2 > K) (List_of_Wlist LLm);
-		swsinv_weight : w = list_sum weight' L;
-		swsinv_popf : popf -> LLm <> nil -> Lf <> nil;
-		swsinv_popb : popb -> LLm <> nil -> Lb <> nil }.
-	
-Definition SWSek_inv :=
-	SWSek_inv_gen true true.
+Definition SWSek_vconcat A (v: view_) (Lf Lb: Wlist A) (LLm: Wlist (Wlist A)) : Wlist A :=
+	vapp v Lf (vapp v (concat (List_of_Wlist LLm)) Lb).
 
-Definition WRChunk_of_RChunk a A (RChunk: Wlist A -> swchunk_ a -> hprop) : weighted_ (Wlist A) -> swchunk_ a -> hprop :=
+Definition SWSek_middle_full A (LLm: Wlist (Wlist A)) : Prop :=
+	ForallConseq (fun c1 c2 => length c1 + length c2 > K) (List_of_Wlist LLm).
+
+Record SWSek_inv_gen (pf pb: bool) (v: view_) A (L Lf Lb: Wlist A) (LLm : Wlist (Wlist A)) (w: int) : Prop :=
+	mkSWSek_inv {
+		swsinv_concat : L = SWSek_vconcat v Lf Lb LLm;
+		swsinv_full : SWSek_middle_full LLm;
+		swsinv_weight : w = list_sum weight' L;
+		swsinv_popf : pf -> LLm <> nil -> Lf <> nil;
+		swsinv_popb : pb -> LLm <> nil -> Lb <> nil }.
+	
+(* Definition SWSek_inv :=
+	SWSek_inv_gen true true Front. *)
+
+Notation "'RChunkType' A a" := (Wlist A -> swchunk_ a -> hprop) (at level 69, A at level 0).
+Notation "'WRChunkType' A a" := (weighted_ (Wlist A) -> swchunk_ a -> hprop) (at level 69, A at level 0).
+
+Definition WRChunk_of_RChunk a A (RChunk: RChunkType A a) : WRChunkType A a :=
 	fun L c =>
 		c ~> RChunk (unweighted' L) \*
 		\[weight' L = weight' c]. (* = list_sum weight' L *)
 
-Fixpoint SWSekOf a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
-	(M: SekMem (A := a)) (oo: option owner_) (L: Wlist A) (s: swsek_ a) : hprop :=
-	let (sides, mid, w) := s in
-	\exists f b Lf Lb LLm SWCM M',
-		let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
-		\[M = SM_Level SWCM M'] \*
-		sides ~> Array ([f; b]) \*
+Fixpoint depth a (s: swsek_ a) : int :=
+	let (_, mid, _) := s in
+	1 + match mid with
+	|	None => 0
+	|	Some m => depth m
+	end.
+
+Definition SWSekOf_Level (pf pb: bool) (v: view_) a A {IA: Inhab a} {EA: Enc A} (RChunk: RChunkType A a)
+	(L: Wlist A) (sides: loc) (LLm: Wlist (Wlist A)) (w: int) :=
+	\exists f b Lf Lb,
+		sides ~> Array (vlist2 v f b) \*
 		f ~> RChunk Lf \*
 		b ~> RChunk Lb \*
-		\[SWSek_inv L Lf Lb LLm w] \*
+		\[SWSek_inv_gen pf pb v L Lf Lb LLm w].
+
+Lemma SWSekOf_Level_eq : forall (pf pb: bool) (v: view_) a A (IA: Inhab a) (EA: Enc A) (RChunk: RChunkType A a)
+	(L: Wlist A) (sides: loc) (LLm: Wlist (Wlist A)) (w: int),
+	SWSekOf_Level pf pb v RChunk L sides LLm w =
+		\exists f b Lf Lb,
+			sides ~> Array (vlist2 v f b) \*
+			f ~> RChunk Lf \*
+			b ~> RChunk Lb \*
+			\[SWSek_inv_gen pf pb v L Lf Lb LLm w].
+Proof using. auto. Qed.
+
+Fixpoint SWSekOf a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
+	(M: SekMem a) (oo: option owner_) (L: Wlist A) (s: swsek_ a) : hprop :=
+	let (sides, mid, w) := s in
+	\exists LLm SWCM M',
+		let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
+		\[M = SM_Level SWCM M'] \*
+		SWSekOf_Level true true Front RChunk L sides LLm w \*
 		match mid with
 		|	None => \[LLm = nil]
 		|	Some m => m ~> SWSekOf (WRChunk_of_RChunk RChunk) M' oo LLm
 		end.
+
+Lemma SWSekOf_eq : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+	(M: SekMem a) (oo: option owner_) (L: Wlist A) (s: swsek_ a),
+	s ~> SWSekOf R M oo L =
+		let (sides, mid, w) := s in
+		\exists LLm SWCM M',
+			let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
+			\[M = SM_Level SWCM M'] \*
+			SWSekOf_Level true true Front RChunk L sides LLm w \*
+			match mid with
+			|	None => \[LLm = nil]
+			|	Some m => m ~> SWSekOf (WRChunk_of_RChunk RChunk) M' oo LLm
+			end.
+Proof using. intros. gen M L. induction* s. Qed.
+
+Hint Extern 1 (RegisterOpen SWSekOf) => Provide SWSekOf_eq.
+
+
+
+(* ******************************************************* *)
+(** ** Specs *)
+Lemma swsek_extract_mid_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (RChunk: RChunkType A a)
+	(M: SekMem (partial_swchunk_ a)) (d: a) (oo: option owner_) (mo: option (swsek_ (partial_swchunk_ a))) (LLm: Wlist (Wlist A)),
+	let WRChunk := WRChunk_of_RChunk RChunk in
+	SPEC (swsek_extract_mid d oo mo)
+		PRE (match mo with
+					|	None => \[LLm = nil]
+					|	Some m => m ~> SWSekOf WRChunk M oo LLm
+				end)
+		POST (fun m' => m' ~> SWSekOf WRChunk M oo LLm).
+Admitted.
+
+Hint Extern 1 (RegisterSpec swsek_extract_mid) => Provide swsek_extract_mid_spec_of.
+
+Lemma mk_swsek_weight_populated_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+	(M: SekMem a) (v: view_) (oo: option owner_) (f b: swchunk_ a) (mid: option (swsek_ (partial_swchunk_ a)))
+	(Lf Lb: Wlist A) (LLm: Wlist (Wlist A)),
+	SPEC (mk_swsek_weight_populated v oo f mid b)
+	MONO M
+	PRE (\exists LLm SWCM Ml,
+				let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
+				\[M = SM_Level SWCM Ml] \*
+				f ~> RChunk Lf \*
+				b ~> RChunk Lb \*
+				\[SWSek_middle_full LLm] \*
+				match mid with
+				|	None => \[LLm = nil]
+				|	Some m => m ~> SWSekOf (WRChunk_of_RChunk RChunk) Ml oo LLm
+				end)
+	POST (fun M' s' => s' ~> SWSekOf R M' oo (SWSek_vconcat v Lf Lb LLm)).
+Admitted.
+
+Hint Extern 1 (RegisterSpec mk_swsek_weight_populated) => Provide mk_swsek_weight_populated_spec_of.
+
+Lemma swsek_push_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+	(M: SekMem a) (v: view_) (oo: option owner_) (L: Wlist A) (s: swsek_ a) (X: weighted_ A) (x: weighted_ a),
+	v = Front ->
+	SPEC (swsek_push v oo s x)
+		MONO M
+		PRE (s ~> SWSekOf R M oo L \* x ~> R X)
+		POST (fun M' s' => s' ~> SWSekOf R M' oo (vcons v X L)).
+Proof using.
+	introv ->. sets_eq n: (depth s). gen M L X x s. induction_wf IH: (downto 0) n.
+	introv Eqn. xcf. xpay_skip. xopen s. lets [sides mid w]: s; simpl.
+	xpull ;=> LLm SWCM M' ->. xchange SWSekOf_Level_eq ;=> f b Lf Lb Ig.
+	xapp*. xmatch. rew_list. (* xapp fonctionne pas ??? *)
+Qed.

@@ -4,8 +4,6 @@ open ESek
 
 type 'a psek = 'a swsek
 
-let psek_default = swsek_default
-
 let psek_create d =
   swsek_create d None
 
