@@ -20,6 +20,7 @@ Require Import Weighted_ml.
 Require Import SWChunk_ml.
 Require Import Capacity_proof.
 Require Import View_proof.
+Require Import SChunk_proof.
 Require Import SWChunk_proof.
 
 
@@ -38,13 +39,13 @@ Admitted.
 (* Cf MList_proof.v *)
 Notation "'Whtype' A a" := (htype (weighted_ A) (weighted_ a)) (at level 69, A at level 0).
 
-Definition SWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc A} (R: Whtype A a)
+Definition SWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (s: swchunk_ a) : hprop :=
 	\exists l,
 		s ~> SWChunk_MaybeOwned M oo l \*
 		hfold_list2 R L l.
 
-Lemma SWChunkOf_MaybeOwned_eq : forall a (s: swchunk_ a) A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+Lemma SWChunkOf_MaybeOwned_eq : forall a (s: swchunk_ a) A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A),
 	s ~> SWChunkOf_MaybeOwned R M oo L = 
 		\exists l,
@@ -52,46 +53,52 @@ Lemma SWChunkOf_MaybeOwned_eq : forall a (s: swchunk_ a) A (IA: Inhab a) (EA: En
 			hfold_list2 R L l.
 Proof using. auto. Qed.
 
+Lemma SWChunkOf_MaybeOwned_Mono : forall a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
+	(M M': SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a),
+	SChunkExtend M M' ->
+	(c ~> SWChunkOf_MaybeOwned R M oo L ==> c ~> SWChunkOf_MaybeOwned R M' oo L).
+Admitted.
+
 (* ******************************************************* *)
 (** ** Specifications *)
 
-Lemma swchunk_default_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+Lemma swchunk_default_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a),
 	SPEC (swchunk_default c)
-		INV (c ~> SWChunkOf_MaybeOwned R M oo L)
-		POST (fun (d: A) => \[]).
+		INV (c ~> SWChunkOf_MaybeOwned (a := a) (A := A) R M oo L)
+		POST (fun (d: a) => \[]).
 Admitted.
 
 Hint Extern 1 (RegisterSpec swchunk_default) => Provide swchunk_default_spec_of.
 
-Lemma swchunk_create_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+Lemma swchunk_create_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (d: a) (oo: option owner_),
 	SPEC (swchunk_create d oo)
 		MONO M
 		PRE \[]
-		POST (fun M' c => c ~> SWChunkOf_MaybeOwned R M' oo nil).
+		POST (fun M' c => c ~> SWChunkOf_MaybeOwned (a := a) (A := A) R M' oo (@nil (weighted_ A))).
 Admitted.
 
 Hint Extern 1 (RegisterSpec swchunk_create) => Provide swchunk_create_spec_of.
 
-Lemma swchunk_is_full_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+Lemma swchunk_is_full_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a),
 	SPEC (swchunk_is_full c)
 		INV (c ~> SWChunkOf_MaybeOwned R M oo L)
-		POST \[= IsFull L].
+		POST (fun b => \[b = isTrue (IsFull L)]).
 Proof using. skip. Qed.
 
 Hint Extern 1 (RegisterSpec swchunk_is_full) => Provide swchunk_is_full_spec_of.
 
-Lemma swchunk_push_spec_of : forall a A (IA: Inhab a) (EA: Enc A) (R: Whtype A a)
+Lemma swchunk_push_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(v: view_) (M: SWChunkMem a) (oo: option owner_) (L: Wlist A) (c: swchunk_ a) (X: weighted_ A) (x: weighted_ a),
-	SPEC (swchunk_push v c x)
+	SPEC (swchunk_push v oo c x)
 	MONO M
-	PRE (c ~> SWChunkOf_MaybeOwned R M oo L \* R X x)
+	PRE (c ~> SWChunkOf_MaybeOwned R M oo L \* x ~> R X)
 	POST (fun M' c' => c' ~> SWChunkOf_MaybeOwned R M' oo (vcons v X L)).
 Proof using.
   xtriple. xchange SWChunkOf_MaybeOwned_eq ;=> l. xapp swchunk_push_spec ;=> c' M' HE.
-	xchange <- hfold_list2_vcons v. xchanges~ <- SWChunkOf_MaybeOwned_eq. 
+	xchange <- (>> hfold_list2_vcons v R X x). xchanges~ <- SWChunkOf_MaybeOwned_eq. 
 Qed.
 
 Hint Extern 1 (RegisterSpec swchunk_push) => Provide swchunk_push_spec_of.

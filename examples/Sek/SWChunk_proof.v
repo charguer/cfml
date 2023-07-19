@@ -67,8 +67,7 @@ Definition SWChunk_MaybeOwned A {IA: Inhab A} {EA: Enc A}	(M: SWChunkMem A) (oo:
 Lemma SWChunk_MaybeOwned_Mono : forall A {IA: Inhab A} {EA: Enc A}
 	(M M': SWChunkMem A) (oo: option owner_) (L: Wlist A) (c: swchunk_ A),
 	SChunkExtend M M' ->
-	~ SWChunk_IsOwner oo c ->
-	(SWChunk_MaybeOwned M oo L c ==> SWChunk_MaybeOwned M' oo L c).
+	(c ~> SWChunk_MaybeOwned M oo L ==> c ~> SWChunk_MaybeOwned M' oo L).
 Admitted.
 
 (* ******************************************************* *)
@@ -88,7 +87,7 @@ Hint Resolve partial_swchunk_inhab swchunk_inhab.
 
 Lemma swchunk_push_spec : forall A (IA: Inhab A) (EA: Enc A)
 	(v: view_) (M: SWChunkMem A) (oo: option owner_) (L: Wlist A) (c: swchunk_ A) (x: weighted_ A),
-	SPEC (swchunk_push v c x)
+	SPEC (swchunk_push v oo c x)
 	MONO M
 	PRE (c ~> SWChunk_MaybeOwned M oo L)
 	POST (fun M' c' => c' ~> SWChunk_MaybeOwned M' oo (vcons v x L)).

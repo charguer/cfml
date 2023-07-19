@@ -15,6 +15,9 @@ Import IndexHints.
 Require Import ListMisc.
 Import LibListNotation.
 
+From CFML Require Import Array_proof.
+Import FarraySpec.
+
 Require Import View_ml.
 
 
@@ -151,12 +154,12 @@ Proof. xcf. xpay. xmatch; xvals~. Qed.
 
 Hint Extern 1 (RegisterSpec view_swap) => Provide view_swap_spec.
 
-Lemma view_sides_spec : forall A (IA: Inhab A) (v: view_) (a: array A) (L: list A),
+Lemma view_sides_spec_farray : forall A (IA: Inhab A) (v: view_) (a: array A) (L: list A),
+	FArray L a ->
 	length L >= 2 ->
 	SPEC (view_sides v a)
-		PRE \[]
-		INV (a ~> Array L)
+		PRE (\$1)
 		POST \[= vsides v L].
-Admitted.
+Proof. introv Ra HL. xcf. xpay. xmatch; xapp*; xapp*; xvals~. Qed.
 
-Hint Extern 1 (RegisterSpec view_sides) => Provide view_sides_spec.
+Hint Extern 1 (RegisterSpec view_sides) => Provide view_sides_spec_farray.

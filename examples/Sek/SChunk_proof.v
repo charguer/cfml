@@ -78,6 +78,18 @@ Definition SChunkExtend A {IA: Inhab A} {EA: Enc A} (M M': SChunkMem A) : Prop :
 	(scm_c M) \c (scm_c M') /\
 	forall sc L, SChunk_Shared M L sc -> SChunk_Shared M' L sc.
 
+Lemma SChunkExtend_refl : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A),
+	SChunkExtend M M.
+Admitted.
+
+Lemma SChunkExtend_trans : forall A (IA: Inhab A) (EA: Enc A) (M2 M1 M3: SChunkMem A),
+	SChunkExtend M1 M2 ->
+	SChunkExtend M2 M3 ->
+	SChunkExtend M1 M3.
+Admitted.
+
+Hint Resolve SChunkExtend_trans.
+
 
 (* ******************************************************* *)
 (** ** Lemmas *)
@@ -89,8 +101,7 @@ Instance MonType_SChunkMem A {IA: Inhab A} {EA: Enc A} :
 Lemma SChunk_MaybeOwned_Mono : forall A {IA: Inhab A} {EA: Enc A}
 	(M M': SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SChunkExtend M M' ->
-	~ SChunk_IsOwner oo c ->
-	(SChunk_MaybeOwned M oo L c ==> SChunk_MaybeOwned M' oo L c).
+	(c ~> SChunk_MaybeOwned M oo L ==> c ~> SChunk_MaybeOwned M' oo L).
 Admitted.
 
 
@@ -141,4 +152,6 @@ Lemma schunk_push_spec : forall A (IA: Inhab A) (EA: Enc A)
 	PRE (c ~> SChunk_MaybeOwned M oo L)
 	POST (fun M' c' => c' ~> SChunk_MaybeOwned M' oo (vcons v x L)).
 Admitted.
+
+Hint Extern 1 (RegisterSpec schunk_push) => Provide schunk_push_spec.
 
