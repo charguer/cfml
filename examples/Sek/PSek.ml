@@ -5,7 +5,7 @@ open ESek
 type 'a psek = 'a swsek
 
 let psek_create d =
-  swsek_create d None
+  swsek_create d
 
 let psek_is_empty = swsek_is_empty
 
