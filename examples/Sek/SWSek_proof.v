@@ -29,7 +29,7 @@ Require Import View_proof.
 Require Import Owner_proof.
 Require Import SChunk_proof.
 Require Import SWChunk_proof.
-Require Import SWChunkOf_proof.
+Require Import SWChunkOf.
 
 
 
@@ -174,10 +174,22 @@ Lemma SekExtend_eq : forall A (IA: Inhab A) (M1 M2: SekMem A),
 		end.
 Proof. intros. induction* M1. Qed.
 
-Lemma SekExtend_eq_level : forall A (IA: Inhab A) (EA: Enc A) (SWCM1 SWCM2: SWChunkMem A) (M1' M2': SekMem (partial_swchunk_ A)),
+Lemma SekExtend_eq_level : forall A (IA: Inhab A) (SWCM1 SWCM2: SWChunkMem A) (M1' M2': SekMem (partial_swchunk_ A)),
 	SekExtend (SM_Level SWCM1 M1') (SM_Level SWCM2 M2') =
 	(SChunkExtend SWCM1 SWCM2 /\ SekExtend M1' M2').
 Proof. auto. Qed.
+
+Lemma SekExtend_refl : forall A (IA: Inhab A) (M: SekMem A),
+	SekExtend M M.
+Admitted.
+
+Lemma SekExtend_trans : forall A (IA: Inhab A) (M2 M1 M3: SekMem A),
+	SekExtend M1 M2 ->
+	SekExtend M2 M3 ->
+	SekExtend M1 M3.
+Admitted.
+
+Hint Resolve SekExtend_trans.
 
 #[global]
 Instance MonType_SekMem A {IA: Inhab A} {EA: Enc A} :
@@ -185,16 +197,30 @@ Instance MonType_SekMem A {IA: Inhab A} {EA: Enc A} :
 
 
 
-Definition List_of_Wlist A (WL: Wlist A) : list A :=
-	LibList.map unweighted' WL.
+Definition SWSek_vconcat A (v: view_) (Lf Lb: listW A) (LLm: listW (listW A)) : listW A :=
+	vapp v Lf (vapp v (concat (list_of_listW LLm)) Lb).
 
-Definition SWSek_vconcat A (v: view_) (Lf Lb: Wlist A) (LLm: Wlist (Wlist A)) : Wlist A :=
-	vapp v Lf (vapp v (concat (List_of_Wlist LLm)) Lb).
+Lemma SWSek_vconcat_eq : forall A (v: view_) (Lf Lb: listW A) (LLm: listW (listW A)),
+	SWSek_vconcat v Lf Lb LLm = vapp v Lf (vapp v (concat (list_of_listW LLm)) Lb).
+Proof. auto. Qed.
 
-Definition SWSek_middle_full A (LLm: Wlist (Wlist A)) : Prop :=
-	ForallConseq (fun c1 c2 => length c1 + length c2 > K) (List_of_Wlist LLm).
+Lemma SWSek_vconcat_absorb_left : forall A (v: view_) (Lf Lb: listW A) (LLm: listW (listW A)),
+	SWSek_vconcat v Lf Lb LLm = SWSek_vconcat v nil Lb (vcons v (Wlist_of_listW Lf) LLm).
+Admitted.
 
-Record SWSek_inv_gen (pf pb: bool) (v: view_) A (L Lf Lb: Wlist A) (LLm : Wlist (Wlist A)) (w: int) : Prop :=
+
+Definition SWSek_middle_full A (LLm: listW (listW A)) : Prop :=
+	ForallConseq (fun c1 c2 => length c1 + length c2 > K) (list_of_listW LLm).
+
+
+Lemma SWSek_middle_full_vcons_full : forall A (v: view_) (L: listW A) (LLm: listW (listW A)),
+	IsFull L ->
+	SWSek_middle_full LLm ->
+	SWSek_middle_full (vcons v (Wlist_of_listW L) LLm).
+Admitted.
+
+
+Record SWSek_inv_gen (pf pb: bool) (v: view_) A (L Lf Lb: listW A) (LLm : listW (listW A)) (w: int) : Prop :=
 	mkSWSek_inv {
 		swsinv_concat : L = SWSek_vconcat v Lf Lb LLm;
 		swsinv_full : SWSek_middle_full LLm;
@@ -205,15 +231,15 @@ Record SWSek_inv_gen (pf pb: bool) (v: view_) A (L Lf Lb: Wlist A) (LLm : Wlist 
 (* Definition SWSek_inv :=
 	SWSek_inv_gen true true Front. *)
 
-Notation "'RChunkType' A a" := (Wlist A -> swchunk_ a -> hprop) (at level 69, A at level 0).
-Notation "'WRChunkType' A a" := (weighted_ (Wlist A) -> swchunk_ a -> hprop) (at level 69, A at level 0).
+Notation "'RChunkType' A a" := (listW A -> swchunk_ a -> hprop) (at level 69, A at level 0).
+Notation "'WRChunkType' A a" := (Wlist A -> swchunk_ a -> hprop) (at level 69, A at level 0).
 
 Definition WRChunk_of_RChunk a A (RChunk: RChunkType A a) : WRChunkType A a :=
 	fun L c =>
 		c ~> RChunk (unweighted' L) \*
 		\[weight' L = weight' c]. (* = list_sum weight' L *)
 
-Lemma RChunk_lift : forall a A (RChunk: RChunkType A a) (X: Wlist A) (x: swchunk_ a),
+Lemma RChunk_lift : forall a A (RChunk: RChunkType A a) (X: listW A) (x: swchunk_ a),
 	x ~> RChunk X ==>
 		x ~> (WRChunk_of_RChunk RChunk) (weighted_make__ X (weight' x)).
 Proof. xunfold WRChunk_of_RChunk. xsimpl~. Qed.
@@ -226,7 +252,7 @@ Fixpoint depth a (s: swsek_ a) : int :=
 	end.
 
 Definition SWSekOf_Level (pf pb: bool) (v: view_) a A {IA: Inhab a} {EA: Enc a} (RChunk: RChunkType A a)
-	(L: Wlist A) (sides: loc) (LLm: Wlist (Wlist A)) (w: int) : hprop :=
+	(L: listW A) (sides: loc) (LLm: listW (listW A)) (w: int) : hprop :=
 	\exists f b Lf Lb,
 		\[FArray (vlist2 v f b) sides] \*
 		f ~> RChunk Lf \*
@@ -234,7 +260,7 @@ Definition SWSekOf_Level (pf pb: bool) (v: view_) a A {IA: Inhab a} {EA: Enc a} 
 		\[SWSek_inv_gen pf pb v L Lf Lb LLm w].
 
 Lemma SWSekOf_Level_eq : forall (pf pb: bool) (v: view_) a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkType A a)
-	(L: Wlist A) (sides: loc) (LLm: Wlist (Wlist A)) (w: int),
+	(L: listW A) (sides: loc) (LLm: listW (listW A)) (w: int),
 	SWSekOf_Level pf pb v RChunk L sides LLm w =
 		\exists f b Lf Lb,
 			\[FArray (vlist2 v f b) sides] \*
@@ -244,7 +270,7 @@ Lemma SWSekOf_Level_eq : forall (pf pb: bool) (v: view_) a A (IA: Inhab a) (EA: 
 Proof using. auto. Qed.
 
 Fixpoint SWSekOf a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
-	(M: SekMem a) (oo: option owner_) (L: Wlist A) (s: swsek_ a) : hprop :=
+	(M: SekMem a) (oo: option owner_) (L: listW A) (s: swsek_ a) : hprop :=
 	let (sides, mid, w) := s in
 	\exists LLm SWCM M',
 		let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
@@ -256,23 +282,23 @@ Fixpoint SWSekOf a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
 		end.
 
 Definition SWSekOf_mid a A {IA: Inhab a} {EA: Enc a} (RChunk: RChunkType A a)
-	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: Wlist (Wlist A)) (m: swsek_ (partial_swchunk_ a)) : hprop :=
+	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: listW (listW A)) (m: swsek_ (partial_swchunk_ a)) : hprop :=
 	m ~> SWSekOf (WRChunk_of_RChunk RChunk) M' oo LLm.
 
 Definition SWSekOf_mid_opt a A {IA: Inhab a} {EA: Enc a} (RChunk: RChunkType A a)
-	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: Wlist (Wlist A)) (mid: option (swsek_ (partial_swchunk_ a))) : hprop :=
+	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: listW (listW A)) (mid: option (swsek_ (partial_swchunk_ a))) : hprop :=
 	match mid with
 	|	None => \[LLm = nil]
 	|	Some m => m ~> SWSekOf_mid RChunk M' oo LLm
 	end.
 
 Definition SWSekOf_mid_eq : forall a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkType A a)
-	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: Wlist (Wlist A)) (m: swsek_ (partial_swchunk_ a)),
+	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: listW (listW A)) (m: swsek_ (partial_swchunk_ a)),
 	m ~> SWSekOf_mid RChunk M' oo LLm = m ~> SWSekOf (WRChunk_of_RChunk RChunk) M' oo LLm.
 Proof. auto. Qed.
 
 Lemma SWSekOf_mid_opt_eq : forall a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkType A a)
-	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: Wlist (Wlist A)) (mid: option (swsek_ (partial_swchunk_ a))),
+	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: listW (listW A)) (mid: option (swsek_ (partial_swchunk_ a))),
 	mid ~> SWSekOf_mid_opt RChunk M' oo LLm =
 		match mid with
 		|	None => \[LLm = nil]
@@ -281,7 +307,7 @@ Lemma SWSekOf_mid_opt_eq : forall a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkT
 Proof using. auto. Qed.
 
 Lemma SWSekOf_eq : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
-	(M: SekMem a) (oo: option owner_) (L: Wlist A) (s: swsek_ a),
+	(M: SekMem a) (oo: option owner_) (L: listW A) (s: swsek_ a),
 	s ~> SWSekOf R M oo L =
 		let (sides, mid, w) := s in
 		\exists LLm SWCM M',
@@ -295,7 +321,7 @@ Hint Extern 1 (RegisterOpen SWSekOf) => Provide SWSekOf_eq.
 
 Lemma SWSekOf_mid_Mono : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(SWCM1 SWCM2: SWChunkMem a) (M': SekMem (partial_swchunk_ a))
-	(oo: option owner_) (LLm: Wlist (Wlist A)) (m: swsek_ (partial_swchunk_ a)),
+	(oo: option owner_) (LLm: listW (listW A)) (m: swsek_ (partial_swchunk_ a)),
 	let RChunk1 := SWChunkOf_MaybeOwned R SWCM1 oo in
 	let RChunk2 := SWChunkOf_MaybeOwned R SWCM2 oo in
 	SChunkExtend SWCM1 SWCM2 ->
@@ -304,7 +330,7 @@ Admitted.
 
 Lemma SWSekOf_mid_opt_Mono : forall a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
 	(SWCM1 SWCM2: SWChunkMem a) (M': SekMem (partial_swchunk_ a))
-	(oo: option owner_) (LLm: Wlist (Wlist A)) (m: option (swsek_ (partial_swchunk_ a))),
+	(oo: option owner_) (LLm: listW (listW A)) (m: option (swsek_ (partial_swchunk_ a))),
 	let RChunk1 := SWChunkOf_MaybeOwned R SWCM1 oo in
 	let RChunk2 := SWChunkOf_MaybeOwned R SWCM2 oo in
 	SChunkExtend SWCM1 SWCM2 ->
@@ -312,9 +338,14 @@ Lemma SWSekOf_mid_opt_Mono : forall a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a
 Admitted.
 
 Lemma SWSekOf_Mono : forall a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
-	(M1 M2: SekMem a) (oo: option owner_) (L: Wlist A) (s: swsek_ a),
+	(M1 M2: SekMem a) (oo: option owner_) (L: listW A) (s: swsek_ a),
 	SekExtend M1 M2 ->
 	(s ~> SWSekOf R M1 oo L ==> s ~> SWSekOf R M2 oo L).
+Admitted.
+
+Lemma SWSekOf_mid_opt_of_mid : forall a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkType A a)
+	(M': SekMem (partial_swchunk_ a)) (oo: option owner_) (LLm: listW (listW A)) (m: swsek_ (partial_swchunk_ a)),
+	m ~> SWSekOf_mid RChunk M' oo LLm ==> Some m ~> SWSekOf_mid_opt RChunk M' oo LLm.
 Admitted.
 
 
@@ -322,17 +353,20 @@ Admitted.
 (* ******************************************************* *)
 (** ** Specs *)
 Lemma swsek_extract_mid_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (RChunk: RChunkType A a)
-	(M: SekMem (partial_swchunk_ a)) (d: a) (oo: option owner_) (mo: option (swsek_ (partial_swchunk_ a))) (LLm: Wlist (Wlist A)),
+	(M: SekMem (partial_swchunk_ a)) (d: a) (oo: option owner_) (mo: option (swsek_ (partial_swchunk_ a))) (LLm: listW (listW A)),
 	SPEC (swsek_extract_mid d oo mo)
 		PRE (mo ~> SWSekOf_mid_opt RChunk M oo LLm)
-		POST (fun m' => m' ~> SWSekOf_mid RChunk M oo LLm).
+		POST (fun m' => m' ~> SWSekOf_mid RChunk M oo LLm \*
+					\[If LLm = nil
+							then mo = None /\ depth m' = 1
+							else mo = Some m']).
 Admitted.
 
 Hint Extern 1 (RegisterSpec swsek_extract_mid) => Provide swsek_extract_mid_spec_of.
 
 Lemma mk_swsek_weight_populated_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	SWCM Ml (v: view_) (oo: option owner_) (f b: swchunk_ a) (mid: option (swsek_ (partial_swchunk_ a)))
-	(Lf Lb: Wlist A) (LLm: Wlist (Wlist A)),
+	(Lf Lb: listW A) (LLm: listW (listW A)),
 		SWSek_middle_full LLm ->
 		let M := SM_Level SWCM Ml in
 		let RChunk := SWChunkOf_MaybeOwned R SWCM oo in
@@ -353,21 +387,45 @@ Proof. intros. rew_array. case_if. case_if~. math. Qed.
 Hint Rewrite read_1 : rew_list.
 
 
+
+(* Hint Extern 1 (RegisterSpec swchunk_create) =>
+	match goal with R: Whtype _ _ |- _ => Provide (@swchunk_create_spec_of _ _ _ _ R) end. *)
+
+Ltac xspec_registered f ::=
+	ltac_database_get database_spec f;
+	try match goal with |- ?S -> _ =>
+		match S with context[Whtype _ _] =>
+			match goal with R: Whtype _ _ |- _ =>
+				let H := fresh in
+				intros H;
+				specializes H R;
+				revert H
+			end
+		end
+	end.
+
+Definition one_if (P: Prop) : int :=
+	If P then 1 else 0.
+
 Lemma swsek_push_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
-	(M: SekMem a) (v: view_) (oo: option owner_) (L: Wlist A) (s: swsek_ a) (X: weighted_ A) (x: weighted_ a),
+	(M: SekMem a) (v: view_) (oo: option owner_) (L: listW A) (s: swsek_ a) (X: weighted_ A) (x: weighted_ a),
 	v = Front ->
 	SPEC (swsek_push v oo s x)
 		MONO M
 		PRE (s ~> SWSekOf R M oo L \* x ~> R X)
 		POST (fun M' s' => s' ~> SWSekOf R M' oo (vcons v X L)).
 Proof using.
-	introv ->. sets_eq n: (depth s). gen a A IA EA R M L X x s. induction_wf IH: (downto 0) n.
-	introv Eqn. xcf. xpay_skip. xopen s. lets [sides mid w]: s; simpl.
+	introv ->.
+	sets meas: (fun a A (s: swsek_ a) (L: listW A) => depth s + one_if (L <> nil)).
+	sets_eq n: (meas a A s L). gen a A IA EA R M L X x s. induction_wf IH: (downto 0) n.
+	introv Eqn. xcf. xpay_skip. xopen s. case_eq s; simpl ;=> sides m w Eqs.
 	xpull ;=> LLm SWCM M' ->. xchange SWSekOf_Level_eq ;=> f b Lf Lb Hsides Ig.
 	xapp*. xmatch. rew_list. xapp.
 	xlet (fun '(f1, mid1) =>
-		\exists SWCM1 Lf1 LLm1,
-		\[SChunkExtend SWCM SWCM1] \*
+		\exists SWCM1 M1' Lf1 LLm1,
+		let M := SM_Level SWCM M' in
+		let M1 := SM_Level SWCM1 M1' in
+		\[SekExtend M M1] \*
 		let RChunk := SWChunkOf_MaybeOwned R SWCM1 oo in
 		\$(-1) \*
 		f1 ~> RChunk Lf1 \*
@@ -375,22 +433,33 @@ Proof using.
 		\[~ IsFull Lf1] \*
 		\[SWSek_middle_full LLm1] \*
 		\[L = SWSek_vconcat Front Lf1 Lb LLm1] \*
-		mid1 ~> SWSekOf_mid_opt RChunk M' oo LLm1 \*
-		SekMemory (SM_Level SWCM1 M') \*
+		mid1 ~> SWSekOf_mid_opt RChunk M1' oo LLm1 \*
+		SekMemory M1 \*
 		x ~> R X).
-	{ xif ;=> C.
-		{ xapp ;=> d. xchange SekMemory_eq. xapp (>> swchunk_create_spec_of R); simpl ;=> f' SWCM1 HE.
+	{ simpl. lets [Iconcat Ifull Iweight Ipf Ipb]: Ig. xif ;=> C.
+		{ xchange SWChunkOf_MaybeOwned_inv_Inv f ;=> I_f.
+			xapp ;=> d. xapp; simpl ;=> f' SWCM1 HE.
 			(* pourquoi ça marche pas tout de suite? *)
-			xapp ;=> m'. do 2 xchange~ SWChunkOf_MaybeOwned_Mono. xchange~ SWSekOf_mid_Mono.
-			xchange RChunk_lift f. sets_eq n': (depth m'). xchange* SWSekOf_mid_eq. xapp*.
-			{ skip. (* later: argument that depth decreased. *) }
-			{ intros mid' M1' HE1. xval. xsimpl~ (weighted_make__ Lf (list_sum weight' Lf) :: LLm); skip. (* tous les sous buts ont l'air prouvable ! *) } }
-			{ xval. lets []: Ig. forwards~: SChunkExtend_refl SWCM. xsimpl~ Lf LLm. (* ne pas préciser? *) xsimpl*. } }
-	destruct x3__ as [f1 mid1]. xpull. xpull ;=> SCWM1 HE Lf1 LLm1 HLF1 HLLm1 EqL. xmatch.
+			xapp ;=> m' Hm'. do 2 xchange~ SWChunkOf_MaybeOwned_Mono. xchange~ SWSekOf_mid_Mono.
+			xchange RChunk_lift f. xchange* SWSekOf_mid_eq. sets_eq n': (meas _ _ m' LLm). xapp~; simpl.
+			{ split. unfolds meas, one_if. skip. (* lemmas: depth >= 1 and one_if >= 0 *)
+				subst n' n s. unfold meas. simpl. unfold one_if at 1. do 2 case_if.
+				subst m. unfold one_if. case_if. math. skip. (* lemma L = [] -> LLm = [] *)
+				destruct Hm' as [-> ->]. skip. (* lemma L = [] -> Lf = [] *) }
+			{ intros mid' M1' HE1. xval. xsimpl~ (Wlist_of_listW Lf :: LLm).
+				{ apply capacity_spec. }
+				{ applys~ SWSek_middle_full_vcons_full Front. }
+				{ skip. (* Lemma vconcat_absorb_left *) }
+				{ xchange <- SWSekOf_mid_eq. xchanges SWSekOf_mid_opt_of_mid.
+					fequals. unfold Wlist_of_listW. fequals. applys~ swcinv_sum. } } }
+		{ xvals~. split*.
+			{ apply SChunkExtend_refl. }
+			{ apply SekExtend_refl. } } }
+	destruct x3__ as [f1 mid1]. xpull. xpull ;=> SCWM1 M1' Lf1 LLm1 HE HLF1 HLLm1 EqL. xmatch.
 	xchange SekMemory_eq. xapp; simpl ;=> f2 SWCM' HE1.
 	xchange <- SekMemory_eq_level. xchange~ SWChunkOf_MaybeOwned_Mono. xchange~ SWSekOf_mid_opt_Mono.
 	xapp~; simpl ;=> s' M2 HE2. xsimpl.
-	{ destruct~ M2 as [| SWCM2 M2']. destruct HE2 as [HE2 HES]. split~. }
+	{ destruct HE as [HE HES]. destruct~ M2 as [| SWCM2 M2']. destruct HE2 as [HE2 HES2]. split~. }
 	{ rew_list. fequals~. }
 	{ skip. (* credits... *) }
 Qed.

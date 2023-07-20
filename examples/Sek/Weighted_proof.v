@@ -19,12 +19,29 @@ Require Import Weighted_ml.
 
 
 (* ******************************************************* *)
+(** ** Definitions *)
+
+Notation "'listW' A" := (list (weighted_ A)) (at level 69).
+Notation "'Wlist' A" := (weighted_ (listW A)) (at level 69).
+
+Definition list_of_listW A (LW: listW A) : list A :=
+	LibList.map unweighted' LW.
+
+Definition Wlist_of_listW A (L: listW A) : Wlist A :=
+	weighted_make__ L (list_sum weight' L).
+
+
+(* ******************************************************* *)
 (** ** Lemmas *)
 
 Instance weighted_inhab A : Inhab A -> Inhab (weighted_ A).
 Proof using. intros. apply (Inhab_of_val (weighted_make__ arbitrary 0)). Qed.
 
 Hint Resolve weighted_inhab.
+
+Lemma Wlist_of_listW_eq : forall A (L: listW A),
+	Wlist_of_listW L = weighted_make__ L (list_sum weight' L).
+Proof. auto. Qed.
 
 (* ******************************************************* *)
 (** ** Spec *)

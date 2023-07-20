@@ -56,6 +56,13 @@ Tactic Notation "list_cases" :=
 Tactic Notation "list_cases" "*" :=
   list_cases; auto_star.
 
+
+(**************************************)
+(** list_sum *)
+Definition list_sum A (W: A -> int) (L: list A) : int :=
+  LibList.fold_left (fun x acc => acc + W x) 0 L.
+
+
 (**************************************)
 (** Sums *)
 
