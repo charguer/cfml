@@ -21,6 +21,11 @@ type 'a swsek = (* a sequence of ['a weighted] elements *)
 let swsek_create d =
   SWSek_Empty d
 
+let swsek_default s =
+  match s with
+  | SWSek_Empty d -> d
+  | SWSek_Level (sides, _, _) -> swchunk_default (sides.(0))
+
 let swsek_create_mid d =
   let mid_d = partial_swchunk_create d None in
   swsek_create mid_d
@@ -55,7 +60,7 @@ let mk_swsek_pov_weight v front mid back =
 
 
 (* sets mid to Empty if it is if effectively empty *)
-let swsek_collapse s =
+(* let swsek_collapse s =
   match s with
   | SWSek_Empty _ -> s
   | SWSek_Level (sides, mid, w) ->
@@ -68,7 +73,21 @@ let swsek_collapse s =
             let md = swsek_create_mid d in
             mk_swsek_pov_weight Front front md back
       else
-        s
+        s *)
+
+let swsek_collapse s =
+  match s with
+  | SWSek_Empty _ -> s
+  | SWSek_Level (sides, mid, w) ->
+      match mid with
+      | SWSek_Empty _ -> s
+      | SWSek_Level (mid_sides, _, _) ->
+          if w = 0 then begin
+            let d = swchunk_default mid_sides.(0) in
+            SWSek_Level (sides, SWSek_Empty d, w)
+          end else
+            s
+
 
 let mk_swsek_weight_collapsed v front mid back =
   let s = mk_swsek_pov_weight v front mid back in
