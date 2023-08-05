@@ -408,7 +408,7 @@ Proof using.
 	introv ->.
 	sets_eq n: (depth s). gen a A IA EA R M L X x s. induction_wf IH: (downto 0) n; hide IH.
 	introv Eqn. xcf. xpay_skip. xmatch.
-	{ skip. (* base case, not so interesting *) }
+	{ xlet. xapp. skip. (* base case, not so interesting *) }
 	{ xchanges SWSekOf_eq_level ;=> LLm SWCM M' -> Cl. xchange SWSekOf_Level_eq ;=> f b Lf Lb Hsides Ig.
 		xapp*. xmatch. rew_list. xapp.
 		xlet (fun '(f1, mid1) =>
