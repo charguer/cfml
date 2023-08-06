@@ -21,6 +21,15 @@ Import FarraySpec.
 Require Import View_ml.
 
 
+
+Lemma read_1 : forall A (IA: Inhab A) (f b: A),
+	[f; b][1] = b.
+Proof. intros. rew_array. case_if. case_if~. math. Qed.
+
+Hint Rewrite read_1 : rew_list.
+
+
+
 (* ******************************************************* *)
 (** ** Definitions *)
 
@@ -28,6 +37,12 @@ Definition vswap (v: view_) : view_ :=
 	match v with
 	|	Front => Back
 	|	Back => Front
+	end.
+
+Definition vxor (v1 v2: view_) : view_ :=
+	match v1 with
+	|	Front => v2
+	|	Back => vswap v2
 	end.
 
 Definition vcons A (v: view_) (x: A) (L: list A) : list A :=
@@ -46,6 +61,12 @@ Definition vindex (v: view_) : int :=
 	match v with
 	|	Front => 0
 	|	Back => 1
+	end.
+
+Definition vexchange A (v: view_) (f b: A) : A * A :=
+	match v with
+	|	Front => (f, b)
+	|	Back => (b, f)
 	end.
 
 Definition vsides A {IA: Inhab A} (v: view_) (L: list A) : A * A :=
@@ -67,6 +88,25 @@ Definition vlist2 A (v: view_) (f b: A) : list A :=
 Lemma vswap_vswap : forall v,
 	vswap (vswap v) = v.
 Proof. intros. destruct v; auto. Qed.
+
+Lemma vswap_neq : forall v,
+	v <> vswap v.
+Proof. intros. destruct v; simpl; fequals. Qed.
+
+Lemma neq_vswap : forall v1 v2,
+	v1 <> v2 ->
+		v2 = vswap v1.
+Proof. intros. destruct v1; destruct v2; auto; false. Qed.
+
+
+Lemma vxor_same : forall v,
+	vxor v v = Front.
+Proof. intros. destruct v; auto. Qed.
+
+Lemma vxor_neq : forall v1 v2,
+	v1 <> v2 ->
+	vxor v1 v2 = Back.
+Proof. intros. destruct v1; destruct v2; auto; false. Qed.
 
 
 Lemma length_vcons : forall A v (x: A) (L: list A),
@@ -127,20 +167,41 @@ Lemma self_eq_app_r_inv : forall A v (L1 L2: list A),
 Proof. intros. rewrites <- vapp_swap in H. applys* self_eq_vapp_l_inv. Qed.
 
 
+Lemma vexchange_same : forall A (v: view_) (x: A),
+	vexchange v x x = (x, x).
+Proof. intros. destruct~ v. Qed.
+
+
 Lemma length_vlist2 : forall A (v: view_) (f b: A),
 	length (vlist2 v f b) = 2.
 Proof. unfold vlist2. intros A []; auto. Qed.
+
+Lemma vlist2_vswap : forall A (v: view_) (f b: A),
+	vlist2 (vswap v) b f = vlist2 v f b.
+Proof. intros. destruct v; auto. Qed.
+
+Lemma neq_vlist2 : forall A (v1 v2: view_) (f b: A),
+	v1 <> v2 ->
+	vlist2 v2 b f = vlist2 v1 f b.
+Proof. intros. destruct v1; destruct v2; auto; false. Qed.
+
+Lemma vsides_vlist2 : forall A (IA: Inhab A) (v: view_) (f b: A),
+	vsides v (vlist2 v f b) = (f, b).
+Proof. intros. destruct v; simpl; rew_list~. Qed.
 
 (* ******************************************************* *)
 (** ** Hints *)
 
 Hint Rewrite vswap_vswap : rew_list.
+Hint Rewrite vxor_neq vxor_same : rew_list.
 Hint Rewrite length_vcons length_vapp : rew_list.
 Hint Rewrite vapp_assoc vapp_swap : rew_list.
 Hint Rewrite vcons_vapp vapp_vcons_l vapp_vcons_swap vapp_vcons_r : rew_list.
 Hint Rewrite vapp_nil_l vapp_nil_r self_eq_vapp_l_inv self_eq_app_r_inv : rew_list.
+Hint Rewrite vexchange_same : rew_list.
 Hint Resolve length_vlist2.
 Hint Rewrite length_vlist2 : rew_list.
+Hint Rewrite vlist2_vswap neq_vlist2 vsides_vlist2 : rew_list.
 
 
 (* ******************************************************* *)

@@ -39,6 +39,8 @@ Record SChunkMem (A: Type) : Type :=
 		scm_a : PArrayMem A;
 		scm_c : EChunkMem A }.
 
+Definition SChunkMem_empty (A: Type) : SChunkMem A := mk_SChunkMem \{} \{}.
+
 (* Definition IsMaybeOwner A {IA: Inhab A} {EA: Enc A} (oo: option owner_) (c: schunk_ A) : Prop :=
 	match c with
 	|	MaybeOwned ec o => oo = Some o
@@ -73,6 +75,16 @@ Definition SChunkMemory A {IA: Inhab A} {EA: Enc A} (M: SChunkMem A) : hprop :=
 	PArrayMemory (scm_a M) \*
 	Group (EChunk (A := A)) (scm_c M).
 
+Lemma SChunkMemory_eq : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A),
+	SChunkMemory M =
+		PArrayMemory (scm_a M) \*
+		Group (EChunk (A := A)) (scm_c M).
+Proof using. auto. Qed.
+
+Lemma SChunkMemory_empty : forall A (IA: Inhab A) (EA: Enc A),
+	\[] ==> SChunkMemory (SChunkMem_empty A).
+Proof using. intros. rewrite SChunkMemory_eq. simpl. xchanges PArrayMemory_empty. xchange Group_create. Qed.
+
 Definition SChunkExtend A {IA: Inhab A} {EA: Enc A} (M M': SChunkMem A) : Prop :=
 	PArrayExtend (scm_a M) (scm_a M') /\
 	(scm_c M) \c (scm_c M') /\
@@ -86,6 +98,10 @@ Lemma SChunkExtend_trans : forall A (IA: Inhab A) (EA: Enc A) (M2 M1 M3: SChunkM
 	SChunkExtend M1 M2 ->
 	SChunkExtend M2 M3 ->
 	SChunkExtend M1 M3.
+Admitted.
+
+Lemma SChunkExtend_empty : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A),
+	SChunkExtend (SChunkMem_empty A) M.
 Admitted.
 
 Hint Resolve SChunkExtend_trans.
@@ -126,6 +142,15 @@ Lemma schunk_default_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) 
 Admitted.
 
 Hint Extern 1 (RegisterSpec schunk_default) => Provide schunk_default_spec.
+
+Lemma schunk_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (d: A) (oo: option owner_),
+	SPEC (schunk_create d oo)
+		MONO M
+		PRE \[]
+		POST (fun M' c => c ~> SChunk_MaybeOwned M' oo nil).
+Admitted.
+
+Hint Extern 1 (RegisterSpec schunk_create) => Provide schunk_create_spec.
 
 Lemma schunk_is_empty_spec : forall A (IA: Inhab A) (EA: Enc A) (M: SChunkMem A) (oo: option owner_) (L: list A) (c: schunk_ A),
 	SPEC (schunk_is_empty c)

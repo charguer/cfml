@@ -601,6 +601,10 @@ Lemma Points_into_forall_subset : forall A (IA: Inhab A) (EA: Enc A) (R R': set 
   Points_into_forall R' M.
 Proof using. unfold Points_into_forall. introv HP HR Hp. applys~ Points_into_subset. Qed.
 
+Lemma Points_into_forall_empty : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)),
+	Points_into_forall R \{}.
+Proof using. intros. rewrite Points_into_forall_eq. intros p Hp. false~ indom_empty_inv. Qed.
+
 Lemma Points_into_forall_update :
 	forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (M: PArrayMem A) (pa: parray_ A) (n: Node A),
 		Points_into_forall R M ->
@@ -611,7 +615,7 @@ Proof using.
 	rew_map in *. rew_map_upd~.
 Qed.
 
-Hint Resolve Points_into_subset Points_into_forall_subset Points_into_forall_update.
+Hint Resolve Points_into_subset Points_into_forall_subset Points_into_forall_empty Points_into_forall_update.
 
 
 Lemma Inv_closure_inv : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (pa: parray_ A),
@@ -651,6 +655,14 @@ Proof using.
 	{ xchange~ hforall_specialize n. }
 Qed.
 
+Lemma PArrayMemory_empty : forall A (IA: Inhab A) (EA: Enc A),
+	\[] ==+> (PArrayMemory (A := A)) \{}.
+Proof using.
+	intros. rewrite PArrayMemory_eq. xsimpl.
+	{ constructors~. intros pa Hpa. false~ indom_empty_inv. }
+	{ xchange Group_create. }
+Qed.
+
 Lemma PArrayMemory_add_fresh_Base : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (pa: parray_ A) (n: Node A) (L: list A),
   desc n = Desc_Base L ->
 	dist n >= 0 ->
@@ -662,7 +674,7 @@ Proof using.
 	{ rew_map in Hp. rew_map_upd~. }
 Qed.
 
-Hint Resolve PArrayMemory_inv_Inv PArrayMemory_add_fresh_Base.
+Hint Resolve PArrayMemory_inv_Inv PArrayMemory_empty PArrayMemory_add_fresh_Base.
 
 
 Lemma IsPArray_Mono : forall A (IA: Inhab A) (EA: Enc A) (M M': PArrayMem A) p L,
@@ -680,6 +692,14 @@ Lemma PArrayExtend_trans : forall A (IA: Inhab A) (EA: Enc A) (M2 M1 M3: PArrayM
   PArrayExtend M2 M3 -> 
   PArrayExtend M1 M3.
 Proof using. unfold PArrayExtend. introv [Hdom1 Harr1] [Hdom2 Harr2]. split~. Qed.
+
+Lemma PArrayExtend_empty : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A),
+	PArrayExtend \{} M.
+Proof using.
+	unfold PArrayExtend. intros. split.
+	{ set_prove2. false~ indom_empty_inv. }
+	{ intros. false~ indom_empty_inv. }
+Qed.
 
 Lemma PArrayExtend_add_fresh : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (pa: parray_ A) (n: Node A),
 	~ (pa \indom M) ->

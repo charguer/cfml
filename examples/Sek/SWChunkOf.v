@@ -39,11 +39,25 @@ Admitted.
 (* Cf MList_proof.v *)
 Notation "'Whtype' A a" := (htype (weighted_ A) (weighted_ a)) (at level 69, A at level 0).
 
+Definition PartialSWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
+	(M: SWChunkMem a) (oo: option owner_) (L: listW A) (s: partial_swchunk_ a) : hprop :=
+	\exists l,
+		s ~> SChunk_MaybeOwned M oo l \*
+		hfold_list2 R L l.
+
 Definition SWChunkOf_MaybeOwned a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: listW A) (s: swchunk_ a) : hprop :=
 	\exists l,
 		s ~> SWChunk_MaybeOwned M oo l \*
 		hfold_list2 R L l.
+
+Lemma PartialSWChunkOf_MaybeOwned_eq : forall a (s: partial_swchunk_ a) A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
+	(M: SWChunkMem a) (oo: option owner_) (L: listW A),
+	s ~> PartialSWChunkOf_MaybeOwned R M oo L =
+		\exists l,
+			s ~> SChunk_MaybeOwned M oo l \*
+			hfold_list2 R L l.
+Proof using. auto. Qed.
 
 Lemma SWChunkOf_MaybeOwned_eq : forall a (s: swchunk_ a) A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (oo: option owner_) (L: listW A),
@@ -53,7 +67,13 @@ Lemma SWChunkOf_MaybeOwned_eq : forall a (s: swchunk_ a) A (IA: Inhab a) (EA: En
 			hfold_list2 R L l.
 Proof using. auto. Qed.
 
-Lemma SWChunkOf_MaybeOwned_Mono : forall a A {IA: Inhab a} {EA: Enc a} (R: Whtype A a)
+Lemma PartialSWChunkOf_MaybeOwned_Mono : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
+	(M M': SWChunkMem a) (oo: option owner_) (L: listW A) (s: partial_swchunk_ a),
+	SChunkExtend M M' ->
+	(s ~> PartialSWChunkOf_MaybeOwned R M oo L ==> s ~> PartialSWChunkOf_MaybeOwned R M' oo L).
+Admitted.
+
+Lemma SWChunkOf_MaybeOwned_Mono : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M M': SWChunkMem a) (oo: option owner_) (L: listW A) (c: swchunk_ a),
 	SChunkExtend M M' ->
 	(c ~> SWChunkOf_MaybeOwned R M oo L ==> c ~> SWChunkOf_MaybeOwned R M' oo L).
@@ -75,6 +95,19 @@ Lemma swchunk_default_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype 
 Admitted.
 
 Hint Extern 1 (RegisterSpec swchunk_default) => Provide swchunk_default_spec_of.
+
+Lemma partial_swchunk_create_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
+	(M: SWChunkMem a) (d: a) (oo: option owner_),
+	SPEC (partial_swchunk_create d oo)
+		MONO M
+		PRE \[]
+		POST (fun M' c => c ~> PartialSWChunkOf_MaybeOwned R M' oo nil).
+Proof.
+	xcf. xpay_skip. xapp~. xapp ;=> c M' HE. xsimpl~.
+	rewrite PartialSWChunkOf_MaybeOwned_eq. xsimpl. xchanges <- hfold_list2_nil.
+Qed.
+
+Hint Extern 1 (RegisterSpec partial_swchunk_create) => Provide partial_swchunk_create_spec_of.
 
 Lemma swchunk_create_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 	(M: SWChunkMem a) (d: a) (oo: option owner_),
