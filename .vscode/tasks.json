@@ -1,0 +1,12 @@
+
+{
+
+    "version": "2.0.0",
+    "tasks": [
+      {
+	      "label": "Compile Coq dependencies",
+	      "type": "shell",
+	      "command": "cd ${fileDirname} && ./makedev.sh ${fileDirname}/${fileBasenameNoExtension}.required_vo"
+      }
+   ]        
+}

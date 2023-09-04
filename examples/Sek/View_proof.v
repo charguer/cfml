@@ -160,6 +160,10 @@ Lemma view_sides_spec_farray : forall A (IA: Inhab A) (v: view_) (a: array A) (L
 	SPEC (view_sides v a)
 		PRE (\$1)
 		POST \[= vsides v L].
-Proof. introv Ra HL. xcf. xpay. xmatch; xapp*; xapp*; xvals~. Qed.
+Proof.
+   introv Ra HL. xcf. xpay. xmatch.
+   { xapp*. autos~. xapp*. autos~. xvals~. }
+   { xapp*. autos~. xapp*. autos~. xvals~. } (* TODO: auto_star does not include auto_tilde *)
+Qed.
 
 Hint Extern 1 (RegisterSpec view_sides) => Provide view_sides_spec_farray.

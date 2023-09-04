@@ -1,3 +1,12 @@
+
+`opam install pprint menhir`
+`cd examples/Sek`
+`./makedev.sh depend`
+`./makedev.sh`
+
+coq-tlc should be installed via opam,
+or TLC variable set, see Makefile.dev
+
 # Using Coq within VSCode
 ## Extensions
 
@@ -8,7 +17,7 @@ For Coq: VSCoq (`maximedenes.vscoq`), to have interactive proofs as you would in
 ## Settings
 Settings for the current project are accessed by pressing `Ctrl+Shift+P` and searching for "Preferences: Open Workspace Settings", or through modification of the JSON file `settings.json` in the `.vscode/` folder at the base of the workspace directory (the directory you've opened in VSCode; if `.vscode/` doesn't exist yet, you can create it).
 
-If the settings have to be modified globally, the adequate changes can be done in the User Settings rather than in the Workspace Settings. 
+If the settings have to be modified globally, the adequate changes can be done in the User Settings rather than in the Workspace Settings.
 
 ### Bookmarks & Numbered Bookmarks
 All names of settings related to these extensions begin respectively with "Bookmarks: ..." and "Numbered Bookmarks: ...".
@@ -74,7 +83,7 @@ Command name | JSON Command | Default
 Bookmarks: Toggle | `bookmarks.toggle` | `Ctrl+Alt+K`
 Bookmarks: Jump To Next | `bookmarks.jumpToNext` | `Ctrl+Alt+L`
 Bookmarks: Jump To Previous | `bookmarks.jumpToPrevious` | `Ctrl+Alt+J`
-Bookmarks: Clear | `bookmarks.clear` | 
+Bookmarks: Clear | `bookmarks.clear` |
 Bookmarks: Clear From All Files | `bookmarks.clearFromAllFiles`
 Bookmarks: List | `bookmarks.list` |
 Bookmarks: List From All Files | `bookmarks.listFromAllFiles`
@@ -95,7 +104,7 @@ Numbered Bookmarks: Jump To Bookmark 0 | `numberedBookmarks.jumpToBookmark0` |
 Numbered Bookmarks: Jump To Bookmark 1 | `numberedBookmarks.jumpToBookmark1` | `Ctrl+1`
 ... | ... | ...
 Numbered Bookmarks: Jump To Bookmark 9 | `numberedBookmarks.jumpToBookmark9` | `Ctrl+9`
-Numbered Bookmarks: Clear | `numberedBookmarks.clear` | 
+Numbered Bookmarks: Clear | `numberedBookmarks.clear` |
 Numbered Bookmarks: Clear From All Files | `numberedBookmarks.clearFromAllFiles`
 Numbered Bookmarks: List | `numberedBookmarks.list` |
 Numbered Bookmarks: List From All Files | `numberedBookmarks.listFromAllFiles`
