@@ -108,7 +108,7 @@ Proof.
   induction H1; intros; rew_list in *.
   false* nil_eq_last_inv.
   destruct L1; rew_list in *.
-		forwards~: ForallConseq_cons_fuse. 
+		forwards*: ForallConseq_cons_fuse Pza. 
     inverts EQL0. false* last_eq_nil_inv.
   destruct L1; rew_list in *; inverts EQL0.
 		forwards*: IHForallConseq.
@@ -461,6 +461,9 @@ Lemma swsek_push_spec_of : forall a A (IA: Inhab a) (EA: Enc a) (R: Whtype A a)
 		MONO M
 		PRE (s ~> SWSekOf R M oo L \* x ~> R X)
 		POST (fun M' s' => s' ~> SWSekOf R M' oo (vcons v X L)).
+(* Arthur : SWSekOf v (X :: L)
+spec pour push Back avec une précondition SekOf Front -> donne L & X
+*)
 Proof using.
 	intros.
 	sets_eq n: (depth s). gen a A IA EA R M L X x s. induction_wf IH: (downto 0) n; hide IH.
@@ -483,22 +486,22 @@ Proof using.
 		{ xchange SekMemory_eq. destruct M as [| SWCM M'].
 			{ xchange SChunkMemory_empty (weighted_ a). xapp ;=> c SWCM1 HE.
 				xsimpl~ (SM_Empty (A := partial_swchunk_ a)).
-				{ apply SekExtend_empty. (* Lemma extend_empty *) }
+				{ apply SekExtend_empty. }
 				{ simpl. xsimpl. (* ??? *) } }
 			{ xapp ;=> c SWCM1 HE. xsimpl~ M'. rewrite SekExtend_eq_level. split~. apply SekExtend_refl. } }
 	  xpull ;=> SWCM1 M1'. xpull ;=> HE.
 		xchange SekMemory_eq_level. xapp ;=> b SWCM2 HE1. xapp ;=> f SWCM3 HE2.
 		xmatch. xapp ;=> f1 SWCM4 HE3. simpl in *.
 		(* Monotonie *)
-		xchange~ SWChunkOf_MaybeOwned_Mono SWCM2 SWCM4.
-		xchange~ PartialSWChunkOf_MaybeOwned_Mono SWCM1 SWCM4.
+		xchange* SWChunkOf_MaybeOwned_Mono SWCM2 SWCM4.
+		xchange* PartialSWChunkOf_MaybeOwned_Mono SWCM1 SWCM4.
 		sets_eq RChunk: (SWChunkOf_MaybeOwned R SWCM4 oo).
 		xchange* <- (>> SWSekOf_mid_eq_empty RChunk M1' oo partial_empty).
 		subst RChunk.
 		xchange <- SekMemory_eq_level. xapp.
 		{ apply SWSek_middle_full_empty. }
 		{ intros s' M2 HE'. xchange SWSekOf_eq_empty ;=> HL. xsimpl~.
-			{ do 2 applys~ SekExtend_trans. rewrite SekExtend_eq_level. split~. apply SekExtend_refl. }
+			{ do 2 applys* SekExtend_trans. rewrite SekExtend_eq_level. split*. apply SekExtend_refl. }
 			{ rewrite SWSek_vconcat_eq. rew_listx*. }
 			{ skip. (* haffine *) } } }
 	{ xchanges SWSekOf_eq_level ;=> LLm SWCM M' -> Cl.
@@ -524,7 +527,7 @@ Proof using.
 			{ xchange SWChunkOf_MaybeOwned_inv_Inv f ;=> I_f.
 				xapp ;=> d. xapp; simpl ;=> f' SWCM1 HE.
 				(* pourquoi ça marche pas tout de suite? *)
-				do 2 xchange~ SWChunkOf_MaybeOwned_Mono. xchange~ SWSekOf_mid_Mono.
+				do 2 xchange* SWChunkOf_MaybeOwned_Mono. xchange* SWSekOf_mid_Mono.
 				xchange RChunk_lift f. xchange* SWSekOf_mid_eq. sets_eq n': (depth mid). xapp~; simpl.
 				{ split*. }
 				{ intros mid' M1' HE1. xval. xsimpl~ (vcons v (Wlist_of_listW Lf) LLm).
@@ -537,9 +540,9 @@ Proof using.
 				{ apply SekExtend_refl. } } }
 	destruct x5__ as [f1 mid1]. xpull. xpull ;=> SCWM1 M1' Lf1 LLm1 HE HLF1 HLLm1 EqL. xmatch.
 	xchange SekMemory_eq. xapp; simpl ;=> f2 SWCM' HE1.
-	xchange <- SekMemory_eq_level. xchange~ SWChunkOf_MaybeOwned_Mono. xchange~ SWSekOf_mid_Mono.
+	xchange <- SekMemory_eq_level. xchange* SWChunkOf_MaybeOwned_Mono. xchange* SWSekOf_mid_Mono.
 	xapp~; simpl ;=> s' M2 HE2. xsimpl.
-	{ destruct HE as [HE HES]. destruct~ M2 as [| SWCM2 M2']. destruct HE2 as [HE2 HES2]. split~. }
+	{ destruct HE as [HE HES]. destruct~ M2 as [| SWCM2 M2']. destruct HE2 as [HE2 HES2]. split*. }
 	{ rewrites SWSek_vconcat_vcons_l. fequals~. }
 	{ skip. (* credits *) } }
 Qed.

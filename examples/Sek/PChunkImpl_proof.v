@@ -50,18 +50,18 @@ Definition IsPChunk A {IA: Inhab A} {EA: Enc A} (M: PArrayMem A) (L: list A) (c:
 Lemma IsPChunk_inv_IsPArray : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (c: pchunk_ A) (L: list A),
 	IsPChunk M L c ->
 	exists D, IsPArray M D (data' c).
-Proof. unfold IsPChunk. intros. destruct c. simpl. destruct~ H as [D [Rdata I]]. Qed.
+Proof. unfold IsPChunk. intros. destruct c. simpl. destruct* H as [D [Rdata I]]. Qed.
 
 Lemma IsPChunk_inv_PChunkInv : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (c: pchunk_ A) (L: list A),
 	IsPChunk M L c ->
 	exists D, PChunkInv L D (front' c) (size' c) (default' c).
-Proof. unfold IsPChunk. intros. destruct c. simpl. destruct~ H as [D [Rdata I]]. Qed.
+Proof. unfold IsPChunk. intros. destruct c. simpl. destruct* H as [D [Rdata I]]. Qed.
 
 Lemma IsPChunk_inv_length : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A) (c: pchunk_ A) (L: list A),
 	IsPChunk M L c -> 0 <= length L <= K.
 Proof.
 	intros. forwards [D I]: IsPChunk_inv_PChunkInv H.
-	forwards~: pchunk_size. forwards~: pchunk_length. 
+	forwards*: pchunk_size. forwards*: pchunk_length. 
 Qed.
 
 Hint Resolve IsPChunk_inv_IsPArray IsPChunk_inv_PChunkInv IsPChunk_inv_length.
@@ -125,7 +125,7 @@ Lemma pchunk_is_empty_spec : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A)
 		POST (fun b => \[b = isTrue (L = nil)]).
 Proof.
 	introv Rc. xcf~. xpay. xvals~.
-	forwards~ [D I]: IsPChunk_inv_PChunkInv. forwards~ EL: pchunk_length. rewrites <- EL.
+	forwards* [D I]: IsPChunk_inv_PChunkInv. forwards* EL: pchunk_length. rewrites <- EL.
 	rewrite* length_zero_eq_eq_nil.
 Qed.
 
@@ -165,13 +165,13 @@ Proof.
 	introv Rc HL. xcf. xpay.
 	lets (x & q & ->): list_neq_nil_inv_last L HL.
 	xlets. xapp. destruct c; simpls. lets~ [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc. rew_list in Ilen.
-	unfold IsHead; simpl. rewrites~ (>> access_cost_eq D); simpl.
+	unfold IsHead; simpl. rewrites* (>> access_cost_eq D); simpl.
 	xapp~; simpl.
 	{ unwrap_up. }
-	{	intros x' M' E -> _. xchange~ <- rebase_cost_true D. xapp~.
+	{	intros x' M' E -> _. xchange~ <- rebase_cost_true D. xapp*.
 		{ unwrap_up. }
-		{ intros pa M'' E' Rpa _. xlets. xvals~.
-			unfold IsPChunk. exists. split~.
+		{ intros pa M'' E' Rpa _. xlets. xvals*.
+			unfold IsPChunk. exists. split*.
 			{ constructors* ;=> i Hi.
 				{ applys_eq* Iin; list_cases*.
 					{ unwrap_up in C; false; math. }
@@ -180,7 +180,7 @@ Proof.
 					{ applys_eq* Iout. unwrap_up in C. }
 					{ unwrap_up. } } }
 			{ fequals. fequals. forwards* H: Iin (size' - 1).
-				rew_array in H. case_if~. false. math. } } }
+				rew_array in H. case_if~. math. } } }
 Qed.
 
 Hint Extern 1 (RegisterSpec pchunk_pop_back) => Provide pchunk_pop_back_spec.
@@ -197,7 +197,7 @@ Proof.
 	destruct c; simpls. lets~ [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc.
 	xapp. rewrites~ (>> access_cost_eq L D); simpl. xapp~.
 	{ unwrap_up. }
-	{ intros pa M' E Rpa _. xvals~. unfold IsPChunk. exists; split~.
+	{ intros pa M' E Rpa _. xvals~. unfold IsPChunk. exists; split*.
 		{ constructors* ;=> i Hi; list_cases*; unwrap_up in *; false; math. } }
 Qed.
 
@@ -259,10 +259,10 @@ Lemma pchunk_set_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: PArr
 		POST (fun M' c' => IsHead M' c' \* \[IsPChunk M' (L[i := x]) c']).
 Proof.
 	introv Rc Hi. xcf; simpl. xpay. xapp.
-	destruct c; simpls. lets [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc. xchange~ access_cost_eq; simpl. xapp~.
+	destruct c; simpls. lets [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc. xchange* access_cost_eq; simpl. xapp~.
 	{ rew_index in *. unwrap_up. }
 	{ intros pa M' E Rpa _. xvals~.
-		unfold IsPChunk. exists; split~.
+		unfold IsPChunk. exists; split*.
 		{ constructors* ;=> j Hj; list_cases*; unwrap_up in *; false; math. } }
 Qed.
 
