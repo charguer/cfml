@@ -319,7 +319,7 @@ Fixpoint record (L:list(field*val)) (r:loc) : hprop :=
 
 Ltac xwpgen_simpl :=
   cbn beta delta [
-  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.fold_right LibListExec.map
+  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.map
   Datatypes.app List.combine List.rev List.fold_right List.map
   wpaux_var
   (* wpgen Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match *)

@@ -919,7 +919,7 @@ Ltac xcf_find f :=
   ltac_database_get database_cf f.
 
 Ltac xcf_post tt :=
-  instantiate;
+  (*instantiate;*)
   try solve_enc tt.
   (* TODO: needed? cbv beta; remove_head_unit tt. *)
 
@@ -1997,7 +1997,7 @@ Ltac xwhile_pre cont :=
     | true => aux tt
     | false => xgc_post; [ aux tt | ]
     end
-  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  | tag_seq => xseq; [ aux tt | try xpull ]
   end.
 
 Tactic Notation "xwhile" :=
@@ -2155,7 +2155,7 @@ Ltac xfor_pre cont :=
   let aux tt := xuntag tag_for; cont tt in
   match cfml_get_tag tt with
   | tag_for => aux tt
-  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  | tag_seq => xseq; [ aux tt | try xpull ]
   end.
 
 Ltac xfor_pre_ensure_evar_post cont :=
@@ -2298,7 +2298,7 @@ Ltac xfor_down_pre cont :=
   let aux tt := xuntag tag_for_down; cont tt in
   match cfml_get_tag tt with
   | tag_for_down => aux tt
-  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  | tag_seq => xseq; [ aux tt | try xpull ]
   end.
 
 Ltac xfor_down_pre_ensure_evar_post cont :=
@@ -2968,7 +2968,7 @@ Ltac xstep_pre tt :=
   try xpull; intros.
 
 Ltac xstep_core stopat :=
-  xstep_pre tt; xstep_once stopat; instantiate.
+  xstep_pre tt; xstep_once stopat.
 
 Tactic Notation "xstep" :=
   xstep_core tt.
@@ -3044,7 +3044,7 @@ Arguments bool_rect P /.
 
 Ltac xwp_simpl :=
   cbn beta delta [
-  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.fold_right LibListExec.map
+  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.map
   Datatypes.app List.combine List.rev List.fold_right List.map
   Wpgen Wpaux_getval Wpaux_getval_typed
   Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
