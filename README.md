@@ -34,7 +34,7 @@ To create a new switch to contain the relevant packages for cfml:
 To install the packages:
 
 ```
-   opam install pprint coq
+   opam install pprint coq menhir 
 ```
 
 To install the TLC opam package from sources:
