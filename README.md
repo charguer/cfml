@@ -109,7 +109,8 @@ Tutorials
 
 Case studies
 
-- `examples/Stack/Stack.ml`: verification of a stack implemented as a reference on a list---a simple yet very illustrative example.
+- `examples/Stack`: verification of a stack implemented as a reference on a list---a simple yet very illustrative example.
+- `examples/MList`: verification of simple operations on a mutable list; includes specifications where the list "owns" its elements.
 - `examples/PairingHeap`: verification of imperative pairing heaps; a heap is represented as a tree of variable arity; concretely, each tree consists of a mutable list of mutable subtrees.
 
 Unit tests:
