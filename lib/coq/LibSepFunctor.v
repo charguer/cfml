@@ -2216,8 +2216,8 @@ Ltac xtchange_core cont1 cont2 E modif :=
   match E with
   | ?H ==> ?H' => xtchange_with_core cont1 cont2 H H'
   | _ => xtchange_forwards E modif
-          ltac:(fun _ => instantiate; cont1 tt)
-          ltac:(fun _ => instantiate; cont2 tt)
+          ltac:(fun _ => cont1 tt)
+          ltac:(fun _ => cont2 tt)
   end.
 
 Ltac xtchange_base cont1 cont2 E modif :=

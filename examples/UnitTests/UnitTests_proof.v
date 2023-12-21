@@ -1811,7 +1811,7 @@ Qed.*)
 (** ** Pure records *)
 
 Ltac xcf_post tt ::=
-  instantiate. (* try solve_enc tt. *)
+  idtac. (* try solve_enc tt. *)
 
 
 Lemma pitems_build_spec : forall (A:Type) `{EA:Enc A}  (n:int),

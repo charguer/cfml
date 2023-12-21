@@ -525,14 +525,14 @@ Ltac hsimpl_cont tt ::=
 
 Ltac xapp_let_cont tt ::=
   let X := fresh "X" in intros X;
-  instantiate; try xpull; gen X.
+  try xpull; gen X.
 
 Ltac xapp_as_let_cont tt ::=
-  instantiate; try xpull.
+  try xpull.
 
 Ltac xapps_let_cont tt ::=
   let X := fresh "X" in intros X;
-  instantiate; try xpull;
+  try xpull;
   first [ intro_subst | gen X ].
 
 Ltac xapp_template xlet_tactic xapp_tactic xlet_cont ::=
