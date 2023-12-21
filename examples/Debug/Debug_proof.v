@@ -1,129 +1,13 @@
+(* THIS FILE IS USED FOR DEBUGGING PURPOSE ONLY *)
+
+
 Set Implicit Arguments.
 From CFML Require Import WPLib WPValid.
 From CFML Require Import Stdlib.
 From EXAMPLES Require Import Debug_ml.
-
-(*Close Scope wp_scope.
-
-Notation "'LetX' x ':=' F1 'in' F2" :=
- ( (Wpgen_let_trm F1 (fun x => F2)))
- (in custom wp at level 69,
-  only printing,
-  x ident,
-  F1 custom wp at level 99,
-  F2 custom wp at level 99,
-  right associativity,
-  format "'[v' '[' 'LetX'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'").
-*)
-
 Notation "'int'" := (Z%type).
 
-
-
-
-
-
-
-
-(********************************************************************)
-(** ** RB Tree *)
-
-(**)
-
-Lemma balance_cf_def : balance_cf_def__.
-Proof using.
-  cf_main.
-  cf_match.
-  cf_case.
-  { unfold Wpgen_negpat. intros. lets R : (@Enc_neq_inv _ (@Enc_tuple4 color_ _ rbtree_  _ int _ rbtree_  _)).
- eapply R. rew_enc. simpl.
-
-    eapply __MatchHyp. }
-  {  }
-  { cf_val. }
-  { cf_case.
-    { cf_val. }
-    { cf_match_fail. } }
-Qed.
-
-
-
-  
-
-
-(********************************************************************)
-(** ** CF proof for size and lookup *)
-
-(*
-(*
-
-let size = function
-  | Leaf x -> 1
-  | Node (w, _, _) -> w
-
-let rec lookup_tree i = function
-  | Leaf x -> if i = 0 then x else raise OutOfBound
-  | Node (w, t1, t2) ->
-      if i < w/2
-        then lookup_tree i t1
-        else lookup_tree (i - w/2) t2
-
-let rec lookup i = function
-  | [] -> raise OutOfBound
-  | Zero :: ts -> lookup i ts
-  | One t :: ts ->
-     if i < size t
-        then lookup_tree i t
-        else lookup (i - size t) ts
-
-*)
-
-Lemma size_cf_def : size_cf_def__.
-Proof using.
-  cf_main.
-  cf_match.
-  cf_case.
-  { cf_val. }
-  { cf_case.
-    { cf_val. }
-    { cf_match_fail. } }
-Qed.
-
-Lemma lookup_tree_cf_def : lookup_tree_cf_def__.
-Proof using.
-  cf_main.
-  cf_match.
-  cf_case.
-  { cf_letval. intros x. cf_if. { cf_val. } { cf_match_fail. } }
-  { cf_case.
-(* cf_inlined_if_needed. cf_if.
-    { cf_val. }
-    { cf_match_fail. } }
-Qed.
-*)
-Abort.
-
-Lemma lookup_cf_def : lookup_cf_def__.
-Proof using.
-  cf_main.
-  cf_match.
-  cf_case.
-  { cf_fail. }
-  { cf_case.
-    { destruct d; tryfalse. cf_case_eq_end.
-      cf_app. }
-    { cf_case.
-      { destruct d; tryfalse; inverts H1. cf_case_eq_end.
-        cf_let.
-        { cf_app. }
-        { intros x. cf_if.
-          { cf_app. }
-          { cf_let.
-            { cf_app. }
-            { intros y. cf_app. } } } }
-     { cf_match_fail. destruct d; tryfalse. } } }
-Qed.
-*)
+(* work-in-progress on testing validation *)
 
 
 (********************************************************************)
@@ -482,4 +366,132 @@ let v = 2
 
 
 
+
+
+
+
+
+
+
+
+
+
+(*==========================================================================
+Close Scope wp_scope.
+
+Notation "'LetX' x ':=' F1 'in' F2" :=
+ ( (Wpgen_let_trm F1 (fun x => F2)))
+ (in custom wp at level 69,
+  only printing,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetX'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'").
+*)
+
+
+
+
+
+
+(********************************************************************)
+(** ** RB Tree *)
+
+(*
+
+Lemma balance_cf_def : balance_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { unfold Wpgen_negpat. intros. lets R : (@Enc_neq_inv _ (@Enc_tuple4 color_ _ rbtree_  _ int _ rbtree_  _)).
+ eapply R. rew_enc. simpl.
+
+    eapply __MatchHyp. }
+  {  }
+  { cf_val. }
+  { cf_case.
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
+
+
+
+*)
+
+(********************************************************************)
+(** ** CF proof for size and lookup *)
+
+(*
+(*
+
+let size = function
+  | Leaf x -> 1
+  | Node (w, _, _) -> w
+
+let rec lookup_tree i = function
+  | Leaf x -> if i = 0 then x else raise OutOfBound
+  | Node (w, t1, t2) ->
+      if i < w/2
+        then lookup_tree i t1
+        else lookup_tree (i - w/2) t2
+
+let rec lookup i = function
+  | [] -> raise OutOfBound
+  | Zero :: ts -> lookup i ts
+  | One t :: ts ->
+     if i < size t
+        then lookup_tree i t
+        else lookup (i - size t) ts
+
+*)
+
+Lemma size_cf_def : size_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_val. }
+  { cf_case.
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+
+Lemma lookup_tree_cf_def : lookup_tree_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_letval. intros x. cf_if. { cf_val. } { cf_match_fail. } }
+  { cf_case.
+(* cf_inlined_if_needed. cf_if.
+    { cf_val. }
+    { cf_match_fail. } }
+Qed.
+*)
+Abort.
+
+Lemma lookup_cf_def : lookup_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_fail. }
+  { cf_case.
+    { destruct d; tryfalse. cf_case_eq_end.
+      cf_app. }
+    { cf_case.
+      { destruct d; tryfalse; inverts H1. cf_case_eq_end.
+        cf_let.
+        { cf_app. }
+        { intros x. cf_if.
+          { cf_app. }
+          { cf_let.
+            { cf_app. }
+            { intros y. cf_app. } } } }
+     { cf_match_fail. destruct d; tryfalse. } } }
+Qed.
+*)
 

@@ -1,0 +1,108 @@
+[
+
+  // CFML shortcuts, only activated when "config.workspaceKeybindings.CFML.enabled"
+  // is set; this settings is set in ".vscode/settings.json"
+
+  // CFML build shortcuts
+  {
+    "key": "f12",
+    "command": "workbench.action.tasks.runTask",
+    "args": "CFML: Compile all",
+    "when": "config.workspaceKeybindings.CFML.enabled"
+  },
+  {
+    "key": "ctrl+f12",
+    "command": "workbench.action.tasks.runTask",
+    "args": "CFML: Compile Coq dependencies",
+    "when": "config.workspaceKeybindings.CFML.enabled"
+  },
+  {
+    "key": "shift+f12",
+    "command": "workbench.action.tasks.runTask",
+    "args": "CFML: Make current example",,
+    "when": "config.workspaceKeybindings.CFML.enabled"
+  },
+
+  // Generic "VsCoq Legacy" navigation shortcuts
+  {
+    "key": "f5",
+    "command": "extension.coq.interpretToPointSynchronous",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "shift+f5",
+    "command": "extension.coq.interpretToPoint",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f6",
+    "command": "extension.coq.stepBackward",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f6",
+    "command": "extension.coq.stepBackward",
+    "when": "resourceScheme == 'coq-view'"
+  },
+  {
+    "key": "f7",
+    "command": "extension.coq.stepForward",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f7",
+    "command": "extension.coq.stepForward",
+    "when": "resourceScheme == 'coq-view'"
+  },
+  {
+    "key": "f8",
+    "command": "extension.coq.interpretToEndSynchronous",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f8",
+    "command": "extension.coq.interpretToEndSynchronous",
+    "when": "resourceScheme == 'coq-view'"
+  },
+  {
+    "key": "shift+f8",
+    "command": "extension.coq.interpretToEnd",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f10",
+    "command": "extension.coq.reset",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "f10",
+    "command": "extension.coq.reset",
+    "when": "resourceScheme == 'coq-view'"
+  },
+  {
+    "key": "shift+f10",
+    "command": "extension.coq.interrupt",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "shift+f10",
+    "command": "extension.coq.interrupt",
+    "when": "resourceScheme == 'coq-view'"
+  },
+  {
+    "key": "ctrl+f10",
+    "command": "extension.coq.proofView.open",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "shift+alt+a",
+    "command": "extension.coq.display.toggle.allLowLevelContents",
+    "when": "editorTextFocus && editorLangId == 'coq'"
+  },
+  {
+    "key": "shift+alt+a",
+    "command": "extension.coq.display.toggle.allLowLevelContents",
+    "when": "resourceScheme == 'coq-view'"
+  },
+
+]

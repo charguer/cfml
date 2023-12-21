@@ -2,4 +2,4 @@
 
 export FOLDER=`pwd`
 cd ../..
-make -f Makefile.dev $@
+make -f Makefile $@

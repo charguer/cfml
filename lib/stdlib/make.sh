@@ -2,12 +2,10 @@
 
 export FOLDER=`pwd`
 
+cd ../..
 ARGS="$@"
 if [ -z ${ARGS} ]; then
-  ARGS=libcoq
+  ARGS=stdlib
 fi
 
-cd ../..
-make -f Makefile.dev ${ARGS}
-
-# -d
+make -f Makefile ${ARGS}

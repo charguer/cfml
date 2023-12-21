@@ -1,0 +1,42 @@
+{
+  // If you wish to work on a Coq volume while at the same time accessing all
+  // Custom configuration used in template_keybindings.json to activate shortcuts only for CFML
+  "workspaceKeybindings.CFML.enabled": true,
+
+  // Tabulation and spacing conventions
+  "files.trimTrailingWhitespace": true,
+  "editor.tabSize": 2,
+
+  // Recognize certain extensions
+  "files.associations": {
+    "*.Makefile": "makefile"
+  },
+
+  // Hide generated files from explorer view
+  "files.exclude": {
+    ".*.aux": true,
+    ".*.cache": true,
+    "*.vok": true,
+    "*.vos": true,
+    "*.vo": true,
+    "*.glob": true,
+  },
+
+  // Exclude built files and _attic from search-in-files scope
+  "search.exclude": {
+      // "*_ml.v": true,
+      "*.vo": true,
+      "*.vos": true,
+      "*.vok": true,
+      "*.glob": true,
+      "*.aux": true,
+      "*.cmj": true,
+      "*.d": true,
+      ".depend*": true,
+      "*.coq_error": true,
+      "*.coq_error": true,
+      "_build/": true,
+      "_attic/": true
+  }
+
+}

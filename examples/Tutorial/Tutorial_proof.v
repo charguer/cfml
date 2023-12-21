@@ -126,6 +126,7 @@ Proof using.
   xcf. xapp. xapp. xapp. xsimpl.
 Qed.
 
+#[global]
 Hint Extern 1 (RegisterSpec incr_and_ref) => Provide incr_and_ref_spec.
 
 Lemma incr_and_ref'_spec : forall (p:loc) (n:int),
@@ -215,6 +216,7 @@ End Basics.
 (** * Hands-on: basic functions *)
 
 Module ExoBasic.
+Import Basics.
 
 (** Hints:
     - [xcf] to begin the proof

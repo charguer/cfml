@@ -377,7 +377,7 @@ Lemma app_myincr_spec : forall n,
 Proof using.
   xcf. dup 6.
   { xapp. xsimpl*. }
-  { xspec_show_fun. skip. }
+  { (* xspec_show_fun.*) skip. }
   { xapp_spec. skip. }
   (* Test for implementation details *)
   { xspec. intros Spec1. skip. }
@@ -400,7 +400,7 @@ Proof using.
   xcf. xlet_fun.
   dup 6.
   { xapp. xval. skip. }
-  { xspec_show_fun. skip. }
+  { (*xspec_show_fun.*) skip. }
   { xapp_spec. skip. }
   (* Tests for implementation details *)
   { let f := xgoal_fun tt in xspec_context f. skip. }

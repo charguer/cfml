@@ -1,7 +1,7 @@
 # CFML : a framework for interactive proofs of ML programs in Separation Logic
 
 CFML is for carrying out proofs of correctness of OCaml programs with
-respect to specifications expressed in higher-order Separation Logic. 
+respect to specifications expressed in higher-order Separation Logic.
 
 CFML consists of two main parts:
 
@@ -34,7 +34,7 @@ To create a new switch to contain the relevant packages for cfml:
 To install the packages:
 
 ```
-   opam install pprint coq 
+   opam install pprint coq
 ```
 
 To install the TLC opam package from sources:
@@ -59,7 +59,6 @@ To install the VsCoq IDE for Coq embedded in VScode, follow this tutorial:
 https://chargueraud.org/teach/verif/install/install.html
 In particular, this tutorial suggests a set of alternative key-binding.
 
-
 # Starting with the tutorial
 
 If `make all` succeeds, you can open the root folder of "cfml2"
@@ -78,20 +77,30 @@ in any other Coq file. (Type 'ctrl+shift+p' then 'Coq' to see the shortcuts.)
 
 Copy the folder 'examples/tutorial' into 'examples/mydev'.
 Rename the file, and commit the files into a git branch of your own.
-Then, process the ML files, and play the Coq files interactively 
+Then, process the ML files, and play the Coq files interactively
 in your IDE just like those from the tutorial.
 
 ```
    ./make.sh
 ```
 
-# References
+# Documentation
+
+The file `CHEATSHEET.md` provides a summary of the tactics and notation.
+
+The file `lib/coq/WPTactics.v` contains the detailed documentation for
+all the tactics.
+
+The file `generator/README.md` contains documentation for the
+characteristic formula generator.
 
 The construction of CFML 2.0 is described in this manuscript:
 https://www.chargueraud.org/research/2023/hdr/chargueraud-hdr.pdf
 
 Besides, the core of CFML 2.0 is described in the all-in-Coq course:
 [Foundations of Separation Logic](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
+
+
 
 
 

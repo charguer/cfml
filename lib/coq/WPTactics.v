@@ -859,7 +859,7 @@ Ltac xapp_xpolymorphic_eq tt :=
     [Type ?A]. Invoke [Unshelve] to see these remaining goals. *)
 
 Ltac solve_enc tt :=
-  match goal with |- Enc _ => exact Enc_unit end.
+  match goal with |- Enc _ => first [ eassumption | exact Enc_unit ] end.
 
 Ltac solve_type tt :=
   match goal with |- Type => exact unit end.
@@ -944,10 +944,13 @@ Ltac xcf_top_value tt :=
 
 (* [xcf] *)
 
+Ltac xpay_hook_for_xcf tt := fail.
+
 Ltac xcf_core tt :=
   xcf_pre tt;
   first [ xcf_top_fun tt
-        | xcf_top_value tt ].
+        | xcf_top_value tt ];
+  try xpay_hook_for_xcf tt.
 
 Tactic Notation "xcf" :=
   xcf_core tt.
@@ -2781,6 +2784,9 @@ Ltac xpay_post_core tt :=
 
 Tactic Notation "xpay" :=
   xpay_post_core tt.
+
+Ltac xpay_hook_for_xcf tt ::= (* fill in the hook *)
+  xpay.
 
 (* [xpay_pre] *)
 

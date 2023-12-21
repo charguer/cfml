@@ -55,7 +55,7 @@ Proof using. introv N. destruct L as [|x L']; tryfalse. xchanges* MList_cons. Qe
 
 Lemma haffine_MList : forall A `{EA:Enc A}  (L:list A) (p:loc),
   haffine (p ~> MList L).
-Proof using. 
+Proof using.
   intros. gen p. induction L; intros; xunfold MList; xaffine.
 Qed.
 
@@ -71,20 +71,17 @@ Context A {EA:Enc A}.
 Implicit Types L : list A.
 Implicit Types x : A.
 
-Ltac xcf_post tt ::= idtac.
-
 Lemma Triple_is_empty : forall L p,
   SPEC (is_empty p)
     PRE (p ~> MList (L:list A))
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
-  xcf. xchange MList_eq ;=> v. xchange MList_contents_iff ;=> HL.
-  xmatch.
+  xcf. xchange MList_eq ;=> v. xchange MList_contents_iff ;=> HL. xmatch.
   { xvals*. xchanges <- MList_eq. }
   { xvals. { auto_false*. } xchanges <- MList_eq. }
 Qed.
 
-Lemma Triple_create : 
+Lemma Triple_create :
   SPEC (create tt)
     PRE \[]
     POST (fun p => p ~> MList (@nil A)).
@@ -98,7 +95,7 @@ Lemma Triple_push : forall L p x,
     POST (fun (_:unit) => p ~> MList (x::L)).
 Proof using.
   xcf. xchange MList_eq ;=> v. xapp. xapp ;=> q. xapp.
-  xchanges <- (@MList_eq q). xchanges <- (@MList_cons p). 
+  xchanges <- (@MList_eq q). xchanges <- (@MList_cons p).
 Qed.
 
 Lemma Triple_pop : forall L p,

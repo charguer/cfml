@@ -1,0 +1,42 @@
+
+{
+  "version": "2.0.0",
+  "tasks": [
+    // Coq compilation
+    {
+      "label": "CFML: Compile all",
+      "type": "shell",
+      "command": "make -j4 all",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CFML: Compile Coq dependencies",
+      "type": "shell",
+      "command": "make ${relativeFileDirname}/${fileBasenameNoExtension}.required_vo",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CFML: Make current example",
+      "type": "shell",
+      "command": "make -j4 ${relativeFileDirname}",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "clear": true
+      }
+    },
+  ]
+}

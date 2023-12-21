@@ -1,57 +1,7 @@
-exception EmptyStructure
-exception BrokenInvariant
-exception OutOfBound
+(* THIS FILE IS USED FOR DEBUGGING PURPOSE ONLY *)
 
 
-type color = Red | Black
-type rbtree = Empty | Node of color * rbtree * int * rbtree
-
-let balance t =
-  match t with
-  | (Black, Node (Red, Node (Red, a, x, b), y, c), z, d) ->
-      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
-  (*| (Black, Node (Red, a, x, Node (Red, b, y, c)), z, d) ->
-      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
-  | (Black, a, x, Node (Red, Node (Red, b, y, c), z, d)) ->
-      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
-  | (Black, a, x, Node (Red, b, y, Node (Red, c, z, d))) ->
-      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))*)
-  | (c,a,x,y) -> Node (c,a,x,y)
-
-
-(*-----
-
-
-
-type 'a tree = Leaf of 'a | Node of int * 'a tree * 'a tree
-type 'a digit = Zero | One of 'a tree
-type 'a rlist = 'a digit list
-
-
-let size = function
-  | Leaf x -> 1
-  | Node (w, _, _) -> w
-
-
-let rec lookup_tree i = function
-  | Leaf x -> if i = 0 then x else raise OutOfBound
-  | Node (w, t1, t2) ->
-      if i < w/2
-        then lookup_tree i t1
-        else lookup_tree (i - w/2) t2
-
-let rec lookup i = function
-  | [] -> raise OutOfBound
-  | Zero :: ts -> lookup i ts
-  | One t :: ts ->
-     if i < size t
-        then lookup_tree i t
-        else lookup (i - size t) ts
-
-*)
-(*-----*)
-
-
+(* work-in-progress on testing validation *)
 
 let prim a b x y =
   if (not b) && (a || b)
@@ -109,3 +59,63 @@ let bools b =
 let pair_swap (x,y) =
   (y,x)
 
+
+
+
+(*=======================================
+exception EmptyStructure
+exception BrokenInvariant
+exception OutOfBound
+
+
+
+type color = Red | Black
+type rbtree = Empty | Node of color * rbtree * int * rbtree
+
+let balance t =
+  match t with
+  | (Black, Node (Red, Node (Red, a, x, b), y, c), z, d) ->
+      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+  (*| (Black, Node (Red, a, x, Node (Red, b, y, c)), z, d) ->
+      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+  | (Black, a, x, Node (Red, Node (Red, b, y, c), z, d)) ->
+      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+  | (Black, a, x, Node (Red, b, y, Node (Red, c, z, d))) ->
+      Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))*)
+  | (c,a,x,y) -> Node (c,a,x,y)
+*)
+
+(*-----
+
+
+
+type 'a tree = Leaf of 'a | Node of int * 'a tree * 'a tree
+type 'a digit = Zero | One of 'a tree
+type 'a rlist = 'a digit list
+
+
+let size = function
+  | Leaf x -> 1
+  | Node (w, _, _) -> w
+
+
+let rec lookup_tree i = function
+  | Leaf x -> if i = 0 then x else raise OutOfBound
+  | Node (w, t1, t2) ->
+      if i < w/2
+        then lookup_tree i t1
+        else lookup_tree (i - w/2) t2
+
+let rec lookup i = function
+  | [] -> raise OutOfBound
+  | Zero :: ts -> lookup i ts
+  | One t :: ts ->
+     if i < size t
+        then lookup_tree i t
+        else lookup (i - size t) ts
+
+*)
+(*---
+
+
+--*)
