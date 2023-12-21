@@ -52,7 +52,8 @@ To obtain CFML sources and compile them:
   cd ~
   git clone https://gitlab.inria.fr/charguer/cfml2.git
   cd cfml2
-  make all
+  make depend
+  make -j8 all
 ```
 
 To install the VsCoq IDE for Coq embedded in VScode, follow this tutorial:
