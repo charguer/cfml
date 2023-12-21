@@ -46,7 +46,7 @@ Hint Extern 1 (dom _ \c _) => rew_map; set_prove : hint_auto_star.
 
 Ltac my_auto_star :=
   try solve [ simpl;
-		autounfold in *; subst; 
+		autounfold in *; subst;
     autorewrite_in_star_patch ltac: (fun tt => autorewrite with rew_list rew_int rew_set rew_map);
              try math_only_if_arith;
              try typeclass_only_if_class tt; jauto_set; eauto with hint_myauto_star].
@@ -100,9 +100,9 @@ Hint Extern 1 (@is_in _ (set _) (in_inst _) ?x (@dom (map _ _) (set _) (dom_inst
  rew_map; set_prove.
 
 Hint Extern 1 (?x <> ?y :> loc) =>  (* parray_ _ *)
-	match goal with 
-	| H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false 
-	| H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false 
+	match goal with
+	| H1: ?x \in ?E, H2: ~ ?y \in ?E |- _ => intros ->; false
+	| H1: ~ ?x \in ?E, H2: ?y \in ?E |- _ => intros ->; false
 	end.
 
 Import HintArith.
@@ -222,7 +222,7 @@ Tactic Notation "rew_map_case" "*" "in" hyp(H) :=
 est-ce que en ltac2 on peut créer une base par ajout sur une autre ?  *)
 
 
-Ltac auto_tilde ::= eauto. 
+Ltac auto_tilde ::= eauto.
 
 Ltac xif_pre tt ::=
   xif_xmatch_pre tt;
@@ -239,11 +239,11 @@ Ltac xif_pre tt ::=
 (** ** Parameters *)
 
 (* Maximum length of a chain of diff, possibly depending on array size *)
-Definition bound A (L: list A) : int := 
+Definition bound A (L: list A) : int :=
   length L.
 
 Lemma bound_pos : forall A (L: list A),
-	bound L >= 0.	
+	bound L >= 0.
 Proof using. auto. Qed.
 
 Lemma bound_update : forall A (L: list A) i x,
@@ -258,7 +258,7 @@ Hint Resolve bound_pos bound_update.
 (** ** Representation predicates *)
 
 Inductive Desc A :=
-  |	Desc_Base : list A -> Desc A 
+  |	Desc_Base : list A -> Desc A
   |	Desc_Diff : parray_ A -> int -> A -> Desc A.
 
 Definition PArray_Desc A {IA: Inhab A} {EA: Enc A} (D: Desc A) (d: parray_desc_ A) : hprop :=
@@ -336,7 +336,7 @@ Definition Shared {A} {IA: Inhab A} {EA: Enc A} (M: Memory A) : hprop :=
 	Group (PArray (A := A)) M \* \[Inv M].
 
 Definition Extend {A} {IA: Inhab A} {EA: Enc A} (M M': Memory A) : Prop :=
-	(dom M) \c (dom M') 
+	(dom M) \c (dom M')
 	/\ (forall L p, IsPArray M L p -> IsPArray M' L p).
 
 
@@ -424,7 +424,7 @@ Lemma Points_into_eq_of_eq_Diff : forall A (IA: Inhab A) (EA: Enc A) (R: set (pa
 Proof using. unfold Points_into. introv IA EA ->. auto. Qed.
 
 Lemma Points_into_forall_eq : forall A (IA: Inhab A) (EA: Enc A) (R: set (parray_ A)) (M: Memory A),
-  Points_into_forall R M 
+  Points_into_forall R M
   = forall p, p \indom M -> Points_into R (M[p]).
 Proof using. auto. Qed.
 
@@ -464,7 +464,7 @@ Lemma indom_of_union_single_neq : forall A (IA: Inhab A) (EA: Enc A) (p q: parra
 Proof using. introv IA EA Hp N. set_prove2. Qed.
 
 Lemma dom_of_union_single_eq : forall A (IA: Inhab A) (EA: Enc A) (p: parray_ A) (M: Memory A),
-	p \in (dom M : set (parray_ A)) -> 
+	p \in (dom M : set (parray_ A)) ->
   dom M = dom M \u '{p}.
 Proof using. intros. rewrite set_ext_eq. intros q. iff; set_prove2. Qed.
 
@@ -562,7 +562,7 @@ Lemma IsPArray_inv_maxdist : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (p
 	maxdist (M[pa]) <= bound L.
 Proof using.
 	introv Rpa. induction Rpa as [| q pa i x L' L Hpa E Rq IH Hi EL Hdist]; auto.
-	{ forwards*: length_update L' i x. } 
+	{ forwards*: length_update L' i x. }
 Qed.
 
 Hint Resolve IsPArray_inv_indom IsPArray_inv_eq IsPArray_inv_neq IsPArray_inv_maxdist.
@@ -647,7 +647,7 @@ Qed.
 Lemma Shared_add_fresh_Base : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (pa: parray_ A) (n: Node A) (L: list A),
   desc n = Desc_Base L ->
 	maxdist n >= 0 ->
-	pa ~> PArray n \* Shared M 
+	pa ~> PArray n \* Shared M
   ==> Shared (M[pa := n]) \* \[pa \notindom M].
 Proof using.
 	intros. unfold Shared. xchanges~ Group_add_fresh ;=> I Hpa.
@@ -659,14 +659,14 @@ Hint Resolve Shared_inv_Inv Shared_add_fresh_Base.
 
 
 Lemma IsPArray_Extend : forall A (IA: Inhab A) (EA: Enc A) (M M': Memory A) p L,
-	Extend M M' -> 
+	Extend M M' ->
   IsPArray M L p ->
   IsPArray M' L p.
 Proof using. introv [_ H] Arr. auto. Qed.
 
 Lemma Extend_trans : forall A (IA: Inhab A) (EA: Enc A) (M2 M1 M3: Memory A),
-	Extend M1 M2 -> 
-  Extend M2 M3 -> 
+	Extend M1 M2 ->
+  Extend M2 M3 ->
   Extend M1 M3.
 Proof using. unfold Extend. introv [Hdom1 Harr1] [Hdom2 Harr2]. split~. Qed.
 
@@ -772,7 +772,7 @@ Lemma dist_bound_spec : forall A (IA: Inhab A) (EA: Enc A) (a: array A) (L: list
 		PRE (\$1)
 		INV (a ~> Array L)
 		POST \[= bound L].
-Proof using. xcf~. xpay. xapp~. xsimpl~. Qed.
+Proof using. xcf~. xapp~. xsimpl~. Qed.
 
 Hint Extern 1 (RegisterSpec dist_bound) => Provide dist_bound_spec.
 
@@ -783,7 +783,7 @@ Lemma parray_create_spec : forall A (IA: Inhab A) (EA: Enc A) (M: Memory A) (sz:
 		PRE (\$(sz + 1))
 		POST (fun M' pa => \[IsPArray M' (make sz d) pa] \* IsHead M' pa).
 Proof using.
-	introv Hsz. xcf~. simpl. xpay.
+	introv Hsz. xcf~. simpl.
 	xapp~ ;=> a L ->.
 	xapp~ ;=> pa.
 	xchange~ PArray_Base_close.
@@ -832,7 +832,7 @@ Qed.
 
 Hint Extern 1 (RegisterSpec parray_base_copy) => Provide parray_base_copy_spec.
 
-Definition parray_rebase_and_get_array_cost A {IA: Inhab A} {EA: Enc A}  (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A) : hprop := 
+Definition parray_rebase_and_get_array_cost A {IA: Inhab A} {EA: Enc A}  (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A) : hprop :=
   if ishd then IsHead M pa \* \$1 else \$(length L + bound L + 2).
 
 Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memory A) (pa: parray_ A) (L: list A),
@@ -846,7 +846,7 @@ Lemma parray_rebase_and_get_array_spec : forall A (IA: Inhab A) (EA: Enc A) (ish
 			\[Inv M] \*
 			(if ishd then IsHead M pa else \$(maxdist (M[pa])))).
 Proof using.
-	introv Rpa. unfold parray_rebase_and_get_array_cost. xcf~. xpay.
+	introv Rpa. unfold parray_rebase_and_get_array_cost. xcf~.
 	xchange~ Shared_eq ;=> I. xchange~ Group_rem pa M.
 	xopen~ pa ;=> D. xapp~. xmatch.
 	{ xchange~ PArray_Desc_eq_Base ;=> L' E'.
@@ -895,7 +895,7 @@ Lemma parray_set_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M: Memo
 		PRE (\$3 \* parray_rebase_and_get_array_cost ishd M pa L)
 		POST (fun M' q => \[IsPArray M' (L[i := x]) q] \* IsHead M' q).
 Proof using.
-	introv Rpa Hi. xcf~. simpl. xpay.
+	introv Rpa Hi. xcf~. simpl.
 	xapp~ ;=> a I. xapp~. xapp~.
 	xif; intros C.
 	{ xapp~ ;=> b. xapp~. xapp~ ;=> pb.
@@ -959,4 +959,4 @@ Proof using.
 	{ rewrites~ IsHead_eq. rew_map~. xsimpl*. simpls~. }
 Qed.
 
-Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.	
+Hint Extern 1 (RegisterSpec parray_copy) => Provide parray_copy_spec.

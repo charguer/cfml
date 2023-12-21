@@ -44,7 +44,7 @@ Lemma is_empty_spec : forall A `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  xcf. xunfold Stack. xapp. (* TODO xapp_types. infix_eq_spec. xapp~. xsimpl*. *)
+  xcf. xunfold Stack. xapp.
   xapp. xpolymorphic_eq. xsimpl*.
 Qed.
 
@@ -53,7 +53,7 @@ Hint Extern 1 (RegisterSpec is_empty) => Provide is_empty_spec.
 Lemma push_spec : forall A `{Enc A} (p:loc) (x:A) (L:list A),
   SPEC (push p x)
     PRE (p ~> Stack L)
-    POST (fun (u:unit) => (p ~> Stack (x::L))).
+    POSTUNIT (p ~> Stack (x::L)).
 Proof using.
   xcf. xunfold Stack. xapp. xapp. xsimpl.
 Qed.
@@ -84,7 +84,7 @@ Hint Extern 1 (RegisterSpec clear) => Provide clear_spec.
 Lemma concat_spec : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
   SPEC (concat p1 p2)
     PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
-    POST (fun (u:unit) => p1 ~> Stack (L1 ++ L2) \* p2 ~> Stack (@nil A)).
+    POSTUNIT (p1 ~> Stack (L1 ++ L2) \* p2 ~> Stack (@nil A)).
 Proof using.
   xcf. xunfold Stack. xapp. xapp. xapp.
   rewrite <- (Stack_eq p2). xapp. xsimpl.

@@ -78,12 +78,9 @@ in any other Coq file. (Type 'ctrl+shift+p' then 'Coq' to see the shortcuts.)
 
 Copy the folder 'examples/tutorial' into 'examples/mydev'.
 Rename the file, and commit the files into a git branch of your own.
-Then, process the ML files, and play the Coq files interactively
-in your IDE just like those from the tutorial.
+Then, type "make" to compile the files located in your new folder.
+Open these files in your IDE just like those from the tutorial.
 
-```
-   ./make.sh
-```
 
 # Documentation
 
@@ -102,7 +99,24 @@ Besides, the core of CFML 2.0 is described in the all-in-Coq course:
 [Foundations of Separation Logic](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
 
 
+# Examples
 
+The 'examples' folder contains tutorials, case studies, and unit tests.
+
+Tutorials
+
+- `examples/Tutorial/Tutorial.v` contains a short tutorial
+
+Case studies
+
+- `examples/Stack/Stack.ml`: verification of a stack implemented as a reference on a list---a simple yet very illustrative example.
+- `examples/PairingHeap`: verification of imperative pairing heaps; a heap is represented as a tree of variable arity; concretely, each tree consists of a mutable list of mutable subtrees.
+
+Unit tests:
+
+- `examples/UnitTests` contains unit tests covering all language constructs
+- `examples/UnitTestsCredits` contains unit tests for the 'xpay' tactics,
+  for reasoning about asymptotic complexity about the code.
 
 
 

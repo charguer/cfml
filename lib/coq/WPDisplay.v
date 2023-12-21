@@ -160,15 +160,18 @@ Global Instance MonType_prod (B C:Type) (MB:MonType B) (MC:MonType C) : MonType 
 
 Delimit Scope cf_scope with cf.
 
-(* DEPRECATED
-Notation "'`_' F" :=
-  ((Wptag F%cf))
-  (at level 69, F custom cf at level 100, format "'`_' F") : cf_scope.
-*)
+Notation "'`' F" :=
+  ((Wptag F))
+  (in custom cf at level 69,
+   F custom cf at level 99,
+   format "'`' F") : cf_scope.
 
-Notation "F" :=
+(*
+Notation"'`' F" :=
   ((Wptag F%cf))
-  (at level 69, only printing, F custom cf at level 100) : cf_scope.
+  (in custom cf at level 0,
+   only printing,
+   F custom cf) : cf_scope.*)
 
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (@Wptag F) _ _ Q)
   (at level 8,
@@ -202,7 +205,7 @@ Notation "'Done'" :=
 Notation "'Match' V F1" :=
  ((*Wptag*) (Wpgen_match V F1))
  (in custom cf at level 69,
-  V custom cf at level 0,
+  V constr at level 0,
   F1 custom cf at level 69,
   format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : cf_scope.
 
@@ -213,7 +216,8 @@ Notation "'Assert' F" :=
 
 Notation "'Val' v" :=
  ((*Wptag*) (Wpgen_val v))
- (in custom cf at level 69) : cf_scope.
+ (in custom cf at level 69,
+  v constr) : cf_scope.
 
 Notation "'Let' x ':=' F1 'in' F2" :=
  ((*Wptag*) (Wpgen_let_trm F1 (fun x => F2)))
@@ -324,7 +328,7 @@ Notation "'Body' f v1 ':=' F1" := (* ok *)
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
+  v1 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -335,8 +339,8 @@ Notation "'Body' f v1 v2 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
+  v1 ident,
+  v2 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -347,9 +351,9 @@ Notation "'Body' f v1 v2 v3 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
-  v3 constr,
+  v1 ident,
+  v2 ident,
+  v3 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -360,10 +364,10 @@ Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::(@dyn_make _ _ v4)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
-  v3 constr,
-  v4 constr,
+  v1 ident,
+  v2 ident,
+  v3 ident,
+  v4 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  v3  v4  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -376,7 +380,7 @@ Notation "'Body' f v1 ':=' { B1 [ EB1 ] } F1" := (* ok *)
    @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)) )
  (at level 69,
   f constr at level 0,
-  v1 at level 0,
+  v1 ident,
   right associativity,
   F1 at level 99,
   format "'[v' '[' 'Body'  f  v1  ':='  { B1  [ EB1 ] }  '/'  '[' F1 ']' ']' ']'" ) : cf_scope.
@@ -387,7 +391,7 @@ Notation "'Body' f { B1 [ EB1 ] } v1 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
+  v1 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -398,7 +402,7 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
+  v1 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -409,7 +413,7 @@ Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
+  v1 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -420,8 +424,8 @@ Notation "'Body' f { B1 [ EB1 ] } v1 v2 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
+  v1 ident,
+  v2 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -432,8 +436,8 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
+  v1 ident,
+  v2 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] } v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -444,8 +448,8 @@ Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 v2 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
+  v1 ident,
+  v2 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -456,9 +460,9 @@ Notation "'Body' f { B1 [ EB1 ] } v1 v2 v3 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
-  v3 constr,
+  v1 ident,
+  v2 ident,
+  v3 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -469,9 +473,9 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 v3 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
-  v3 constr,
+  v1 ident,
+  v2 ident,
+  v3 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ]  }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -482,9 +486,9 @@ Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 v2 v3 ':=' F1" :=
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f constr at level 0,
-  v1 constr,
-  v2 constr,
-  v3 constr,
+  v1 ident,
+  v2 ident,
+  v3 ident,
   F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : cf_scope.
@@ -506,6 +510,7 @@ Notation "'LetPoly' x : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -518,6 +523,7 @@ Notation "'LetPoly' x : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -532,6 +538,7 @@ Notation "'LetPoly' x { A1 } : T ':=' F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -544,6 +551,7 @@ Notation "'LetPoly' x { A1 } : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -556,6 +564,7 @@ Notation "'LetPoly' x { A1 } : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -570,6 +579,7 @@ Notation "'LetPoly' x { A1 A2 } : T ':=' F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -582,6 +592,7 @@ Notation "'LetPoly' x { A1 A2 } : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -594,6 +605,7 @@ Notation "'LetPoly' x { A1 A2 } : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
   (in custom cf at level 69,
    only printing,
    x ident,
+   T constr,
    F1 custom cf at level 99,
    F2 custom cf at level 99,
    right associativity,
@@ -683,3 +695,79 @@ Notation "'Case' v 'is' p { x1 x2 x3 x4 x5 } 'Then' F1 'Else' F2" :=
 (* TODO: do not attempt to currify the assumption associated with the when clause?
     this could simplify the tactic that handles the case *)
 
+
+(* ********************************************************************** *)
+(* ** Notation for Primitive Operations. *)
+
+(* needed?
+
+Notation "'ref' t" :=
+  (Wpgen_app _(val_prim val_ref) ((Dyn t)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "'free' t" :=
+  (Wpgen_app _(val_prim val_free) ((Dyn t)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "'not' t" :=
+  (Wpgen_app _(val_prim val_neg) ((Dyn t)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "! t" :=
+  (Wpgen_app _(val_prim val_get) ((Dyn t)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 := t2" :=
+  (Wpgen_app _(val_prim val_set) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 + t2" :=
+  (Wpgen_app _(val_prim val_add) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "'- t" :=
+  (Wpgen_app _(val_prim val_opp) ((Dyn t)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 - t2" :=
+  (Wpgen_app _(val_prim val_sub) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 * t2" :=
+  (Wpgen_app _(val_prim val_mul) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 / t2" :=
+  (Wpgen_app _(val_prim val_div) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 'mod' t2" :=
+  (Wpgen_app _(val_prim val_mod) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 = t2" :=
+  (Wpgen_app _(val_prim val_eq) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 <> t2" :=
+  (Wpgen_app _(val_prim val_neq) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 <= t2" :=
+  (Wpgen_app _(val_prim val_le) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 < t2" :=
+  (Wpgen_app _(val_prim val_lt) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 >= t2" :=
+  (Wpgen_app _(val_prim val_ge) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+Notation "t1 > t2" :=
+  (Wpgen_app _(val_prim val_gt) ((Dyn t1)::(Dyn t2)::nil))
+  (in custom cf at level 68): cf_scope.
+
+
+*)

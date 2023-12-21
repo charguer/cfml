@@ -1,12 +1,13 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib Stdlib.
-From TLC Require Import LibOrder.
+From TLC Require Import LibOrder LibInt.
 Generalizable Variables A.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
 From EXAMPLES Require Import Tutorial_ml.
+
 
 
 (* ####################################################### *)

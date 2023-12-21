@@ -124,7 +124,7 @@ Lemma pchunk_is_empty_spec : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A)
 		PRE (\$1)
 		POST (fun b => \[b = isTrue (L = nil)]).
 Proof.
-	introv Rc. xcf~. xpay. xvals~.
+	introv Rc. xcf~. xvals~.
 	forwards~ [D I]: IsPChunk_inv_PChunkInv. forwards~ EL: pchunk_length. rewrites <- EL.
 	rewrite* length_zero_eq_eq_nil.
 Qed.
@@ -193,7 +193,7 @@ Lemma pchunk_push_back_spec : forall A (IA: Inhab A) (EA: Enc A) (ishd: bool) (M
 		PRE (\$5 \* access_cost ishd M c)
 		POST (fun M' c' => IsHead M' c' \* \[IsPChunk M' (L & x) c']).
 Proof.
-	introv Rc HL. unfolds IsFull. xcf. simpl. xpay.
+	introv Rc HL. unfolds IsFull. xcf. simpl.
 	destruct c; simpls. lets~ [D [Rdata [Iin Iout Ilen Icapa Ifront Isz]]]: Rc.
 	xapp. rewrites~ (>> access_cost_eq L D); simpl. xapp~.
 	{ unwrap_up. }
@@ -274,7 +274,7 @@ Lemma pchunk_of_echunk_spec : forall A (IA: Inhab A) (EA: Enc A) (M: PArrayMem A
 		PRE (\$3 \* ec ~> EChunk L)
 		POST (fun M' pc => IsHead M' pc \* \[IsPChunk M' L pc]).
 Proof.
-	xcf*. xpay. xapp ;=> [[[data front] size] default]. xpull ;=> D I. xmatch.
+	xcf*. xapp ;=> [[[data front] size] default]. xpull ;=> D I. xmatch.
 	xapp ;=> pa M' E Rpa _. xvals~.
 	unfold IsPChunk. exists D. split~.
 	destruct I. constructors~.

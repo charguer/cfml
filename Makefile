@@ -69,14 +69,12 @@ all: vo
 ############################
 # All examples
 
-EXAMPLES:=\
-	Tutorial \
-	Stack \
-	PairingHeap \
-	UnitTests \
-	UnitTestsCredits \
-  wip_Sek
+EXAMPLE_FOLDERS=$(shell find examples -mindepth 1 -maxdepth 1 -type d)
+EXAMPLES=$(patsubst example/,,$(EXAMPLE_FOLDERS))
 
+EXAMPLES_EXCLUDED=examples/wip_Sek/%
+
+# SHORTHANDS
 tuto: examples/Tutorial/Tutorial_proof.vo
 stack: examples/Stack/Stack_proof.vo
 pair: examples/PairingHeap/PairingHeap_proof.vo examples/PairingHeap/PairingHeap_valid.vo
@@ -322,10 +320,9 @@ INTERMEDIATE=%_ml.v $(STDLIB)/%_ml.v
 
 .PHONY: all
 
-
 vd: $(VD)
 # TEMPORARY: filter out broken exp
-vo: $(filter-out examples/wip_Sek/%, $(VO))
+vo: $(filter-out $(EXAMPLES_EXCLUDED), $(VO))
 vos: $(VOS)
 vok: $(VOK)
 

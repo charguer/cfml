@@ -35,8 +35,8 @@
       ".depend*": true,
       "*.coq_error": true,
       "*.coq_error": true,
-      "_build/": true,
-      "_attic/": true
+      "_build/*": true,
+      "_attic/*": true
   }
 
 }
