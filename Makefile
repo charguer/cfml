@@ -70,7 +70,7 @@ all: vo
 # All examples
 
 EXAMPLE_FOLDERS=$(shell find examples -mindepth 1 -maxdepth 1 -type d)
-EXAMPLES=$(patsubst example/,,$(EXAMPLE_FOLDERS))
+EXAMPLES=$(subst examples/,,$(EXAMPLE_FOLDERS))
 
 EXAMPLES_EXCLUDED=examples/wip_Sek/%
 
@@ -184,6 +184,7 @@ else
         # -not -iwholename '*_output*'
 	 			ML := $(PROOFV:_proof.v=.ml)
 	 		else
+        # DEPRECATED?
         $(info gathering local ml files)
     	  ML := $(wildcard $(FOLDER)/*.ml)
 			endif
@@ -293,7 +294,7 @@ STDLIB_V := $(STDLIB_MLV) $(STDLIB_PROOFV) $(STDLIBMAIN)
 EXAMPLE_MLV := $(patsubst %.ml,%_ml.v,$(ML))
 EXAMPLE_PROOFV := $(patsubst %.ml,%_proof.v,$(ML))
 # TODO: SHOULD restrict to folder actually used
-AUX_V := $(filter-out %_ml.v %_proof.v, $(shell find examples -name '*.v'))
+AUX_V := $(filter-out %_ml.v %_proof.v, $(shell find examples -name '*.v' -not -iwholename '*_output*'))
 EXAMPLE_V := $(AUX_V) $(EXAMPLE_MLV) $(EXAMPLE_PROOFV)
 EXAMPLE_EXE := $(patsubst %.ml,%.native,$(ML_MAIN))
 EXAMPLE_MLD := $(patsubst %.ml,%.ml.d,$(ML))
@@ -609,7 +610,7 @@ $(LIBOCAML)/%.cmj: $(STDLIB)/%.ml $(CFMLC)
 ##############################################################################
 # Cleanup rules.
 
-COQCLEAN := find . -type f \( -name '*.cmj' -o -name '*._ml.v' -o -name '*.vos' -o -name '*.vok' -o -name '*.vo' -o -name '*.glob' -o -name '*.native' \) -exec rm {} +
+COQCLEAN := find . -type f \( -name '*.cmj' -o -name '*._ml.v' -o -name '*.vos' -o -name '*.vok' -o -name '*.vo' -o -name '*.glob' -o -name '*.native' \) -exec rm {} +; find . -type d -name '_output' -exec rm -Rf {} +
 
 # [make cleangen] to clean only the generated files in the generator folder
 cleangen:
