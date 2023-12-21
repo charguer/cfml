@@ -261,7 +261,7 @@ Proof using. intros. subst~. Qed.
 
 Ltac xrecord_eq_core tt :=
   repeat (apply eq_Record_fields); try reflexivity.
-  
+
 Tactic Notation "xrecord_eq" :=
   xrecord_eq_core tt.
 

@@ -4,9 +4,14 @@
 
 This folder contains the characteristic formula (CF) generator.
 It parses OCaml files and dumps CF in a Coq file.
-Its implementation reuses the OCaml front-end, with a few patches.
-The main implementation files are located in the root folder.
 
+The current implementation is based on a very old fork of files 
+from the OCaml compiler. One project is to reimplement this
+generator by leveraging OCaml's compiler-libs and the PR:
+https://github.com/ocaml/ocaml/pull/12516
+The key difficulty is to extract from the OCaml compiler a 
+typed AST in the form of a System-F derivation, with every
+type variable explicitly bound in the AST.
 
 
 #####################################################################
