@@ -1,9 +1,13 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
+From CFML Require Import WPDisplay WPRecord.
 Require Import Pervasives_ml Pervasives_proof.
 From TLC Require Export LibListZ.  (* TODO: needed? *)
 Require Import List_ml.
 Generalizable Variables A.
+(* 
+Open Scope cf_scope.
+*)
 
 Ltac auto_tilde ::= unfold measure; rew_list in *; try math; auto.
   (* Restored to default at the end of the file *)
@@ -59,7 +63,6 @@ Lemma rev_spec : forall A `{EA:Enc A} (l:list A),
 Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec rev) => Provide rev_spec.
-
 
 Lemma append_spec : forall A `{EA:Enc A} (l1 l2:list A),
   SPEC (append l1 l2)

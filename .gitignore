@@ -27,3 +27,7 @@ _output
 *.cmj
 *_ml.v
 _CoqProjectDev
+
+_CoqProject
+.depend_*
+.coq_error

@@ -1,5 +1,6 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
+From CFML Require Import WPDisplay WPRecord.
 From TLC Require Import LibListZ LibListSub.
 Require Sys_ml.
 Require Array_ml.
@@ -58,20 +59,20 @@ Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec.
 
 Notation "r [ i ]" :=
   (Wpgen_app _ Array_ml.get ((Dyn r)::(Dyn i)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    i constr at level 0,
-   format "r [ i ]") : wp_scope.
+   format "r [ i ]") : cf_scope.
 
 Notation "r [ i ]" :=
   (Wptag (Wpgen_app _ Array_ml.get ((Dyn r)::(Dyn i)::nil)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    no associativity,
    r constr at level 0,
    i constr at level 0,
-   format "r [ i ]") : wp_scope.
+   format "r [ i ]") : cf_scope.
 
 (* -------------------------------------------------------------------------- *)
 
@@ -87,22 +88,22 @@ Hint Extern 1 (RegisterSpec Array_ml.set) => Provide set_spec.
 
 Notation "r [ i ] <- v" :=
   (Wpgen_app _ Array_ml.set ((Dyn r)::(Dyn i)::(Dyn v)::nil))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    no associativity,
    r constr at level 0,
    i constr at level 0,
    v constr at level 69,
-   format "r [ i ]  <-  v") : wp_scope.
+   format "r [ i ]  <-  v") : cf_scope.
 
 Notation "r [ i ] <- v" :=
   (Wptag (Wpgen_app _ Array_ml.set ((Dyn r)::(Dyn i)::(Dyn v)::nil)))
-  (in custom wp at level 69,
+  (in custom cf at level 69,
    only printing,
    no associativity,
    r constr at level 0,
    i constr at level 0,
    v constr at level 69,
-   format "r [ i ]  <-  v") : wp_scope.
+   format "r [ i ]  <-  v") : cf_scope.
 
 
 (* -------------------------------------------------------------------------- *)
@@ -138,6 +139,42 @@ Axiom init_spec : forall A `{EA:Enc A} (F : list A -> hprop) (n : int) (f : func
     POST (fun t =>
            \exists xs, t ~> Array xs \* \[n = length xs] \* F xs).
 (* TODO *)
+
+
+(* -------------------------------------------------------------------------- *)
+
+(* Immutable arrays *)
+
+(* [Farray L p] asserts that [p] stores a array with values [L] that will
+   never be modified. This assertion can only be obtained by giving away
+   permanently a [p ~> Array L] assertion. Doing so guarantees that the 
+   array values can never be mutated. *)
+
+Parameter FArray : forall A `{EA:Enc A} (L : list A) (t : loc), Prop.
+
+Parameter FArray_intro :  forall A `{EA:Enc A} (L : list A) (t : loc), 
+  (t ~> Array L) ==> \[FArray L t].
+
+Lemma of_list_spec_farray : forall A `{EA:Enc A} (L:list A),
+  SPEC (Array_ml.of_list L)
+    PRE \[]
+    POST (fun t => \[FArray L t]).
+Proof using. intros. xapp. xchanges* FArray_intro. Qed.
+
+Axiom get_spec_farray : forall A `{EA:Enc A} `{Inhab A} (L:list A) t i,
+  index L i ->
+  FArray L t ->
+  SPEC (Array_ml.get t i)
+    PRE \[]
+    POST \[= L[i] ].
+
+Module FarraySpec.
+#[export]
+Hint Extern 1 (RegisterSpec Array_ml.of_list) => Provide of_list_spec_farray.
+#[export]
+Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec_farray.
+End FarraySpec.
+
 
 (* TODO: complete
 (* -------------------------------------------------------------------------- *)

@@ -60,7 +60,7 @@ Definition Wp' (t:trm) : Formula :=
 
 Lemma Wp_eq_wp' : Wp = Wp'.
 Proof using.
-  applys fun_ext_4. intros t A EA Q. 
+  applys fun_ext_4. intros t A EA Q.
   unfold Wp, Wp', Weakestpre, Triple, wp, weakestpre. auto.
 Qed.
 
@@ -969,6 +969,8 @@ Global Opaque Triple.
 (*********************************************************************** *)
 (** * Grammar set up *)
 
+(* ---begin-comment
+
 (* TODO: there is a problem if moving this out to WPPrint, due to a Coq bug on custom entry *)
 
 (** Custom grammar for the display of characteristic formulae. *)
@@ -1664,8 +1666,6 @@ Notation "'Case' v 'is' p { x1 x2 x3 x4 x5 } 'Then' F1 'Else' F2" :=
     this could simplify the tactic that handles the case *)
 
 
-
-
 (* ********************************************************************** *)
 (* ** Others *)
 
@@ -1807,6 +1807,9 @@ Definition BodyofLetPoly2 (U:Type->Type->Type) (P:forall A1 A2, U A1 A2 -> Prop)
 
 
 
+
+
+---end-comment *)
 
 
 (*********************************************************************** *)

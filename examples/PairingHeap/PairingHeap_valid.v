@@ -1,3 +1,9 @@
+(** This file contains a few examples illustrating how lifted characteristic
+    formulae can be formally verified wrt the axiomatic semantics.
+    In the future, the contents of this file will be automatically generated.
+    Its contents is fully directed by the structure of the source code. *)
+
+
 Set Implicit Arguments.
 From CFML Require Import WPLib WPValid.
 From CFML Require Import Stdlib.
@@ -25,15 +31,15 @@ Proof using.
   cf_main.
   cf_app.
   cf_app.
-  cf_if.  
-  { cf_app. 
-    cf_seq. 
-    { cf_app. }
-    { cf_val. } }
-  { cf_app. 
+  cf_if.
+  { cf_app.
     cf_seq.
     { cf_app. }
-    { cf_val. } } 
+    { cf_val. } }
+  { cf_app.
+    cf_seq.
+    { cf_app. }
+    { cf_val. } }
 Qed.
 
 Lemma insert_cf_valid__ : insert_cf_def__.
@@ -43,8 +49,8 @@ Proof using.
   cf_let. { cf_new. } intros ?.
   cf_app.
   cf_match. cf_case.
-  { cf_inlined. cf_app. } 
-  { cf_case. 
+  { cf_inlined. cf_app. }
+  { cf_case.
     { cf_app. cf_inlined. cf_app. }
     { cf_match_fail. } }
 Qed.
@@ -54,9 +60,9 @@ Proof using.
   cf_main.
   cf_app.
   cf_app.
-  cf_if. 
+  cf_if.
   { cf_val. }
-  { cf_app. 
+  { cf_app.
     cf_app.
     cf_app.
     cf_if.
@@ -71,11 +77,11 @@ Proof using.
   cf_app.
   cf_match. cf_case.
   { cf_fail. }
-  { cf_case. 
+  { cf_case.
     { cf_app. cf_app. cf_app. cf_seq.
       { cf_if.
         { cf_inlined. cf_app. }
-        { cf_app. cf_app. cf_inlined. cf_app. } } 
+        { cf_app. cf_app. cf_inlined. cf_app. } }
       { cf_val. } }
     { cf_match_fail. } }
 Qed.

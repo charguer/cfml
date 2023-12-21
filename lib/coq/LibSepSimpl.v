@@ -2130,6 +2130,93 @@ Tactic Notation "xchange" constr(E1) "," constr(E2) "," constr(E3) "," constr(E4
   xchange E1; try xchange E2; try xchange E3; try xchange E4.
 
 
+(* ---------------------------------------------------------------------- *)
+(** [xchange] other arities *)
+
+Tactic Notation "xchange" constr(E1) constr(E2) :=
+  xchange (>> E1 E2).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) :=
+  xchange~ (>> E1 E2).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) :=
+  xchange* (>> E1 E2).
+
+Tactic Notation "xchange" constr(E1) constr(E2) constr(E3) :=
+  xchange (>> E1 E2 E3).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) constr(E3) :=
+  xchange~ (>> E1 E2 E3).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) constr(E3) :=
+  xchange* (>> E1 E2 E3).
+
+Tactic Notation "xchange" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "~" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange~ (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "*" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange* (>> E1 E2 E3 E4).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) :=
+  xchange <- (>> E1 E2).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) :=
+  xchange~ <- (>> E1 E2).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) :=
+  xchange* <- (>> E1 E2).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange <- (>> E1 E2 E3).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange~ <- (>> E1 E2 E3).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchange* <- (>> E1 E2 E3).
+
+Tactic Notation "xchange" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange <- (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "~" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange~ <- (>> E1 E2 E3 E4).
+Tactic Notation "xchange" "*" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchange* <- (>> E1 E2 E3 E4).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) :=
+  xchanges (>> E1 E2).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) :=
+  xchanges~ (>> E1 E2).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) :=
+  xchanges* (>> E1 E2).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) constr(E3) :=
+  xchanges (>> E1 E2 E3).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) constr(E3) :=
+  xchanges~ (>> E1 E2 E3).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) constr(E3) :=
+  xchanges* (>> E1 E2 E3).
+
+Tactic Notation "xchanges" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "~" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges~ (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "*" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges* (>> E1 E2 E3 E4).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) :=
+  xchanges <- (>> E1 E2).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) :=
+  xchanges~ <- (>> E1 E2).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) :=
+  xchanges* <- (>> E1 E2).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges <- (>> E1 E2 E3).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges~ <- (>> E1 E2 E3).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) constr(E3) :=
+  xchanges* <- (>> E1 E2 E3).
+
+Tactic Notation "xchanges" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges <- (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "~" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges~ <- (>> E1 E2 E3 E4).
+Tactic Notation "xchanges" "*" "<-" constr(E1) constr(E2) constr(E3) constr(E4) :=
+  xchanges* <- (>> E1 E2 E3 E4).
+
 
 (* ********************************************************************** *)
 (** * Demos *)

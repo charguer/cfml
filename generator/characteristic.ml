@@ -1643,5 +1643,3 @@ let cfg_file no_mystd_include str =
 
       (*deprecated: (if !pure_mode then "FuncPrim" else "CFHeader") *)
 
-
-      (* TODO: prevent "let int = 3" to work *)

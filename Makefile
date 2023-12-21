@@ -64,6 +64,8 @@ VERBOSE:=1
 ##############################################################################
 # Parameters
 
+all: vo
+
 ############################
 # All examples
 
@@ -74,10 +76,16 @@ EXAMPLES:=\
 	UnitTests \
 	UnitTestsCredits
 
-all: vo
+# wip_Sek \
+
 tuto: examples/Tutorial/Tutorial_proof.vo
+stack: examples/Stack/Stack_proof.vo
+pair: examples/PairingHeap/PairingHeap_proof.vo examples/PairingHeap/PairingHeap_valid.vo
 debug: examples/Debug/Debug_proof.vo
-units: examples/UnitTests/UnitTests_proof.vo examples/UnitTestsCredits/UnitTestsCredits_proof.vo
+units: examples/UnitTests/UnitTests_proof.vo exapples/UnitTestsCredits/UnitTestsCredits_proof.vo
+sek: examples/wip_Sek/PSek_proof.vo examples/wip_Sek/ESek_proof.vo
+# todo: a function to gather all targeted .vo in a given folder
+
 
 ############################
 # Folders
@@ -217,25 +225,6 @@ endif
 
 
 ############################
-# V_AUX lists the auxiliary Coq files (local libraries).
-# It is set using ARG_V_AUX, of by default taking all
-# .v files in FOLDER that are not _proof.v files.
-# The special value EMPTY may be provided for ARG_V_AUX.
-
-ifdef ARG_V_AUX
-   ifeq ($(ARG_ML),EMPTY)
-      V_AUX :=
-   else
-      V_AUX := $(ARG_V_AUX)
-   endif
-else
-   V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard $(FOLDER)/*.v))
-endif
-
-$(info V_AUX=$(V_AUX))
-
-
-############################
 # COQIDE options
 
 # Files to open in IDE when `make ide` is executed.
@@ -305,7 +294,8 @@ STDLIB_V := $(STDLIB_MLV) $(STDLIB_PROOFV) $(STDLIBMAIN)
 
 EXAMPLE_MLV := $(patsubst %.ml,%_ml.v,$(ML))
 EXAMPLE_PROOFV := $(patsubst %.ml,%_proof.v,$(ML))
-EXAMPLE_V := $(V_AUX) $(EXAMPLE_MLV) $(EXAMPLE_PROOFV)
+AUX_V := $(filter-out %_ml.v %_proof.v, $(shell find examples -name '*.v'))
+EXAMPLE_V := $(AUX_V) $(EXAMPLE_MLV) $(EXAMPLE_PROOFV)
 EXAMPLE_EXE := $(patsubst %.ml,%.native,$(ML_MAIN))
 EXAMPLE_MLD := $(patsubst %.ml,%.ml.d,$(ML))
 
@@ -333,7 +323,8 @@ INTERMEDIATE=%_ml.v $(STDLIB)/%_ml.v
 
 
 vd: $(VD)
-vo: $(VO)
+# TEMPORARY: filter out broken exp
+vo: $(filter-out examples/wip_Sek/%, $(VO))
 vos: $(VOS)
 vok: $(VOK)
 

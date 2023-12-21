@@ -2023,3 +2023,118 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
+
+
+
+    Yet, we also wish to guarantee that [hcell v p i] catpures the fact that
+    [i] is a valid index in the array. (Recall lemma (hheader_hcell_valid].)
+    To that end, we integrate in the definition a property asserting that,
+    if [hheader n p] is at hand, then from [hcell v p i] we can extract the
+    information [0 <= i < n]. This implication can be expressed using a magic
+    wand: [ hheader n p \-* (hheader n p \* \[0 <= i < n]) ].
+
+    We almost have the desired definition for [hcell v p i]. To see what we
+    are missing, let us give it a try. *)
+
+Module Tentative.
+
+(** [array_index p i] asserts that in presence of [hheader n k], we can
+    deduce [0 <= i < n]. *)
+
+Definition array_index (p:loc) (i:int) : hprop :=
+  \forall n, hheader n p \-* (hheader n p \* \[0 <= i < n]).
+
+(** [hcell v p i] asserts that [v] is contents of the cell [i] from the array [p],
+    and captures that [i] is a valid index using the predicate [array_index p i]. *)
+
+Definition hcell (v:val) (p:loc) (i:int) : hprop :=
+  ((p + 1 + abs i)%nat ~~> v) \* (array_index p i).
+
+(** The key lema that we aim captures how we can extract [0 <= i < n] from
+    [hcell v p i] in the presence of [hheader n p]. Let us attempt to prove it. *)
+
+Lemma hheader_hcell_valid : forall p n v i,
+  hheader n p \* hcell v p i ==> hheader n p \* hcell v p i
+                                 \* \[0 <= i < n].
+Proof using.
+  intros. unfold hcell. xchange (hforall_specialize n). intros M.
+  xsimpl. { apply M. } (* stuck: the [array_index p i] assertion is gone. *)
+Abort.
+
+End Tentative.
+
+(** The problem is that the magic wand assertion that appears in [array_index]
+    can only be exploited once. Hence, we cannot recover the [hcell] predicate
+    after we exploit the [array_index] assertion that it carries. What we are
+    missing is a construct to express the fact that the [array_index p i]
+    assertion may be duplicated at will, that is, that it may be exploited as
+    many times as desired.
+
+    To capture this notion, let us introduce a construct of the form
+    [can_duplicate H], which asserts that [H] is true and that moreover [H]
+    can be duplicated at will, i.e. [H ==> H \* H]. (The technical name for
+    this construct is the "duplicatable modality".) *)
+
+Definition can_duplicate (H:hprop) : hprop :=
+  H \* \[H ==> H \* H].
+
+(** For a given [H], when we have the predicate [can_duplicate H] at hand, we
+    may at any time extract a copy of [H], which keeping [can_duplicate H]. *)
+
+Lemma can_duplicate_inv : forall H,
+  can_duplicate H ==> H \* can_duplicate H.
+Proof using. intros. unfold can_duplicate. xpull. intros M. xchanges* M. Qed.
+
+(** We are now ready to patch our definition of [array_index p i] in order to
+    make it duplicatable. *)
+
+Definition array_index (p:loc) (i:int) : hprop :=
+  can_duplicate (\forall n, hheader n p \-* (hheader n p \* \[0 <= i < n])).
+
+(* EX2! (array_index_inv) *)
+(** Prove that, in the presence of [hheader n p], one can extract from
+   [array_index p i] the assertion [0 <= i < n], without losing of any
+   of the predicates at hand. *)
+
+Lemma array_index_inv : forall p i n,
+      array_index p i \* hheader n p
+  ==> array_index p i \* hheader n p \* \[0 <= i < n].
+Proof using. (* ADMITTED *)
+  intros. unfold array_index. xchange can_duplicate_inv.
+  xchanges* (hforall_specialize n).
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(** The definition of [hcell] now admits the desired properties, as established
+    by the exercise that follows. *)
+
+Definition hcell (v:val) (p:loc) (i:int) : hprop :=
+  ((p + 1 + abs i)%nat ~~> v) \* (array_index p i).
+
+(* EX2! (hheader_hcell_valid) *)
+(** Prove that [hheader_hcell_valid] indeed holds for the proposed definition
+    of [hcell]. *)
+
+Lemma hheader_hcell_valid : forall p n v i,
+  hheader n p \* hcell v p i ==> hheader n p \* hcell v p i
+                                 \* \[0 <= i < n].
+Proof using. (* ADMITTED *)
+  intros. unfold hcell. xchange array_index_inv. xsimpl*.
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+
+
+(** Importantly, the predicate [hcell v p i] captures in particular the
+    information that [i] is a valid index in the array allocated at address
+    [p]. *)
+
+Parameter hheader_hcell_valid : forall p k v i,
+  hheader k p \* hcell v p i ==> hheader k p \* hcell v p i
+                                 \* \[0 <= i < k].
+
+
+
+

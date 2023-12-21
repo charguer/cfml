@@ -490,7 +490,8 @@ let rec top_internal = function
   | Coqtop_proof s ->
       sprintf "Proof. %s Qed." s
   | Coqtop_record r ->
-      string "Record" ^^
+      (* string "Record" ^^ *)
+      string "Inductive" ^^
       inductive_lhs record_rhs r
       ^^ dot
   | Coqtop_ind rs ->

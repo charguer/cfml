@@ -10,7 +10,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From CFML Require Export WPLifted WPHeader WPBuiltin.
+From CFML Require Export WPLifted WPHeader WPBuiltin WPDisplay.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A B.
@@ -946,18 +946,33 @@ Ltac xcf_top_value tt :=
 
 Ltac xpay_hook_for_xcf tt := fail.
 
+Ltac xpay_skip_hook_for_xcf tt := fail.
+
 Ltac xcf_core tt :=
   xcf_pre tt;
   first [ xcf_top_fun tt
-        | xcf_top_value tt ];
-  try xpay_hook_for_xcf tt.
+        | xcf_top_value tt ].
+
+Tactic Notation "xcf_nopay" :=
+  xcf_core tt.
+Tactic Notation "xcf_nopay" "~" :=
+  xcf_nopay; auto_tilde.
+Tactic Notation "xcf_nopay" "*" :=
+  xcf_nopay; auto_star.
 
 Tactic Notation "xcf" :=
-  xcf_core tt.
+  xcf_core tt; try xpay_hook_for_xcf tt.
 Tactic Notation "xcf" "~" :=
   xcf; auto_tilde.
 Tactic Notation "xcf" "*" :=
   xcf; auto_star.
+
+Tactic Notation "xcf_skip_xpay" :=
+  xcf_core tt; try xpay_skip_hook_for_xcf tt.
+Tactic Notation "xcf_skip_xpay" "~" :=
+  xcf_skip_xpay; auto_tilde.
+Tactic Notation "xcf_skip_xpay" "*" :=
+  xcf_skip_xpay; auto_star.
 
 (* [xcf_show f] *)
 
@@ -2819,6 +2834,16 @@ Ltac xpay_pre_nosimpl_core tt :=
 Tactic Notation "xpay_pre_nosimpl" :=
   xpay_pre_nosimpl_core tt.
 
+(* Only for devlopment *)
+Axiom xpay_lemma_skip : forall H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay F1) Q.
+
+Tactic Notation "xpay_skip" :=
+  apply xpay_lemma_skip.
+
+Ltac xpay_skip_hook_for_xcf tt ::= (* fill in the hook *)
+  xpay_skip.
 
 
 (* BONUS
