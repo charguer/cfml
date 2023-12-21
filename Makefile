@@ -74,9 +74,8 @@ EXAMPLES:=\
 	Stack \
 	PairingHeap \
 	UnitTests \
-	UnitTestsCredits
-
-# wip_Sek \
+	UnitTestsCredits \
+  wip_Sek
 
 tuto: examples/Tutorial/Tutorial_proof.vo
 stack: examples/Stack/Stack_proof.vo
@@ -182,8 +181,9 @@ else
    #else
 	 		ifeq ($(FOLDER),)
         $(info gathering all ml files)
+        # TODO: SHOULD restrict to folder actually used
 				PROOFV := $(shell find examples -name '*_proof.v')
-				# -not -iwholename '*_output*'
+        # -not -iwholename '*_output*'
 	 			ML := $(PROOFV:_proof.v=.ml)
 	 		else
         $(info gathering local ml files)
@@ -294,6 +294,7 @@ STDLIB_V := $(STDLIB_MLV) $(STDLIB_PROOFV) $(STDLIBMAIN)
 
 EXAMPLE_MLV := $(patsubst %.ml,%_ml.v,$(ML))
 EXAMPLE_PROOFV := $(patsubst %.ml,%_proof.v,$(ML))
+# TODO: SHOULD restrict to folder actually used
 AUX_V := $(filter-out %_ml.v %_proof.v, $(shell find examples -name '*.v'))
 EXAMPLE_V := $(AUX_V) $(EXAMPLE_MLV) $(EXAMPLE_PROOFV)
 EXAMPLE_EXE := $(patsubst %.ml,%.native,$(ML_MAIN))
