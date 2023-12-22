@@ -953,19 +953,19 @@ Ltac xcf_core tt :=
   first [ xcf_top_fun tt
         | xcf_top_value tt ].
 
-Tactic Notation "xcf_nopay" :=
-  xcf_core tt.
-Tactic Notation "xcf_nopay" "~" :=
-  xcf_nopay; auto_tilde.
-Tactic Notation "xcf_nopay" "*" :=
-  xcf_nopay; auto_star.
-
 Tactic Notation "xcf" :=
-  xcf_core tt; try xpay_hook_for_xcf tt.
+  xcf_core tt.
 Tactic Notation "xcf" "~" :=
   xcf; auto_tilde.
 Tactic Notation "xcf" "*" :=
   xcf; auto_star.
+
+Tactic Notation "xcf_pay" :=
+  xcf_core tt; try xpay_hook_for_xcf tt.
+Tactic Notation "xcf_pay" "~" :=
+  xcf_pay; auto_tilde.
+Tactic Notation "xcf_pay" "*" :=
+  xcf_pay; auto_star.
 
 Tactic Notation "xcf_skip_xpay" :=
   xcf_core tt; try xpay_skip_hook_for_xcf tt.
