@@ -111,6 +111,42 @@ Proof using.
   xchange MList_eq ;=> v'. xapp. xapp. xval. xchanges* <- (@MList_eq p).
 Qed.
 
+Lemma Triple_rev_aux : forall L1 L2 p1 p2,
+    SPEC (rev_aux p1 p2)
+      PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+      POST (fun q => q ~> MList (rev L2 ++ L1)).
+Proof using.
+  intros. gen p1 p2 L1. induction_wf IH : list_sub L2. intros.
+  xcf. xchange MList_eq ;=> v2. xchange MList_eq ;=> v1.
+  xapp. xmatch.
+  { xval. xchanges MList_contents_iff ;=> HL.
+    destruct HL. cuts G : (L2 = nil); auto.
+    subst. xchange* MList_contents_iff ;=>. rew_list*.
+    xchange* <- MList_eq. unfold MList_contents. xsimpl*. }
+  { destruct L2 as [|x2' L2'].
+    { unfold MList_contents. xpull*. }
+    { xchange* <- MList_eq. unfold MList_contents.
+      xpull*. intros. inverts H.
+      xchange* MList_eq. intros. xapp.
+      xchange* MList_eq. intros. xapp.
+      xapp. xapp. intros.
+      xchange* <- (MList_eq x2).
+      xchange* <- (MList_eq x0).
+      xchange* <- (MList_cons p2).
+      xapp; auto.
+      rew_list*. xsimpl*. } }
+Qed.
+
+Lemma Triple_rev : forall L p,
+    SPEC (rev_main p)
+      PRE (p ~> MList L)
+      POST (fun q => q ~> MList (rev L)).
+Proof using.
+  xcf. xapp ;=>.
+  xchange* <- MList_nil. xapp Triple_rev_aux ;=>.
+  xsimpl*. rew_list*.
+Qed.
+
 End Ops.
 
 Global Opaque MList.
