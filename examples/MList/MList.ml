@@ -29,3 +29,11 @@ let rec rev_aux acc l =
 
 let rev_main p =
   rev_aux (ref Nil) p
+
+let rec cmp (eq: 'a -> 'a -> bool) l1 l2 =
+  match !l1, !l2 with
+  | Nil, Nil -> true
+  | Cons (_, _), Nil -> false
+  | Nil, Cons (_, _) -> false
+  | Cons (x1, xs1), Cons (x2, xs2) ->
+      eq x1 x2 && cmp eq xs1 xs2

@@ -147,6 +147,58 @@ Proof using.
   xsimpl*. rew_list*.
 Qed.
 
+Lemma Triple_cmp : forall L1 L2 p1 p2 eq,
+  (forall x1 x2,
+    SPEC (eq x1 x2)
+      PRE \[]
+      POST (fun b => \[b = isTrue (x1 = x2)])) ->
+  SPEC (cmp eq p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun b => \[b = isTrue (L1 = L2)] \*
+                  p1 ~> MList L1 \* p2 ~> MList L2).
+Proof using.
+  intros. gen p1 p2 L2. induction_wf IH : list_sub L1.
+  xcf. xchange* MList_eq ;=>. xchange* MList_eq ;=>.
+  xapp. xapp. xmatch.
+  { xchange* MList_contents_iff ;=>.
+    xchange* MList_contents_iff ;=>.
+    xval*. xchange* <- MList_eq. xchange* <- MList_eq.
+    xsimpl*.
+    destruct H0. destruct H1.
+    destruct H0; auto. }
+  { xchange* MList_contents_iff ;=>.
+    xchange* MList_contents_iff ;=>.
+    xval*. xchange* <- MList_eq. xchange* <- MList_eq.
+    xsimpl*. intros false. destruct H1.
+    cuts G : (L2 = nil).
+    { subst. destruct H2; auto. }
+    { destruct H0; auto. } }
+  { xchange* MList_contents_iff ;=>.
+    xchange* MList_contents_iff ;=>.
+    cuts G : (L1 = nil).
+    { xval*. xchange* <- MList_eq. xchange* <- MList_eq.
+      xsimpl*. intros false. destruct H0. subst.
+      destruct H2; auto. }
+    { destruct H1; auto. } }
+  { rename H into triple_eq.
+    xapp (triple_eq x1 x2).
+    destruct L1 as [|x' L1']; xif ;=>.
+    { unfold MList_contents. xpull*. }
+    { unfold MList_contents. xpull*. }
+    { unfold MList_contents; xpull* ;=>.
+      destruct L2 as [|y' L2']; xpull* ;=>.
+      inversion H0; subst. inversion H1; subst.
+      xapp; try constructor.
+      xchange* <- MList_cons. xchange* <- MList_cons.
+      xsimpl*. split; intros; subst; auto.
+      inversion H; auto. }
+    { unfold MList_contents. xpull* ;=>.
+      destruct L2 as [|y' L2']; xpull* ;=>.
+      inversion H0; subst. inversion H1; subst.
+      xval*. xchange* <- MList_cons. xchange* <- MList_cons.
+      xsimpl*. intros false. inversion false. contradiction. } }
+Qed.
+
 End Ops.
 
 Global Opaque MList.
