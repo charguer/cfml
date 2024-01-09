@@ -1,7 +1,0 @@
-CFML := ../..
-OCAMLINCLUDE := -I . -I ../../lib/ocaml
-ARG_EXAMPLEINCLUDE := -R .. EXAMPLES
-CFMLC_FLAGS := -deep_embedding -def_encoders
-include $(CFML)/lib/make/Makefile.dev
-
-

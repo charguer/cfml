@@ -72,7 +72,8 @@ all: vo
 EXAMPLE_FOLDERS=$(shell find examples -mindepth 1 -maxdepth 1 -type d)
 EXAMPLES=$(subst examples/,,$(EXAMPLE_FOLDERS))
 
-EXAMPLES_EXCLUDED=examples/wip_Sek/%
+EXAMPLES_EXCLUDED=
+#EXAMPLES_EXCLUDED=examples/wip_Sek/%
 
 # SHORTHANDS
 tuto: examples/Tutorial/Tutorial_proof.vo
@@ -80,7 +81,7 @@ stack: examples/Stack/Stack_proof.vo
 pair: examples/PairingHeap/PairingHeap_proof.vo examples/PairingHeap/PairingHeap_valid.vo
 debug: examples/Debug/Debug_proof.vo
 units: examples/UnitTests/UnitTests_proof.vo exapples/UnitTestsCredits/UnitTestsCredits_proof.vo
-sek: examples/wip_Sek/PSek_proof.vo examples/wip_Sek/ESek_proof.vo
+# sek: examples/wip_Sek/PSek_proof.vo examples/wip_Sek/ESek_proof.vo
 # todo: a function to gather all targeted .vo in a given folder
 
 
