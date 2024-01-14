@@ -32,7 +32,7 @@ Proof using.
   { do 2 xchanges <- MList_nil. }
 Qed.
 
-Lemma Triple_is_empty : forall L q,
+Lemma Triple_queue_is_empty : forall L q,
     SPEC (is_empty q)
       PRE (MQueue L q)
       POST (fun b => MQueue L q \* \[b = isTrue (L = nil)]).
@@ -48,11 +48,9 @@ Lemma Triple_push : forall L (x: A) (q: loc),
       PRE (MQueue L q)
       POST (fun (_:unit) => MQueue (L & x) q).
 Proof using.
-  xcf.
-  xapp* Triple_is_empty ;=>.
+  xcf. xapp* Triple_queue_is_empty ;=>.
   destruct L as [|x' L'].
-  { Search (isTrue _).
-    rewrite <- LibListExec.is_nil_eq in H.
+  { rewrite <- LibListExec.is_nil_eq in H.
     simpl in *. subst.
     xif; intros; tryfalse *.
     { xapp. intros.
@@ -62,10 +60,8 @@ Proof using.
       { rew_list*. f_equal.
         apply nil_eq_app_inv in H1.
         destruct H1. auto. } } }
-  { Search (_ :: _ = nil).
-    cuts * G : (~ x' :: L' = nil).
-    { Search isTrue _.
-      apply isTrue_eq_false in G.
+  { cuts * G : (~ x' :: L' = nil).
+    { apply isTrue_eq_false in G.
       subst. xif; intros; tryfalse *.
       unfold MQueue. xpull ;=>.
       xapp. xapp. xapp. xapp. xsimpl*.
@@ -75,6 +71,53 @@ Proof using.
         rew_list* in *. }
       { rewrite H1. rew_list*. } }
     { intros false. inversion false. } }
+Qed.
+
+Lemma Triple_pop : forall L q,
+    L <> nil ->
+    SPEC (pop q)
+      PRE (MQueue L q)
+      POST (fun x => \exists L', \[L = x :: L'] \* MQueue L' q).
+Proof using.
+  xcf. unfold MQueue. xpull* ;=>.
+  xapp. xchange* (MList_eq x) ;=> f.
+  xapp. xmatch.
+  { xchange MList_contents_iff ;=>.
+    destruct H2. cuts G : (x1 = nil); auto.
+    cuts G2 : (x2 = nil); auto. subst.
+    rew_list in *. contradiction. }
+  { unfold MList_contents. destruct x1; xpull* ;=>.
+    inversion H2; subst. xchange* (MList_eq x4) ;=>.
+    xchange* <- (MList_eq x4). xapp. xif ;=>.
+    { subst. xapp. xapp ;=>. xapp. xapp ;=>.
+      xapp. xval. xapp. xapp. xval.
+      xsimpl*; rew_list*; try math. }
+    { xapp. xchange* <- MList_cons. xapp ;=>.
+      { intros false. inversion false. }
+      { inversion H3; subst. xapp. xapp. xval.
+        xsimpl*; rew_list*; try math. } } }
+Qed.
+
+Lemma Triple_transfer : forall L1 L2 (q1 q2: loc),
+    SPEC (transfer q1 q2)
+      PRE (MQueue L1 q1 \* MQueue L2 q2)
+      POSTUNIT (MQueue (@nil A) q1 \* MQueue (L2 ++ L1) q2).
+Proof using.
+  intros. gen q1 q2 L2.
+  induction_wf IH : list_sub L1.
+  xcf. xapp Triple_queue_is_empty ;=>.
+  destruct L1 as [| x' L1']; xif ;=>.
+  { assert (@nil A = nil) by auto.
+    apply isTrue_eq_true in H1. rewrite H1 in H. contradiction. }
+  { xval. rew_list*. xsimpl*. }
+  { xapp Triple_pop ;=>.
+    { intros false; inversion false. }
+    { xapp Triple_push. inversion H1; subst. xapp; try constructor.
+      rew_list*. xsimpl*. } }
+  { assert (~ x' :: L1'= nil).
+    { intros false. inversion false. }
+    { apply isTrue_eq_false in H1.
+      rewrite H1 in H. subst. inversion H0. } }
 Qed.
 
 End Ops.
