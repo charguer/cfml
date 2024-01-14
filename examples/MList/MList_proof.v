@@ -208,6 +208,7 @@ Hint Extern 1 (RegisterSpec create) => Provide Triple_create.
 Hint Extern 1 (RegisterSpec is_empty) => Provide Triple_is_empty.
 Hint Extern 1 (RegisterSpec push) => Provide Triple_push.
 Hint Extern 1 (RegisterSpec pop) => Provide Triple_pop.
+Hint Extern 1 (RegisterSpec rev_main) => Provide Triple_rev.
 End SpecMList.
 
 
