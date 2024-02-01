@@ -82,6 +82,34 @@ Proof using.
   intros. xunfold Queue. xpull* ;=>; case_if; xsimpl*.
 Qed.
 
+Lemma Queue_last : forall (q: loc) A `{EA: Enc A} (x: A) (L: list A),
+    q ~> Queue (L & x)
+==> \exists cf cl,
+      q ~~~> `{ length' := length (L & x); first' := cf; last' := cl } \*
+        cf ~> Cell_Seg L cl \* cl ~> Cell_Seg (x::nil) Nil.
+Proof using.
+  intros. xunfold Queue. xsimpl* ;=>.
+  case_if*; xpull*.
+  { apply last_eq_nil_inv in C. auto_false. }
+  { introv HLx. apply last_eq_last_inv in HLx.
+    destruct HLx. subst. xsimpl*. }
+Qed.
+
+Lemma Queue_last_close :
+  forall (q: loc) A `{EA: Enc A} (x: A) (L: list A) (cf cl: cell_ A),
+    q ~~~> `{ length' := length (L & x); first' := cf; last' := cl } \*
+      cf ~> Cell_Seg L cl \* cl ~> Cell_Seg (x::nil) Nil
+      ==> q ~> Queue (L & x).
+Proof using.
+  intros. xunfold Queue. xsimpl*. case_if*.
+  { apply last_eq_nil_inv in C. auto_false. }
+  { xsimpl*. }
+Qed.
+
+(* Lemma Queue_nil_alt: forall (q: loc) A `{EA: Enc A}, *)
+(*     q ~~~> `{ length' := 0; first' := Nil; last' := Nil } *)
+(*       ==> q ~> Queue (@nil A). *)
+
 Lemma Cell_eq : forall A `{EA: Enc A} (x: A) (c n: cell_ A),
     c ~> Cell x n
   = \exists cf, \[c = Cons cf] \* cf ~~~> `{ content' := x; next' := n }.
@@ -195,5 +223,25 @@ Section Ops.
         case_if*. { apply last_eq_nil_inv in C1. auto_false. }
         xsimpl*. rew_list*. math. } }
   Qed.
+
+  Lemma Triple_transfer : forall (L1 L2: list A) (q1 q2: loc),
+      SPEC (transfer q1 q2)
+        PRE (q1 ~> Queue L1 \* q2 ~> Queue L2)
+        POSTUNIT (q1 ~> Queue (@nil A) \* q2 ~> Queue (L2 ++ L1)).
+  Proof using.
+    xcf. xunfold Queue at 1. xpull*; => cf cl. case_if*; xpull*.
+    { intros -> ->. xapp. xif.
+      { introv Hlength. rewrite C in Hlength. math. }
+      { introv Hlength. xval. subst. rew_list*.
+        xchanges* <- Queue_nil. } }
+    { intros x x0 ->. xchange* Cell_Seg_cons ;=> n.
+      xchange* Cell_Seg_nil ;=> ->. xapp. xif.
+      { intros Hgt. xchange Queue_if. intros cf_q2 cl_q2.
+        case_if*.
+        { subst. xpull* ;=> -> ->. xapp. xmatch.
+          xapp. xapp. xapp. xapp. xapp. xapp.
+          xchange* Cell_Seg_of_Cell. xchange* Queue_last_close.
+          xapp Triple_clear. rew_list*. xsimpl*.
+  Admitted.
 
 End Ops.
