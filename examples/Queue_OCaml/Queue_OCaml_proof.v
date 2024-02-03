@@ -110,7 +110,7 @@ Qed.
 (*     q ~~~> `{ length' := 0; first' := Nil; last' := Nil } *)
 (*       ==> q ~> Queue (@nil A). *)
 
-Lemma Cell_eq : forall A `{EA: Enc A} (x: A) (c n: cell_ A),
+Lemma Cell_eq : forall A `{EA: Enc A} (c: cell_ A) (x: A) (n: cell_ A),
     c ~> Cell x n
   = \exists cf, \[c = Cons cf] \* cf ~~~> `{ content' := x; next' := n }.
 Proof using. auto. Qed.
@@ -137,7 +137,7 @@ Proof using.
   Unshelve. auto.
 Qed.
 
-Lemma Cell_Seg_trans : forall A `{EA: Enc A} (L1 L2 L3: list A) (c1 c2 c3: cell_ A),
+Lemma Cell_Seg_trans : forall A `{EA: Enc A} (c1 c2 c3: cell_ A) (L1 L2 L3: list A),
     c1 ~> Cell_Seg L1 c2 \* c2 ~> Cell_Seg L2 c3 \* c3 ~> Cell_Seg L3 Nil
 ==> c1 ~> Cell_Seg (L1 ++ L2) c3 \* c3 ~> Cell_Seg L3 Nil.
 Proof using.
@@ -183,20 +183,31 @@ Section Ops.
     xcf. xapp ;=> q. xchanges* <- Queue_nil.
   Qed.
 
-  Lemma Triple_clear : forall q L,
-    SPEC (clear q)
-      PRE (q ~> Queue L)
-      POSTUNIT (q ~> Queue (@nil A)).
+  (* Lemma Triple_clear : forall q L, *)
+  (*   SPEC (clear q) *)
+  (*     PRE (q ~> Queue L) *)
+  (*     POSTUNIT (q ~> Queue (@nil A)). *)
+  (* Proof using. *)
+  (*   xcf. xunfold Queue. xpull* ;=> cf cl. *)
+  (*   case_if*; xpull*. *)
+  (*   { intros -> ->. case_if*. do 3 xapp. *)
+  (*     xsimpl*. } *)
+  (*   { intros x x0 ->. case_if*. xchange* Cell_Seg_cons ;=>. *)
+  (*     xchange* Cell_Seg_nil. intros ->. do 3 xapp. *)
+  (*     xsimpl*. *)
+  (*     { applys haffine_Cell_Seg. } *)
+  (*     { xunfold * Cell. xaffine. } } *)
+  (* Qed. *)
+
+  Lemma Triple_clear : forall (q: loc) (L1: list A) (x: A) (cf cl: cell_ A),
+      SPEC (clear q)
+        PRE (q ~~~> `{ length' := length (L1&x); first' := cf; last' := cl }
+               \* cf ~> Cell_Seg L1 cl \* cl ~> Cell_Seg (x::nil) Nil)
+        POSTUNIT (q ~> Queue (@nil A) \* cf ~> Cell_Seg L1 cl \*
+                    cl ~> Cell_Seg (x::nil) Nil).
   Proof using.
-    xcf. xunfold Queue. xpull* ;=> cf cl.
-    case_if*; xpull*.
-    { intros -> ->. case_if*. do 3 xapp.
-      xsimpl*. }
-    { intros x x0 ->. case_if*. xchange* Cell_Seg_cons ;=>.
-      xchange* Cell_Seg_nil. intros ->. do 3 xapp.
-      xsimpl*.
-      { applys haffine_Cell_Seg. }
-      { xunfold * Cell. xaffine. } }
+    xcf. xapp. xapp. xapp. xsimpl*.
+    xchanges* <- Queue_nil.
   Qed.
 
   Lemma Triple_add : forall L q x,
@@ -235,13 +246,27 @@ Section Ops.
       { introv Hlength. xval. subst. rew_list*.
         xchanges* <- Queue_nil. } }
     { intros x x0 ->. xchange* Cell_Seg_cons ;=> n.
-      xchange* Cell_Seg_nil ;=> ->. xapp. xif.
+      xchange* Cell_Seg_nil ;=>. xapp. xif.
       { intros Hgt. xchange Queue_if. intros cf_q2 cl_q2.
         case_if*.
         { subst. xpull* ;=> -> ->. xapp. xmatch.
           xapp. xapp. xapp. xapp. xapp. xapp.
-          xchange* Cell_Seg_of_Cell. xchange* Queue_last_close.
-          xapp Triple_clear. rew_list*. xsimpl*.
-  Admitted.
+          xchange* Cell_Seg_of_Cell.
+          xapp Triple_clear. xchange* Queue_last_close.
+          rew_list*. xsimpl*. }
+        { xpull* ;=> x1 x2 ->. xchange* Cell_Seg_cons ;=> cx1.
+          xchange* Cell_Seg_nil ;=>.
+          xapp. xchange* (Cell_eq cl_q2) ;=> cx3 ->.
+          xmatch. xapp. xapp. xapp. xapp. xapp.
+          xapp. xapp. subst. xchange* Cell_Seg_of_Cell.
+          xapp Triple_clear. xchange* <- Cell_eq .
+          xchange Cell_Seg_of_Cell_singleton.
+          xchange (Cell_Seg_trans (Cons cx3) cf cl).
+          xchange Cell_Seg_trans. rew_list*.
+          assert (1 + length x2 + (1 + length x0) = length ((x2 ++ x1 :: x0) & x)).
+          { rew_list*. math. }
+          rewrite H. xchange Queue_last_close. rew_list*. xsimpl*. } }
+      { intros Hfalse. destruct Hfalse. rew_list*. math. } }
+  Qed.
 
 End Ops.
