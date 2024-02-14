@@ -418,6 +418,16 @@ Tactic Notation "rew_heap_assoc" :=
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary tactics used by [xpull] and [xsimpl] *)
 
+(** [xpull] and [xsimpl] need a mechanism for simplifying patterns of the
+    form [Hi \* \[]] into [Hi], on both sides of entailments and in goals
+    of the form [haffine H]. I don't reclal why [\[] \* Hi] is not also
+    simplified; it might be handled elsewhere. *)
+
+(** [remove_empty_heaps_from H] assumes that [H] is a subexpression that
+    appears in the goal. It replaces [Hi \* \[]] into [Hi], with a work
+    around for the case [Hi] is an evar (might no longer be needed in the
+    most recent versions of Coq?) *)
+
 Ltac remove_empty_heaps_from H :=
   match H with context[ ?H1 \* \[] ] =>
     match is_evar_as_bool H1 with
@@ -438,7 +448,6 @@ Ltac remove_empty_heaps_right tt :=
   repeat match goal with |- _ ==> ?H2 => remove_empty_heaps_from H2 end.
 
 
-
 (* ********************************************************************** *)
 (* * Tactic [xsimpl] for heap entailments *)
 
@@ -450,6 +459,7 @@ Ltac remove_empty_heaps_right tt :=
     - Separate positives and negatives expressions in two groups.
     - Cancel each pair (n,-n) of expressions.
     - Pretty-print the result. *)
+
 Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$n.
 
@@ -644,6 +654,9 @@ Abort.
 (* ---------------------------------------------------------------------- *)
 (* [xaffine] placeholder *)
 
+(** [xaffine] is a tactic refined in LibSepFunctor. But we introduced here
+    a simplified version of it, useful for proving the lemmas in this file. *)
+
 Ltac xaffine_core tt := (* to be generalized lated *)
   try solve [ assumption | apply haffine_hempty ].
 
@@ -654,17 +667,30 @@ Tactic Notation "xaffine" :=
 (* ---------------------------------------------------------------------- *)
 (* Hints for tactics such as [xsimpl] *)
 
+(** The data type [Xsimpl_hint] is a data structure for wrapping the
+    list of arguments provided to [xsimpl]. These arguments are of
+    heterogeneous type; they are represented using the Boxer type,
+    defined in LibTactics. The idea is that we will keep around during
+    the execution of [xsimpl] an hypothesis of of type [Xsimpl_hint L]
+    where [L] denotes the hints that have not yet been consumed for
+    instantiating existential quantifiers. *)
+
 Inductive Xsimpl_hint : list Boxer -> Type :=
   | xsimpl_hint : forall (L:list Boxer), Xsimpl_hint L.
 
+(** [xsimpl_hint_put L] adds a fresh hypothesis of type [Xsimpl_hint L]. *)
 Ltac xsimpl_hint_put L :=
   let H := fresh "Hint" in
   generalize (xsimpl_hint L); intros H.
 
+(** [xsimpl_hint_next cont] looks up for an hypothesis of type
+    [Xsimpl_hint (x::L)], replaces it with [Xsimpl_hint L], and
+    invokes the continuation [cont] on [x]. *)
 Ltac xsimpl_hint_next cont :=
   match goal with H: Xsimpl_hint ((boxer ?x)::?L) |- _ =>
     clear H; xsimpl_hint_put L; cont x end.
 
+(** [xsimpl_hint_remove tt] removes the hypothesis of type [Xsimpl_hint L]. *)
 Ltac xsimpl_hint_remove tt :=
   match goal with H: Xsimpl_hint _ |- _ => clear H end.
 
@@ -675,8 +701,10 @@ Ltac xsimpl_hint_remove tt :=
 (** [hstars_flip tt] applies to a goal of the form [H1 \* .. \* Hn \* \[] = ?H]
     and instantiates [H] with [Hn \* ... \* H1 \* \[]].
     If [n > 12], the maximum arity supported, the tactic unifies [H] with
-    the original LHS. *)
+    the original LHS. Note: if we had a reified representation of iterated
+    stars, we could simply use [List.rev]. *)
 
+(** [hstars_flip_i] is a collection of lemmas for implementing [hstars_flip]. *)
 Lemma hstars_flip_0 :
   \[] = \[].
 Proof using. auto. Qed.
@@ -731,6 +759,8 @@ Lemma hstars_flip_11 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11,
   = H11 \* H10 \* H9 \* H8 \* H7 \* H6 \* H5 \* H4 \* H3 \* H2 \* H1 \* \[].
 Proof using. intros. rewrite <- (hstars_flip_10 H1). rew_heap. rewrite (hstar_comm H11). rew_heap~. Qed.
 
+(** [hstars_flip_lemma i] returns the lemma named [hstars_flip_i] *)
+
 Ltac hstars_flip_lemma i :=
   match number_to_nat i with
   | 0%nat => constr:(hstars_flip_0)
@@ -748,20 +778,27 @@ Ltac hstars_flip_lemma i :=
   | _ => constr:(hstars_flip_1) (* unsupported *)
   end.
 
+(** [hstars_arity i Hs] returns [i+j], where [j] is the number of star-separated
+    items in the list [Hs]. Note: it is a tail-recursive implementation of a
+    function that would compute the arity of [Hs]. *)
+
 Ltac hstars_arity i Hs :=
   match Hs with
   | \[] => constr:(i)
   | ?H1 \* ?H2 => hstars_arity (S i) H2
   end.
 
+(** [hstars_flip_arity tt] applies to a goal of the form [HL = ?HR],
+    where [HL] consists of an iterated star of items. It computes
+    the number of star-separated items in [HL]. *)
 Ltac hstars_flip_arity tt :=
   match goal with |- ?HL = ?HR => hstars_arity 0%nat HL end.
 
+(** [hstars_flip] is documented at the top of the section. *)
 Ltac hstars_flip tt :=
   let i := hstars_flip_arity tt in
   let L := hstars_flip_lemma i in
   eapply L.
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -771,10 +808,14 @@ Ltac hstars_flip tt :=
     of the form either [H1 \* ... \* Hn \* \[]]
     or [H1 \* ... \* Hn]. It invokes the function [test i Hi]
     for each of the [Hi] in turn until the tactic succeeds.
-    In the particular case of invoking [test n Hn] when there
-    is no trailing [\[]], the call is of the form [test (hstars_last n) Hn]
-    where [hstars_last] is an identity tag. *)
 
+    We might need to use slightly different tactic depending on whether the
+    last item [Hn] is followed with [\[]] or not. To handle the two cases in
+    a uniform way, we use the following hack. If there is no trailing [\[]],
+    instead of making the call to [test n Hn], we make the call to
+    [test (hstars_last n) Hn], where [hstars_last] is an identity tag. *)
+
+(** [hstars_last] is an identity tag, whose purpose is explained above. *)
 Definition hstars_last (A:Type) (X:A) := X.
 
 Ltac hstars_search Hs test :=
@@ -784,9 +825,12 @@ Ltac hstars_search Hs test :=
           | match Hs with ?H => test (hstars_last i) H end ] in
   aux 1%nat Hs.
 
-(** [hstars_pick_lemma i] returns one of the lemma below,
-    which enables reordering in iterated stars, by extracting
-    the i-th item to bring it to the front. *)
+(** [hstars_pick_lemma i] returns one of the lemmas [hstars_pick_i]
+    or [hstars_pick_last_i] below. These lemmas are used for bringing
+    the i-th item of an iterated conjunction to the front. In the
+    particular case where [i] is of the form [hstars_last n], indicating
+    that we wish to pick the last item in the list, we use the lemmas
+    of the form [hstars_pick_last_i] instead of [hstars_pick_i]. *)
 
 Lemma hstars_pick_1 : forall H1 H,
   H1 \* H = H1 \* H.
@@ -922,47 +966,18 @@ Ltac hstars_pick_lemma i :=
   end.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* Tactic [xsimpl] *)
 
-(** ... doc for [xsimpl] to update
+(** [xsimpl] is implemented as an automaton. To see a step-by-step execution
+    of the automaton, the tactics [xsimpl0], [xsimpl1], [xsimpl2], as well
+    as [xsimpll], [xsimplr], [xsimpllr] to see more details of [xsimpl1],
+    are provided. They are defined further.
 
-   At the end, there remains a heap entailment with a simplified
-   LHS and a simplified RHS, with items not cancelled out.
-   At this point, if the goal is of the form [H ==> \GC] or [H ==> \Top] or
-   [H ==> ?H'] for some evar [H'], then [xsimpl] solves the goal.
-   Else, it leaves whatever remains.
-
-   For the cancellation part, [xsimpl] cancels out [H] from the LHS
-   with [H'] from the RHS if either [H'] is syntactically equal to [H],
-   or if [H] and [H'] both have the form [x ~> ...] for the same [x].
-   Note that, in case of a mismatch with [x ~> R X] on the LHS and
-   [x ~> R' X'] on the RHS, [xsimpl] will produce a goal of the form
-   [(x ~> R X) = (x ~> R' X')] which will likely be unsolvable.
-   It is the user's responsability to perform the appropriate conversion
-   steps prior to calling [xsimpl].
-
-   Remark: the reason for the special treatment of [x ~> ...] is that
-   it is very useful to be able to automatically cancel out
-   [x ~> R X] from the LHS with [x ~> R ?Y], for some evar [?Y] which
-   typically is introduced from an existential, e.g. [\exists Y, x ~> R Y].
-
-   Remark: importantly, [xsimpl] does not attempt any simplification on
-   a representation predicate of the form [?x ~> ...], when the [?x]
-   is an uninstantiated evar. Such situation may arise for example
-   with the following RHS: [\exists p, (r ~> Ref p) \* (p ~> Ref 3)].
-
-   As a special feature, [xsimpl] may be provided optional arguments
-   for instantiating the existentials (instead of introducing evars).
-   These optional arguments need to be given in left-right order,
-   and are used on a first-match basis: the head value is used if its
-   type matches the type expected by the existential, else an evar
-   is introduced for that existential. *)
-
-
-(** [Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt)] is interepreted as
-    the entailment [\$Nc \* Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
+    The state of the automaton on which [xsimpl] operates is described as
+    a septuple. The state is written [Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt)],
+    where [Xsimpl] is a dedicated constructor. Such a state corresponds to
+    the entailment [\$Nc \* Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt], where
     - |Nc] denotes a number of time credits
     - [Hla] denotes "cleaned up" items from the left hand side
     - [Hlw] denotes the [H1 \-* H2] and [Q1 \--* Q2] items from the left hand side
@@ -971,19 +986,25 @@ Ltac hstars_pick_lemma i :=
     - [Hrg] denotes the [\GC] and [\Top] items from the right hand side
     - [Hrt] denotes the remaining items to process from the right hand side
 
-    Note: we assume that all items consist of iterated hstars, and are
-    always terminated by an empty heap. *)
+    Each of these components always consists of an iterated conjunction terminated
+    by an empty heap, that is, is of the form [H1 \* H2 \* .. \* Hn \* \[]]. *)
+
+(** The interpretation of [Xsimpl] *)
 
 Definition Xsimpl (HL:credits*hprop*hprop*hprop) (HR:hprop*hprop*hprop) :=
   let '(Nc,Hla,Hlw,Hlt) := HL in
   let '(Hra,Hrg,Hrt) := HR in
   \$Nc \* Hla \* Hlw\* Hlt ==> Hra \* Hrg \* Hrt.
 
-(** [protect X] is use to prevent [xsimpl] from investigating inside [X] *)
+(** [protect X] is an identity function used to prevent [xsimpl] from
+    investigating the inside of [X]. It is used in particular to prevent
+    certain simplifications in the postcondition when applying the
+    ramified frame rule. *)
 
 Definition protect (A:Type) (X:A) : A := X.
 
-(** Auxiliary lemmas to prove lemmas for [xsimpl] implementation. *)
+(** Auxiliary lemmas to prove lemmas for [xsimpl] implementation.
+    THESE LEMMAS APPEAR TO BE DEPRECATED *)
 
 Lemma Xsimpl_trans_l : forall Nc1 Hla1 Hlw1 Hlt1 Nc2 Hla2 Hlw2 Hlt2 HR,
   Xsimpl (Nc2,Hla2,Hlw2,Hlt2) HR ->
@@ -1010,23 +1031,20 @@ Lemma Xsimpl_trans : forall Nc1 Hla1 Hlw1 Hlt1 Nc2 Hla2 Hlw2 Hlt2 Hra1 Hrg1 Hrt1
   Xsimpl (Nc1,Hla1,Hlw1,Hlt1) (Hra1,Hrg1,Hrt1).
 Proof using. introv M1 E. unfolds Xsimpl. eauto. Qed.
 
-(* DEPRECATED
-Lemma Xsimpl_trans_l' : forall Hla1 Hlw1 Hlt1 Hla2 Hlw2 Hlt2 HR,
-  (forall Hra Hrg Hrt,
-    Xsimpl (Hla2,Hlw2,Hlt2) (Hra,Hrg,Hrt) ->
-  Hla1 \* Hlw1 \* Hlt1 ==> Hla2 \* Hlw2 \* Hlt2 ->
-
-[[Hla Hlw] Hlt]
-
-  Xsimpl (Hla1,Hlw1,Hlt1) HR.
-Proof using.
-  introv M1 E. destruct HR as [[Hra Hrg] Hrt]. unfolds Xsimpl.
-  applys* himpl_trans M1.
-Qed.
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** ** Basic cancellation tactic used to establish lemmas used by [xsimpl] *)
+
+(** The tactic [hstars_simpl] is a simplified version of [xsimpl] that we
+    use for the purpose of proving the lemmas that are involved in the
+    implementation of [xsimpl]. The behavior fo [hstar_simpl] is described
+    by the function [hstars_simpl_core tt] further below. The tactic also
+    operates on an automaton, this time of the form [H1 ==> H2 \* H3],
+    with the assumption that [H1] and [H3] are iterated stars terminated by
+    an empty heap predicate. [H2] corresponds to the elements that have
+    not been found in [H1], and [H3] corresponds to what remains to be
+    processed. Each element in [H3] is attempted to be cancelled against
+    an element from [H1]. *)
 
 Lemma hstars_simpl_start : forall H1 H2,
   H1 \* \[] ==> \[] \* H2 \* \[] ->
@@ -1059,6 +1077,14 @@ Ltac hstars_simpl_start tt :=
   applys hstars_simpl_start;
   rew_heap_assoc.
 
+(** [hstars_simpl_step tt] applies to a goal of the form
+    [H1 ==> H2 \* (H \* H3)]. It attempts to cancel [H]
+    against an element from [H1]. If if finds such an element
+    at index [i] in [H1], this element is brought to the
+    front of [H1], then canceled out using [hstars_simpl_cancel].
+    Otherwise, the element [H] is moved into [H2] using
+    [hstars_simpl_keep]. *)
+
 Ltac hstars_simpl_step tt :=
   match goal with |- ?Hl ==> ?Ha \* ?H \* ?H2 =>
     first [
@@ -1083,18 +1109,26 @@ Tactic Notation "hstars_simpl" :=
 (* ---------------------------------------------------------------------- *)
 (** ** Transition lemmas *)
 
-(** Transition lemmas to start the process *)
+(** Transition lemmas to protect the RHS. Used by [xpull] to prevent
+    simplifications in the RHS. *)
 
 Lemma xpull_protect : forall H1 H2,
   H1 ==> protect H2 ->
   H1 ==> H2.
 Proof using. auto. Qed.
 
+(** Transition lemma to start the process, by introducing the [Xsimpl]
+    constructor in the initial state of the automaton. *)
+
 Lemma xsimpl_start : forall H1 H2,
   Xsimpl (0, \[], \[], (H1 \* \[])) (\[], \[], (H2 \* \[])) ->
   H1 ==> H2.
 Proof using. introv M. unfolds Xsimpl. rew_heap~ in *. Qed.
 (* Note: [repeat rewrite hstar_assoc] after applying this lemma *)
+
+(** Then comes a collection of lemmas for peforming transitions.
+    We refer to the tactic that invokes these lemmas to see
+    when they are used. *)
 
 (** Transition lemmas for LHS extraction operations *)
 
@@ -1156,22 +1190,6 @@ Proof using.
   xsimpl_l_start' M. rewrite hwand_hcredits_l.
   math_rewrite (Nc - n = Nc + (-n)). rewrite hcredits_add. hstars_simpl.
 Qed.
-
-(* DEPRECATED
-Lemma xsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
-  Xsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
-Proof using. xsimpl_l_start' M. applys hwand_cancel. Qed.
-
-Lemma xsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, (Q2 x \* Hlt)) HR ->
-  Xsimpl ((Q1 x \* Hla), ((Q1 \--* Q2) \* Hlw), Hlt) HR.
-Proof using.
-  xsimpl_l_start' M. applys himpl_trans.
-  applys himpl_frame_lr. applys qwand_specialize x.
-  applys hwand_cancel.
-Qed.
-*)
 
 Lemma xsimpl_l_cancel_hwand : forall H1 H2 Nc Hla Hlw Hlt HR,
   Xsimpl (Nc, \[], Hlw, (Hla \* H2 \* Hlt)) HR ->
@@ -1520,7 +1538,8 @@ Proof using. auto. Qed.
 
 (** [xsimpl_pick i] applies to a goal of the form
     [Xsimpl (Nc, (H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
-    [Xsimpl (Nc, (Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]. *)
+    [Xsimpl (Nc, (Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR].
+    Essentially, it brings [Hi] to the front of the second component. *)
 
 Lemma xsimpl_pick_lemma : forall Hla1 Hla2 Nc Hlw Hlt HR,
   Hla1 = Hla2 ->
@@ -1535,7 +1554,8 @@ Ltac xsimpl_pick i :=
 (** [xsimpl_pick_st f] applies to a goal of the form
     [Xsimpl (Nc, (H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
     [Xsimpl (Nc, (Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]
-    for the first [i] such that [f Hi] returns [true]. *)
+    for the first [i] such that [f Hi] returns [true].
+    This is a higher-level selection operation. *)
 
 Ltac xsimpl_pick_st f :=
   match goal with |- Xsimpl (?Nc, ?Hla, ?Hlw, ?Hlt) ?HR =>
@@ -1626,8 +1646,11 @@ Ltac xsimpl_hcredits_nonneg tt :=
 
 Opaque Xsimpl.
 
-(** Handle [Q1 ===> Q2], in particular on [unit->hprop].
-    Also handle [Q1 ===> ?Q2] and [H1 ==> ?H2] *)
+(** [xsimpl_handle_qimpl] is a preprocessing function that handles goals of
+    the form [Q1 ===> Q2]. In particular, it simplifies the entailment when
+    [Q1] and [Q2] have type [unit->hprop]. The tactic also handles specially
+    the cases where the RHS involves an evar, that is, is of the form
+    [Q1 ===> ?Q2] or [H1 ==> ?H2] *)
 
 Ltac xsimpl_handle_qimpl tt :=
   match goal with
@@ -1641,8 +1664,13 @@ Ltac xsimpl_handle_qimpl tt :=
   | _ => fail 1 "not a goal for xsimpl/xpull"
   end.
 
+(** [xsimpl_intro tt] is a sub-function for starting the automaton,
+    it is used by the next two tactics. *)
+
 Ltac xsimpl_intro tt :=
   applys xsimpl_start.
+
+(** [xpull_start tt] starts the automaton for [xpull]. *)
 
 Ltac xpull_start tt :=
   pose ltac_mark;
@@ -1651,11 +1679,17 @@ Ltac xpull_start tt :=
   applys xpull_protect;
   xsimpl_intro tt.
 
+(** [xsimpl_intro tt] starts the automaton for [xsimpl]. *)
+
 Ltac xsimpl_start tt :=
   pose ltac_mark;
   intros;
   xsimpl_handle_qimpl tt;
   xsimpl_intro tt.
+
+(** These tactics are customizable processing functions, for
+    refining the behavior of [xsimpl_generalize], the tactic
+    called at the very end of [xpull] and [xsimpl]. *)
 
 Ltac xsimpl_post_before_generalize tt :=
   idtac.
@@ -1669,11 +1703,8 @@ Ltac himpl_post_processing_for_hyp H :=
 Ltac xsimpl_handle_false_subgoals tt :=
   tryfalse.
 
-(* DEPRECATED
-Ltac xsimpl_handle_haffine_subgoals tt :=
-  match goal with |- haffine _ =>
-    try solve [ xaffine ] end.
-*)
+(** [xsimpl_clean tt] removes the remaining empty heaps,
+    and removes the hypothesis storing the list of hints. *)
 
 Ltac xsimpl_clean tt :=
   try remove_empty_heaps_right tt;
@@ -1681,7 +1712,10 @@ Ltac xsimpl_clean tt :=
   try xsimpl_hint_remove tt;
   try xsimpl_beautify_credits_goal tt.
 
-(* --LATER: might move to TLC *)
+(* --LATER: might move to TLC
+   [gen_until_mark_with_processing_and_cleaning] is a variant of
+   [gen_until_mark] from TLC, parameterized by a custom continuation
+   [cont] for handling each hypothesis before it is generalized. *)
 Ltac gen_until_mark_with_processing_and_cleaning cont :=
   match goal with H: ?T |- _ =>
   match T with
@@ -1698,6 +1732,11 @@ Ltac gen_until_mark_with_processing_and_cleaning cont :=
          gen_until_mark_with_processing cont
   end end.
 
+(** [xsimpl_generalize tt] reverts in the goal all the variables
+    that have been introduced in the proof context since the
+    beginning of the execution of the automaton. A mark [ltac_Mark]
+    was left in the context to recall the starting point. *)
+
 Ltac xsimpl_generalize tt :=
   xsimpl_post_before_generalize tt;
   xsimpl_handle_false_subgoals tt;
@@ -1708,9 +1747,13 @@ Ltac xsimpl_generalize tt :=
      [gen_until_mark_with_processing
        ltac:(himpl_post_processing_for_hyp)]. *)
 
+(** [xsimpl_post tt] is the post-processing performed at the end of [xsimpl]. *)
+
 Ltac xsimpl_post tt :=
   xsimpl_clean tt;
   xsimpl_generalize tt.
+
+(** [xpull_post tt] is the post-processing performed at the end of [xpull]. *)
 
 Ltac xpull_post tt :=
   xsimpl_clean tt;
@@ -1751,6 +1794,7 @@ Ltac xsimpl_lr_cancel_eq_repr_post tt :=
     to specify the instantiation of the existential. *)
 
 (* Note: need to use [nrapply] instead of [eapply] to correctly handle [\exists (EA:Enc ?A)] *)
+
 Ltac xsimpl_r_hexists_apply tt :=
   first [
     xsimpl_hint_next ltac:(fun x =>
@@ -1769,6 +1813,24 @@ Ltac xsimpl_hook H := fail.
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic step *)
 
+(** This section specifies the key transitions of the automaton.
+    The high-level process is described by [xsimpl_step]: simplify
+    as much as possible the LHS of the entailment using [xsimpl_step_l];
+    then iterate over the elements from the RHS using [xsimpl_step_r]
+    (possibly generating subgoals, instantiating existentials, cancelling
+    elements from the LHS, or just leaving elements in place if they can't
+    be simplified); then applying simplification rule over the entire
+    entailment using the tactic [xsimpl_step_lr]. *)
+
+(** [xsimpl_hwand_hstars_l] handles the case where the current item on
+    the LHS of the entailment is a magic wand of the form
+    [(H11 \* H12 \* .. \* H1n) \-* H2]. In this case, we attempt to
+    cancel any of the [H1i] against another element from the LHS.
+    Observe that after simplifying a magic wand, we have to start over
+    trying to cancel all previously considered magic wands.
+    Known limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically
+    simplified to [Q1 \--* Q2]. Only [hwand] is simplified, not [qwand]. *)
+
 Ltac xsimpl_hwand_hstars_l tt :=
   match goal with |- Xsimpl (?Nc, ?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR =>
     hstars_search H1s ltac:(fun i H =>
@@ -1781,6 +1843,11 @@ Ltac xsimpl_hwand_hstars_l tt :=
         end
       ])
   end.
+
+(** [xsimpl_step_l] extracts pure facts and existential quantifiers into
+    the context. It flattens the nested separating conjunctions.
+    It attempt simplifying magic wands with other elements from the LHS.
+    It gathers the remaining magic wands in the [Hlw] component. *)
 
 Ltac xsimpl_step_l tt :=
   match goal with |- Xsimpl ?HL ?HR =>
@@ -1809,12 +1876,16 @@ Ltac xsimpl_step_l tt :=
             | apply xsimpl_l_keep_wand ]
   end end.
 
-(* Limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically
-   simplified to [Q1 \--* Q2]. *)
+(** [xsimpl_hgc_or_htop_cancel] is a tactic to factorize the processing of
+    [\Top] and [\GC]. *)
 
 Ltac xsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
   (* match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, (?H \* ?Hrg), ?Hrt) => *)
   repeat (xsimpl_pick_same cancel_item; apply cancel_lemma).
+
+(** [xsimpl_hgc_or_htop_step] is dedicated to handling the [\Top] and [\GC]
+    from the RHS. We are interested in keeping at most one [\Top] or one [\GC].
+    If we have one of each, we keep only [\Top] which subsumes [\GC]. *)
 
 Ltac xsimpl_hgc_or_htop_step tt :=
   match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
@@ -1831,8 +1902,23 @@ Ltac xsimpl_hgc_or_htop_step tt :=
     | (\Top \* \[], \Top) => applys xsimpl_r_htop_drop
     end end.
 
+(** TODO: inline this function at its single use site *)
 Ltac xsimpl_cancel_same H :=
   xsimpl_pick_same H; apply xsimpl_lr_cancel_same.
+
+(** [xsimpl_step_r] processes elements from the RHS one by one.
+    Iterating conjunctions are flattened.
+    Pure facts are turned into subgoals.
+    Existentials are instantiated with either hints or evars,
+    using [xsimpl_r_hexists_apply].
+    [\GC] and [\Top] are handled by the tactic [xsimpl_hgc_or_htop_step].
+    Protected elements and evars are kept there.
+    Other elements are considered for simplification against matching
+    elements from the LHS. Representation predicates of the form [p ~> ...]
+    are matched according to [p], and not according to the whose predicate.
+    For the identity representation predicate, [p ~> Id X] is simplified into [p = X].
+    A magic wand of the form [\[P] \-* H] is kept.
+    A magic wand of the form [H \-* H] is eliminated. *)
 
 Ltac xsimpl_step_r tt :=
   match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
@@ -1876,6 +1962,22 @@ Ltac xsimpl_step_r tt :=
 
 Ltac xsimpl_use_credits tt :=
   constr:(false).
+
+(** [xsimpl_step_lr] simplifies the entailment as a whole, by applying
+    one of the following rules.
+    [H ==> \Top] is proved.
+    [H ==> \GC] turns into [haffine H].
+    [H ==> ?evar] is resolved by instantiating the [?evar] as [H].
+    [H ==> (H1 \*- H2)] turns into [(H1 \* H) ==> H2], and we iterate
+    from there.
+    [H ==> (Q1 \*-- Q2)] turns into [(Q1 \*+ H) ===> Q2], and we iterate
+    from there.
+    There are special cases if [Q1] is [\[False]], or if [Q2] is an evar.
+    (I'm not sure why there are no similar special cases for [H1]/[H2],
+    they could be missing.)
+    At the end of the process, the lists of items are reversed, in order
+    to do a best effort at preserving the original order of the elements
+    before calling [xsimpl]. *)
 
 Ltac xsimpl_step_lr tt :=
   match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
@@ -1926,6 +2028,11 @@ Ltac xsimpl_step_lr tt :=
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
+
+(** [xsimpl_step] is the main loop over the automaton.
+    Note: it is useless to attempt executing [xsimpl_step_l]
+    while looping over [xsimpl_step_r]. However, after executing
+    [xsimpl_step_lr], one should start over from [xsimpl_step_l].*)
 
 Ltac xsimpl_step tt :=
   first [ xsimpl_step_l tt
