@@ -108,4 +108,3 @@ Proof using.
 Qed.
 
 Hint Extern 1 (RegisterSpec rev_append) => Provide rev_append_spec.
-

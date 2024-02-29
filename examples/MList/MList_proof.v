@@ -111,6 +111,28 @@ Proof using.
   xchange MList_eq ;=> v'. xapp. xapp. xval. xchanges* <- (@MList_eq p).
 Qed.
 
+Lemma Triple_copy : forall L p,
+    SPEC (copy p)
+      PRE (p ~> MList L)
+      POST (fun q => p ~> MList L \* q ~> MList L).
+Proof using.
+  intro L. induction_wf IH : list_sub L.
+  xcf. xchange* MList_eq ;=> v.
+  xapp. destruct L as [|x' L']; xmatch.
+  { xchange* MList_contents_iff; =>.
+    xapp ;=> x.
+    xchange* <- (MList_nil x).
+    xchange* <- MList_eq. xsimpl*. }
+  { unfold MList_contents; xpull*. }
+  { unfold MList_contents; xpull*. }
+  { unfold MList_contents; xpull*; =>.
+    inversion H; subst.
+    xapp; auto; =>. xapp; =>.
+    xchange* <- MList_cons.
+    xchange* <- MList_cons.
+    xsimpl*. }
+Qed.
+
 Lemma Triple_rev_aux : forall L1 L2 p1 p2,
     SPEC (rev_aux p1 p2)
       PRE (p1 ~> MList L1 \* p2 ~> MList L2)
@@ -145,6 +167,19 @@ Proof using.
   xcf. xapp ;=>.
   xchange* <- MList_nil. xapp Triple_rev_aux ;=>.
   xsimpl*. rew_list*.
+Qed.
+
+Lemma Triple_is_null : forall L p,
+    SPEC (is_null p)
+      PRE (p ~> MList L)
+      POST (fun b => \[b = isTrue (L = nil)]).
+Proof using.
+  xcf. xchange* MList_eq; =>v.
+  xapp. destruct L as [|x' L']; xmatch; xval*.
+  { xchange* <- MList_eq. xsimpl*. }
+  { assert (v <> Nil) by auto. xchange* MList_contents_iff. }
+  { unfold MList_contents; xpull. }
+  { xchange* <- MList_eq. xsimpl*. intros false. inversion false. }
 Qed.
 
 Lemma Triple_cmp : forall L1 L2 p1 p2 eq,
@@ -198,6 +233,107 @@ Proof using.
       xval*. xchange* <- MList_cons. xchange* <- MList_cons.
       xsimpl*. intros false. inversion false. contradiction. } }
 Qed.
+
+Lemma Triple_iter : forall (I: list A -> hprop) L (f: val) p,
+    (forall x L1 L2, L = L1++x::L2 ->
+                SPEC (f x)
+                  PRE (I L1)
+                  POSTUNIT (I (L1&x))) ->
+    SPEC (iter f p)
+      PRE (p ~> MList L \* I nil)
+      POSTUNIT (p ~> MList L \* I L).
+Proof using.
+  introv Hf.
+  cuts G : (forall L1 L2, L = L1 ++ L2 ->
+              SPEC (iter f p)
+                PRE (p ~> MList L2 \* I L1)
+                POSTUNIT (p ~> MList L2 \* I L)).
+  { xapp G; rew_list*. xsimpl*. }
+  intros. gen L1 H p. induction_wf IH : list_sub L2.
+  xcf. xchange* MList_eq ;=> vL2. xapp. xchange* MList_contents_iff ;=> ; xmatch.
+  { destruct H0. assert (L2 = nil) by auto. subst.
+    xval. rew_list. xchange* <- MList_eq. xsimpl*. }
+  { unfold MList_contents. destruct L2 as [| x2' L2']; xpull*; =>.
+    inversion H1. subst x. xapp (Hf x2'); eauto.
+    xapp; auto. { rew_list*. } { xchange* <- MList_cons. xsimpl*. } }
+Qed.
+
+Lemma Triple_test_iter : forall L p,
+    SPEC (test_iter p)
+      PRE (p ~> MList L)
+      POST (fun n => p ~> MList L \* \[n = length L]).
+Proof using.
+  xcf. xapp ;=> c. xlet_fun.
+  xapp (Triple_iter (fun (K: list A) => c ~~> length K)).
+  { intros. xapp. xapp. xapp. xsimpl*. rew_list*. math. }
+  { xapp. xsimpl*. }
+Qed.
+
+Definition permitted (V: list A) L : Prop :=
+  exists L', V ++ L' = L.
+
+Definition complete (V: list A) L : Prop :=
+  V = L.
+
+Lemma aux : forall L L',
+    L = L ++ L' -> L' = nil.
+Proof using.
+  induction L; auto.
+  intros. rew_list in H. inversion H.
+  destruct (IHL L'); auto.
+Qed.
+
+Lemma Triple_iter_alt : forall (I: list A -> hprop) L (f: val) p,
+    (forall x V,
+        SPEC (f x)
+          PRE (\[permitted (V&x) L] \* \[complete V L -> False] \* I V )
+          POSTUNIT (I (V&x))) ->
+    SPEC (iter f p)
+      PRE (p ~> MList L \* I nil)
+      POSTUNIT (p ~> MList L \* I L).
+Proof using.
+  introv Hf.
+  cuts G : (forall L1 L2, L = L1 ++ L2 ->
+              SPEC (iter f p)
+                PRE (p ~> MList L2 \* I L1)
+                POSTUNIT (p ~> MList L2 \* I L)).
+  { xapp G. rew_list*. xsimpl*. }
+  intros. gen L1 H p. induction_wf IH : list_sub L2.
+  xcf. xchange* MList_eq ;=> v.
+  xapp. xmatch.
+  { xval. xchange* MList_contents_iff ;=>. destruct H0.
+    assert (L2 = nil) by auto. subst.
+    rew_list*. xchange* <- MList_eq. xsimpl*. }
+  { unfold MList_contents. destruct L2 as [| x' L2']; xpull* ;=>.
+    inversion H0; subst. xapp (Hf x').
+    { assert (L1 ++ x' :: L2' = L1 & x' ++ L2'). { apply app_cons_r. }
+      rewrite H. exists L2'. auto. }
+    { intros. inversion H. apply aux in H1. inversion H1. }
+    { xapp; auto; rew_list*.
+      xchange* <- MList_cons. xsimpl*. } }
+Qed.
+
+(* Section Fold. *)
+
+  (* Context {Acc: Type}. *)
+
+  (* Lemma Triple_mfold_left : forall B (I: A -> list B -> hprop) (L: list B) acc0 (f: val) p, *)
+  (*     (forall acc (x: B) (L1 L2: list B), L = L1++x::L2 -> *)
+  (*                     SPEC (f acc x) *)
+  (*                       PRE (I acc L1) *)
+  (*                       POST (fun nacc => I nacc (L1&x))) -> *)
+  (*     SPEC (fold_mleft acc0 f p) *)
+  (*       PRE (p ~> MList L \* I acc0 nil) *)
+  (*       POST (fun r => p ~> MList L \* I r L). *)
+  (* Proof using. *)
+  (*   introv Hf. *)
+  (*   cuts G : (forall a (L1 L2: list B), L = L1 ++ L2 -> *)
+  (*               SPEC (fold_mleft a f p) *)
+  (*                 PRE (p ~> MList L2 \* I a L1) *)
+  (*                 POST (fun r => p ~> MList L2 \* I r L)). *)
+  (*   { xapp; rew_list*. xsimpl*. } *)
+  (*   intros. gen L1 H p a. induction_wf IH : list_sub L2. *)
+  (*   intros. xcf. *)
 
 End Ops.
 

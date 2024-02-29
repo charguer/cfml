@@ -1,3 +1,5 @@
+exception Empty
+
 type 'a cell_contents = { content: 'a; mutable next: 'a cell; }
 and 'a cell =
   | Nil
@@ -34,6 +36,17 @@ let add x q =
     q.length <- q.length + 1;
     last.next <- cell;
     q.last <- cell
+
+let take q =
+  match q.first with
+  | Nil -> raise Empty
+  | Cons c ->
+    if c.next = Nil then
+      clear q
+    else begin
+      q.length <- q.length - 1;
+      q.first <- c.next end;
+    c.content
 
 let rec copy_aux q_res prev cell =
   match cell with

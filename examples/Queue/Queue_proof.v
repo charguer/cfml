@@ -56,7 +56,7 @@ Proof using.
     { xapp. intros.
       xapp. unfold MQueue. xpull* ;=>.
       xapp. xapp. xapp. xsimpl*.
-      { intros false. inversion false. }
+      { auto_false*. }
       { rew_list*. f_equal.
         apply nil_eq_app_inv in H1.
         destruct H1. auto. } } }
@@ -70,7 +70,7 @@ Proof using.
         apply H0 in H2. subst.
         rew_list* in *. }
       { rewrite H1. rew_list*. } }
-    { intros false. inversion false. } }
+    { auto_false. } }
 Qed.
 
 Lemma Triple_pop : forall L q,
@@ -93,7 +93,7 @@ Proof using.
       xapp. xval. xapp. xapp. xval.
       xsimpl*; rew_list*; try math. }
     { xapp. xchange* <- MList_cons. xapp ;=>.
-      { intros false. inversion false. }
+      { auto_false*. }
       { inversion H3; subst. xapp. xapp. xval.
         xsimpl*; rew_list*; try math. } } }
 Qed.
@@ -108,7 +108,7 @@ Proof using.
   xcf. xapp Triple_queue_is_empty ;=>.
   destruct L1 as [| x' L1']; xif ;=>.
   { assert (@nil A = nil) by auto.
-    apply isTrue_eq_true in H1. rewrite H1 in H. contradiction. }
+    apply isTrue_eq_true in H1. auto_false. }
   { xval. rew_list*. xsimpl*. }
   { xapp Triple_pop ;=>.
     { intros false; inversion false. }
