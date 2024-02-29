@@ -359,9 +359,7 @@ Section Ops.
       xapp ;=> tmp. xchange* <- Cell_Seg_Nil.
       xchange* Cell_Seg_of_Cell_singleton.
       xapp* Triple_copy_aux. intros.
-      xunfold Queue. case_if.
-      { apply last_eq_nil_inv in C0. tryfalse. }
-      { xsimpl*. } }
+      xchange* Queue_last_close. xsimpl*. }
   Qed.
 
 End Ops.
