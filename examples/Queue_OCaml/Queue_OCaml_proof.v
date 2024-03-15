@@ -209,13 +209,10 @@ Section Ops.
 
   Lemma Triple_clear : forall (q: loc) (L1: list A) (x: A) (cf cl: cell_ A),
       SPEC (clear q)
-        PRE (q ~~~> `{ length' := length (L1&x); first' := cf; last' := cl }
-               \* cf ~> Cell_Seg L1 cl \* cl ~> Cell_Seg (x::nil) Nil)
-        POSTUNIT (q ~> Queue (@nil A) \* cf ~> Cell_Seg L1 cl \*
-                    cl ~> Cell_Seg (x::nil) Nil).
+        PRE (q ~~~> `{ length' := length (L1&x); first' := cf; last' := cl })
+        POSTUNIT (q ~> Queue (@nil A)).
   Proof using.
-    xcf. xapp. xapp. xapp. xsimpl*.
-    xchanges* <- Queue_nil.
+    xcf. xapp. xapp. xapp. xchanges* <- Queue_nil.
   Qed.
 
   Lemma Triple_add : forall L q x,
@@ -290,8 +287,8 @@ Section Ops.
   Proof using.
     intros. gen n cf cl L2 q_res prev cell.
     assert (exists L, L = L3 ++ L4) by eauto.
-    destruct H. gen L3 L4.
-    induction_wf IH : list_sub x.
+    destruct H as [L]. gen L3 L4.
+    induction_wf IH : list_sub L.
     xcf. destruct L3 as [| xc L3'] eqn:HL3.
     { xchange Cell_Seg_nil ;=>. xmatch.
       { xunfold Cell_Seg at 3. xapp. xval.
