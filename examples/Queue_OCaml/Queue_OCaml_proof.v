@@ -207,9 +207,9 @@ Section Ops.
   (*     { xunfold * Cell. xaffine. } } *)
   (* Qed. *)
 
-  Lemma Triple_clear : forall (q: loc) (L1: list A) (x: A) (cf cl: cell_ A),
+  Lemma Triple_clear : forall (q: loc) (L: list A) (cf cl: cell_ A),
       SPEC (clear q)
-        PRE (q ~~~> `{ length' := length (L1&x); first' := cf; last' := cl })
+        PRE (q ~~~> `{ length' := length L; first' := cf; last' := cl })
         POSTUNIT (q ~> Queue (@nil A)).
   Proof using.
     xcf. xapp. xapp. xapp. xchanges* <- Queue_nil.
