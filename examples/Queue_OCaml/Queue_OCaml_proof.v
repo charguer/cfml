@@ -107,7 +107,7 @@ Lemma Queue_last_close :
   forall (q: loc) A `{EA: Enc A} (x: A) (L: list A) (cf cl: cell_ A),
     q ~~~> `{ length' := length (L & x); first' := cf; last' := cl } \*
       cf ~> Cell_Seg L cl \* cl ~> Cell_Seg (x::nil) Nil
-      ==> q ~> Queue (L & x).
+==> q ~> Queue (L & x).
 Proof using.
   intros. xunfold Queue. xsimpl*. case_if*.
   { apply last_eq_nil_inv in C. auto_false. }
@@ -122,6 +122,12 @@ Lemma Cell_eq : forall A `{EA: Enc A} (c: cell_ A) (x: A) (n: cell_ A),
     c ~> Cell x n
   = \exists cf, \[c = Cons cf] \* cf ~~~> `{ content' := x; next' := n }.
 Proof using. auto. Qed.
+
+Lemma Cell_Seg_if : forall A `{EA: Enc A} (cf: cell_ A) (L: list A),
+    cf ~> Cell_Seg L cf = \[L = nil].
+Proof using.
+Admitted.
+
 
 Lemma Cell_of_Cell_Seg : forall A `{EA: Enc A} (x: A) (c: cell_ A),
     c ~> Cell_Seg (x :: nil) Nil ==> c ~> Cell x Nil.
@@ -143,6 +149,25 @@ Proof using.
   intros. xunfold Cell_Seg. xsimpl*.
   xchanges* <- Cell_Seg_nil.
   Unshelve. auto.
+Qed.
+
+Lemma Cell_Seg_trans : forall A `{EA: Enc A} (c1 c2 c3: cell_ A) (L1 L2: list A),
+    c1 ~> Cell_Seg L1 c2 \* c2 ~> Cell_Seg L2 c3
+==> c1 ~> Cell_Seg (L1 ++ L2) c2 \* c2 ~> Cell_Seg L2 c3.
+Proof using.
+  intros. gen L2 c2 c3 c1. induction_wf IH : list_sub L1.
+  intros. destruct L1 as [| x1 L1']; rew_list*.
+  {
+    xchange* Cell_Seg_nil. intros.
+    xsimpl*. subst.
+             (Cell_Seg_if c1 c2). case_if.
+    { xpull*. intros ;=>. clear H. xsimpl*.
+      xchange*
+      xchange* <- Cell_Seg_if.
+
+    xchanges* Cell_Seg_nil ;=> ->. xchange
+  { xchange* Cell_Seg_cons ;=> next.
+    xchange* (IH L1'). xchange* <- Cell_Seg_cons. }
 Qed.
 
 Lemma Cell_Seg_trans : forall A `{EA: Enc A} (c1 c2 c3: cell_ A) (L1 L2 L3: list A),
@@ -240,6 +265,11 @@ Section Ops.
         xsimpl*. rew_list*. math. } }
   Qed.
 
+  (* Lemma Triple_take : forall L q, *)
+  (*     SPEC (take q) *)
+  (*       PRE (q ~> Queue L) *)
+  (*       POST (fun (x: ) *)
+
   Lemma Triple_transfer : forall (L1 L2: list A) (q1 q2: loc),
       SPEC (transfer q1 q2)
         PRE (q1 ~> Queue L1 \* q2 ~> Queue L2)
@@ -274,72 +304,103 @@ Section Ops.
       { intros Hfalse. destruct Hfalse. rew_list*. math. } }
   Qed.
 
-  Lemma Triple_copy_aux : forall (n: int) (cf cl: cell_ A) (L2 L3 L4: list A)
+  Lemma Triple_copy_aux : forall (cl: cell_ A) (n: int) (cf: cell_ A) (L2 L3: list A)
                             (q_res: loc) (prev cell: cell_ A),
       SPEC (copy_aux q_res prev cell)
-        PRE (q_res ~~~> `{ length' := n; first' := cf; last' := (@Nil A) }
+        PRE (q_res ~~~> `{ length' := n; first' := cf; last' := cl }
                \* prev ~> Cell_Seg L2 Nil
-               \* cell ~> Cell_Seg L3 cl
-               \* cl ~> Cell_Seg L4 Nil
-               \* \[L4 = nil \/ exists x, L4 = (x::nil)])
+               \* cell ~> Cell_Seg L3 Nil)
         POST (fun (q_res: loc) =>
-                cell ~> Cell_Seg L3 cl \* cl ~> Cell_Seg L4 Nil).
+                cell ~> Cell_Seg L3 Nil).
   Proof using.
-    intros. gen n cf cl L2 q_res prev cell.
-    assert (exists L, L = L3 ++ L4) by eauto.
-    destruct H as [L]. gen L3 L4.
-    induction_wf IH : list_sub L.
-    xcf. destruct L3 as [| xc L3'] eqn:HL3.
-    { xchange Cell_Seg_nil ;=>. xmatch.
-      { xunfold Cell_Seg at 3. xapp. xval.
-        xsimpl*; applys haffine_Cell_Seg. }
-      { destruct L4 as [| x4 L4'].
-        { xchange* Cell_Seg_nil. }
-        { destruct H0. { inversion H0. }
-          destruct H0. inversion H0; subst.
-          xchange* Cell_Seg_cons ;=>. xchange* Cell_Seg_nil ;=>.
-          xchange* Cell_eq ;=> x1 Hv. inversion Hv; subst.
-          xunfold Cell_Seg at 2. xunfold Cell_Seg at 2.
-          xapp. xapp ;=> tmp. xlet.
-          destruct L2 as [| x2 L2'].
-          { xchange* Cell_Seg_nil ;=>. xmatch.
-            xapp. xapp. xchange* <- Cell_eq. rewrite <- Pres.
-            xchange* Cell_Seg_of_Cell_singleton.
-            xchange* <- Cell_Seg_Nil. xchange* <- Cell_Seg_Nil.
-            xapp (IH nil); auto.
-            { rew_list*. }
-            { intros. xsimpl*. xchange* Cell_Seg_Nil.
-              xchange* <- Cell_eq. xsimpl*. } }
-          { xchange* Cell_Seg_cons ;=> prev_next.
-            xchange* Cell_eq ;=>. xmatch.
-            { inversion TEMP; subst. xapp. xapp.
-              xchange* <- Cell_Seg_Nil. xchange* <- Cell_Seg_Nil.
-              xchange* <- Cell_eq. xchange* Cell_Seg_of_Cell.
-              xapp (IH nil); try rew_list*.
-              intros. do 2 xchange* <- Cell_eq. xsimpl*.
-              { applys haffine_Cell_Seg. }
-              { applys haffine_Cell_Seg. }
-              { xunfold Cell. xaffine. } } } } } }
-    { (* L3 = xc :: L3' *)
-      xpull*. introv HL4. xchange* Cell_Seg_cons ;=> x0.
-      xmatch.
-      { xunfold Cell_Seg at 4. xapp. xval. xsimpl*;
-          applys haffine_Cell_Seg. }
-      { xchange* Cell_eq ;=>. inversion H0; subst.
-        xunfold Cell_Seg at 4. xapp. xapp ;=> tmp. xlet.
-        destruct L2 as [| x2 L2'].
-        { xchange* Cell_Seg_nil ;=>. xmatch. xapp.
-          xapp. xchange* <- Cell_eq. rewrite <- Pres.
-          xchange* Cell_Seg_of_Cell. xapp (IH (L3' ++ L4)); rew_list*.
-          intros. xsimpl*. xchange* <- Cell_eq. xsimpl*. }
-        { xchange* Cell_Seg_cons ;=>. xchange* Cell_eq ;=>.
-          xmatch. inversion TEMP; subst.
-          xapp. xapp. xchange* <- Cell_eq. xchange* Cell_Seg_of_Cell.
-          xapp (IH (L3' ++ L4)); try rew_list*.
-          intros. xsimpl*. xchange* <- Cell_eq. xchange* <- Cell_eq.
-          xsimpl*. { applys haffine_Cell_Seg. }
-          { xunfold Cell. xaffine. } } } }
+    intros. gen n cf L2 q_res prev cell.
+    induction_wf IH : list_sub L3.
+    xcf. destruct L3 as [| x3 L3'].
+    { xchange* Cell_Seg_nil ;=> ->.
+      xmatch. xunfold Cell_Seg at 2. xapp.
+      xval. xsimpl*. applys haffine_Cell_Seg. }
+    { xchange* Cell_Seg_cons ;=> x. xchange* Cell_eq ;=> x0 ->.
+      xmatch. xunfold Cell_Seg at 3. xapp. xapp ;=> r. xlet.
+      destruct L2 as [| x2 L2'].
+      { xchange* Cell_Seg_nil ;=>. xmatch. xapp.
+        xapp. subst res. xchange* <- Cell_eq.
+        xchange* Cell_Seg_of_Cell. xapp; eauto.
+        intros. xchange* <- Cell_eq. xsimpl*. }
+      { xchange* Cell_Seg_cons ;=> x1. xchange* Cell_eq ;=> x4 Hprev.
+        xmatch. inversion TEMP; subst. xapp. xapp.
+        xchange* <- Cell_eq. xchange* Cell_Seg_of_Cell.
+        xapp; eauto.
+        intros. xsimpl*. xchange* <- Cell_eq. xchange* <- Cell_eq.
+        xsimpl*. { applys haffine_Cell_Seg. }
+        { xunfold Cell. xaffine. } } }
   Qed.
+
+  (* Lemma Triple_copy_aux : forall (n: int) (cf cl: cell_ A) (L2 L3 L4: list A) *)
+  (*                           (q_res: loc) (prev cell: cell_ A), *)
+  (*     SPEC (copy_aux q_res prev cell) *)
+  (*       PRE (q_res ~~~> `{ length' := n; first' := cf; last' := (@Nil A) } *)
+  (*              \* prev ~> Cell_Seg L2 Nil *)
+  (*              \* cell ~> Cell_Seg L3 cl *)
+  (*              \* cl ~> Cell_Seg L4 Nil *)
+  (*              \* \[L4 = nil \/ exists x, L4 = (x::nil)]) *)
+  (*       POST (fun (q_res: loc) => *)
+  (*               cell ~> Cell_Seg L3 cl \* cl ~> Cell_Seg L4 Nil). *)
+  (* Proof using. *)
+  (*   intros. gen n cf cl L2 q_res prev cell. *)
+  (*   assert (exists L, L = L3 ++ L4) by eauto. *)
+  (*   destruct H as [L]. gen L3 L4. *)
+  (*   induction_wf IH : list_sub L. *)
+  (*   xcf. destruct L3 as [| xc L3'] eqn:HL3. *)
+  (*   { xchange Cell_Seg_nil ;=>. xmatch. *)
+  (*     { xunfold Cell_Seg at 3. xapp. xval. *)
+  (*       xsimpl*; applys haffine_Cell_Seg. } *)
+  (*     { destruct L4 as [| x4 L4']. *)
+  (*       { xchange* Cell_Seg_nil. } *)
+  (*       { destruct H0. { inversion H0. } *)
+  (*         destruct H0. inversion H0; subst. *)
+  (*         xchange* Cell_Seg_cons ;=>. xchange* Cell_Seg_nil ;=>. *)
+  (*         xchange* Cell_eq ;=> x1 Hv. inversion Hv; subst. *)
+  (*         xunfold Cell_Seg at 2. xunfold Cell_Seg at 2. *)
+  (*         xapp. xapp ;=> tmp. xlet. *)
+  (*         destruct L2 as [| x2 L2']. *)
+  (*         { xchange* Cell_Seg_nil ;=>. xmatch. *)
+  (*           xapp. xapp. xchange* <- Cell_eq. rewrite <- Pres. *)
+  (*           xchange* Cell_Seg_of_Cell_singleton. *)
+  (*           xchange* <- Cell_Seg_Nil. xchange* <- Cell_Seg_Nil. *)
+  (*           xapp (IH nil); auto. *)
+  (*           { rew_list*. } *)
+  (*           { intros. xsimpl*. xchange* Cell_Seg_Nil. *)
+  (*             xchange* <- Cell_eq. xsimpl*. } } *)
+  (*         { xchange* Cell_Seg_cons ;=> prev_next. *)
+  (*           xchange* Cell_eq ;=>. xmatch. *)
+  (*           { inversion TEMP; subst. xapp. xapp. *)
+  (*             xchange* <- Cell_Seg_Nil. xchange* <- Cell_Seg_Nil. *)
+  (*             xchange* <- Cell_eq. xchange* Cell_Seg_of_Cell. *)
+  (*             xapp (IH nil); try rew_list*. *)
+  (*             intros. do 2 xchange* <- Cell_eq. xsimpl*. *)
+  (*             { applys haffine_Cell_Seg. } *)
+  (*             { applys haffine_Cell_Seg. } *)
+  (*             { xunfold Cell. xaffine. } } } } } } *)
+  (*   { (* L3 = xc :: L3' *) *)
+  (*     xpull*. introv HL4. xchange* Cell_Seg_cons ;=> x0. *)
+  (*     xmatch. *)
+  (*     { xunfold Cell_Seg at 4. xapp. xval. xsimpl*; *)
+  (*         applys haffine_Cell_Seg. } *)
+  (*     { xchange* Cell_eq ;=>. inversion H0; subst. *)
+  (*       xunfold Cell_Seg at 4. xapp. xapp ;=> tmp. xlet. *)
+  (*       destruct L2 as [| x2 L2']. *)
+  (*       { xchange* Cell_Seg_nil ;=>. xmatch. xapp. *)
+  (*         xapp. xchange* <- Cell_eq. rewrite <- Pres. *)
+  (*         xchange* Cell_Seg_of_Cell. xapp (IH (L3' ++ L4)); rew_list*. *)
+  (*         intros. xsimpl*. xchange* <- Cell_eq. xsimpl*. } *)
+  (*       { xchange* Cell_Seg_cons ;=>. xchange* Cell_eq ;=>. *)
+  (*         xmatch. inversion TEMP; subst. *)
+  (*         xapp. xapp. xchange* <- Cell_eq. xchange* Cell_Seg_of_Cell. *)
+  (*         xapp (IH (L3' ++ L4)); try rew_list*. *)
+  (*         intros. xsimpl*. xchange* <- Cell_eq. xchange* <- Cell_eq. *)
+  (*         xsimpl*. { applys haffine_Cell_Seg. } *)
+  (*         { xunfold Cell. xaffine. } } } } *)
+  (* Qed. *)
 
   Lemma Triple_copy : forall (L: list A) (q: loc),
       SPEC (copy q)
@@ -348,14 +409,16 @@ Section Ops.
   Proof using.
     xcf. xchange* Queue_if ;=> cf cl. case_if*.
     { xpull* ;=> -> ->. xapp. xapp. xapp ;=> tmp.
-      do 3 xchange <- Cell_Seg_Nil.
+      do 3 xchange <- Cell_Seg_Nil. (* TODO pay attention here to shelved goal *)
       xapp* Triple_copy_aux ;=>. xchange* <- Queue_nil.
       xsimpl*; applys haffine_Cell_Seg. }
     { xpull* ;=> x x0 ->. xchange* Cell_Seg_cons ;=>.
       xchange* Cell_Seg_nil ;=>. xapp. xapp.
       xapp ;=> tmp. xchange* <- Cell_Seg_Nil.
       xchange* Cell_Seg_of_Cell_singleton.
+      subst x1. xchange* Cell_Seg_trans.
       xapp* Triple_copy_aux. intros.
+      xchange* Cell_Seg_last. gen cl.
       xchange* Queue_last_close. xsimpl*. }
   Qed.
 

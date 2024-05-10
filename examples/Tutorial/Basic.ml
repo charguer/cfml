@@ -3,6 +3,14 @@
     Separation Logic Foundations
     https://softwarefoundations.cis.upenn.edu/slf-current/Basic.html *)
 
+let create (v: int) =
+  ref v
+
+let swap r1 r2 =
+  let tmp = !r1 in
+  r1 := !r2;
+  r2 := tmp
+
 let incr r =
   r := !r + 1
 
@@ -68,4 +76,3 @@ let rec step_transfer p q =
     decr q;
     step_transfer p q
   end
-

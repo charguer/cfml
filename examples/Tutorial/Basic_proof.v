@@ -12,6 +12,19 @@ Implicit Types n m : int.
 
 From EXAMPLES Require Import Basic_ml.
 
+Lemma create_spec : forall (v: int),
+    SPEC (create v)
+      PRE \[]
+      POST (fun (r: loc) => r ~~> v).
+Proof using. xcf. xapp. xsimpl. Qed.
+
+Lemma swap_spec : forall r1 r2 (v1 v2: int),
+    SPEC (swap r1 r2)
+      PRE (r1 ~~> v1 \* r2 ~~> v2)
+      POSTUNIT (r1 ~~> v2 \* r2 ~~> v1).
+Proof using.
+  xcf. xapp. xapp. xapp. xapp. xsimpl*.
+Qed.
 
 (* ####################################################### *)
 (** * Proofs *)

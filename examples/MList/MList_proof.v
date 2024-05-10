@@ -269,6 +269,15 @@ Proof using.
   { xapp. xsimpl*. }
 Qed.
 
+Inductive prefix {A} : list A -> list A -> Prop :=
+| PrefixZero:
+    forall xs,
+    prefix xs xs
+| PrefixSucc:
+    forall (xs: list A) (x: A) (zs: list A),
+    prefix (xs ++ (x::nil)) zs ->
+    prefix xs zs.
+
 Definition permitted (V: list A) L : Prop :=
   exists L', V ++ L' = L.
 
