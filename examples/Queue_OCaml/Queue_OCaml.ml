@@ -42,8 +42,10 @@ let take q =
   | Nil -> raise Empty
   | Cons c ->
     if c.next = Nil then
+      (* queue contains a single element *)
       clear q
     else begin
+      (* queue contains at least two elements *)
       q.length <- q.length - 1;
       q.first <- c.next end;
     c.content

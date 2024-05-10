@@ -81,6 +81,31 @@ Proof using.
       { xsimpl*. } } }
 Qed.
 
+Lemma Queue_if_first : forall A (EA: Enc A) (L: list A) (q: loc),
+    q ~> Queue L =
+      \exists cf cl,
+          (q ~~~> `{ length' := length L; first' := cf; last' := cl }) \*
+            (If cf = Nil then
+               \[L = nil] \* \[cl = Nil]
+             else \exists x L', \[L = L' & x] \* (cf ~> Cell_Seg L' cl) \*
+                             (cl ~> Cell_Seg (x::nil) Nil)).
+Proof using.
+  intros. xunfold* Queue. xpull* ;=>.
+  { case_if*.
+    { xsimpl* ;=> -> ->. case_if*; xsimpl*. }
+    { xpull* ;=>. xsimpl*. case_if*.
+      { subst. xchange* Cell_Seg_Nil2. intros. subst.
+        xchange* Cell_Seg_cons ;=>. xunfold Cell. xpull*. }
+      { xsimpl*. } } }
+  { case_if*.
+    { xpull* ;=> -> ->. xsimpl*.
+      case_if*. xsimpl*. }
+    { xpull* ;=>. xsimpl*.
+      case_if*.
+      { subst. apply last_eq_nil_inv in C0. contradiction. }
+      { xsimpl*. } } }
+Qed.
+
 Lemma Queue_nil : forall (q: loc) A `{EA: Enc A},
     q ~> Queue (@nil A)
   = \exists (cf cl: cell_ A),
