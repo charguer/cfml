@@ -276,6 +276,12 @@ Section Ops.
         xsimpl*. rew_list*. math. } }
   Qed.
 
+  Lemma Triple_push : forall L q x,
+      SPEC (push x q)
+        PRE (q ~> Queue L)
+        POSTUNIT (q ~> Queue (L & x)).
+  Proof using. xcf. xapp* Triple_add. xsimpl*. Qed.
+
   Lemma Triple_take : forall L q,
       L <> nil ->
       SPEC (Queue_OCaml_ml.take q)
@@ -308,9 +314,16 @@ Section Ops.
         xif; intros; tryfalse*. repeat xapp. rew_list*.
         xsimpl*. xchange* <- Cell_eq. xchange* <- Cell_Seg_cons x''.
         xchange* Cell_Seg_of_Cell. xchange* Queue_last_close q.
-        { rew_list*. lia. }
+        { rew_list*. math. }
         { xsimpl*. } } }
   Qed.
+
+  Lemma Triple_pop : forall L q,
+      L <> nil ->
+      SPEC (pop q)
+        PRE (q ~> Queue L)
+        POST (fun (x: A) => \exists L', q ~> Queue L' \* \[L = x :: L']).
+  Proof using. xcf. xapp Triple_take; eauto. xsimpl*. Qed.
 
   Lemma Triple_transfer : forall (L1 L2: list A) (q1 q2: loc),
       SPEC (transfer q1 q2)
@@ -334,8 +347,7 @@ Section Ops.
         { xpull* ;=> x1 x2 ->. xchange* Cell_Seg_cons ;=> cx1.
           xchange* Cell_Seg_nil ;=>.
           xapp. xchange* (Cell_eq cl_q2) ;=> cx3 ->.
-          xmatch. xapp. xapp. xapp. xapp. xapp.
-          xapp. xapp. subst. xchange* Cell_Seg_of_Cell.
+          xmatch. repeat xapp. subst. xchange* Cell_Seg_of_Cell.
           xapp Triple_clear_alt. xchange* <- Cell_eq .
           xchange Cell_Seg_of_Cell_singleton.
           xchange (Cell_Seg_trans (Cons cx3) cf cl).

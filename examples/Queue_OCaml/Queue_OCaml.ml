@@ -37,6 +37,8 @@ let add x q =
     last.next <- cell;
     q.last <- cell
 
+let push = add
+
 let take q =
   match q.first with
   | Nil -> raise Empty
@@ -49,6 +51,8 @@ let take q =
       q.length <- q.length - 1;
       q.first <- c.next end;
     c.content
+
+let pop = take
 
 let rec copy_aux q_res prev cell =
   match cell with
