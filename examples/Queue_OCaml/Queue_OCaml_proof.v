@@ -89,6 +89,7 @@ Lemma Queue_if_first : forall A (EA: Enc A) (L: list A) (q: loc),
                \[L = nil] \* \[cl = Nil]
              else \exists x L', \[L = L' & x] \* (cf ~> Cell_Seg L' cl) \*
                              (cl ~> Cell_Seg (x::nil) Nil)).
+(* TODO: I really need to clean up and simplify this and the previous proof. *)
 Proof using.
   intros. xunfold* Queue. xpull* ;=>.
   { case_if*.
@@ -148,12 +149,6 @@ Lemma Cell_eq : forall A `{EA: Enc A} (c: cell_ A) (x: A) (n: cell_ A),
   = \exists cf, \[c = Cons cf] \* cf ~~~> `{ content' := x; next' := n }.
 Proof using. auto. Qed.
 
-Lemma Cell_Seg_if : forall A `{EA: Enc A} (cf: cell_ A) (L: list A),
-    cf ~> Cell_Seg L cf = \[L = nil].
-Proof using.
-Admitted.
-
-
 Lemma Cell_of_Cell_Seg : forall A `{EA: Enc A} (x: A) (c: cell_ A),
     c ~> Cell_Seg (x :: nil) Nil ==> c ~> Cell x Nil.
 Proof using.
@@ -176,23 +171,14 @@ Proof using.
   Unshelve. auto.
 Qed.
 
-Lemma Cell_Seg_trans : forall A `{EA: Enc A} (c1 c2 c3: cell_ A) (L1 L2: list A),
-    c1 ~> Cell_Seg L1 c2 \* c2 ~> Cell_Seg L2 c3
-==> c1 ~> Cell_Seg (L1 ++ L2) c2 \* c2 ~> Cell_Seg L2 c3.
+Lemma Queue_singleton_close :
+  forall (q: loc) A `{EA: Enc A} (x: A) (c: cell_ A),
+    q ~~~> `{ length' := 1; first' := c; last' := c } \* c ~> Cell x Nil
+==> q ~> Queue (x::nil).
 Proof using.
-  intros. gen L2 c2 c3 c1. induction_wf IH : list_sub L1.
-  intros. destruct L1 as [| x1 L1']; rew_list*.
-  {
-    xchange* Cell_Seg_nil. intros.
-    xsimpl*. subst.
-             (Cell_Seg_if c1 c2). case_if.
-    { xpull*. intros ;=>. clear H. xsimpl*.
-      xchange*
-      xchange* <- Cell_Seg_if.
-
-    xchanges* Cell_Seg_nil ;=> ->. xchange
-  { xchange* Cell_Seg_cons ;=> next.
-    xchange* (IH L1'). xchange* <- Cell_Seg_cons. }
+  intros. xunfold Queue. xsimpl*. case_if*. xsimpl*.
+  { assert (x :: nil = nil & x) by auto. eauto. }
+  { xchange* Cell_Seg_of_Cell. xunfold Cell_Seg at 2. xsimpl*. }
 Qed.
 
 Lemma Cell_Seg_trans : forall A `{EA: Enc A} (c1 c2 c3: cell_ A) (L1 L2 L3: list A),
@@ -257,7 +243,7 @@ Section Ops.
   (*     { xunfold * Cell. xaffine. } } *)
   (* Qed. *)
 
-  Lemma Triple_clear : forall (q: loc) (L: list A) (cf cl: cell_ A),
+  Lemma Triple_clear_alt : forall (q: loc) (L: list A) (cf cl: cell_ A),
       SPEC (clear q)
         PRE (q ~~~> `{ length' := length L; first' := cf; last' := cl })
         POSTUNIT (q ~> Queue (@nil A)).
