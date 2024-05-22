@@ -268,12 +268,14 @@ Section Ops.
     { xpull*; introv Hv. xchange* Cell_Seg_cons ;=>.
       xchange* Cell_Seg_nil ;=>. xapp. xmatch.
       { xapp. xapp. xchange* Cell_eq ;=>. inversion H0; subst.
-        xapp. xapp. xchange* <- Cell_eq. xchange* <- Cell_eq.
+        xapp. xchange* <- Cell_eq. xchange* <- Cell_eq.
         xchange* Cell_Seg_of_Cell.
         xchange* Cell_Seg_of_Cell_singleton.
-        xchange* Cell_Seg_trans. xunfold Queue.
-        case_if*. { apply last_eq_nil_inv in C1. auto_false. }
-        xsimpl*. rew_list*. math. } }
+        xchange* Cell_Seg_trans. xchange* Cell_of_Cell_Seg.
+        xapp. xchange* Cell_Seg_of_Cell.
+        asserts * G : (length (x1 & x0) + 1 = length (x1 & x0 & x)).
+        { rew_list*. math. }
+        rewrite G. xchanges* Queue_last_close. } }
   Qed.
 
   Lemma Triple_push : forall L q x,
