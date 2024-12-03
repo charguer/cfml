@@ -1854,26 +1854,26 @@ Ltac xsimpl_step_l tt :=
   match HL with
   | (?Nc, ?Hla, ?Hlw, (?H \* ?Hlt)) =>
     match H with
-    | \[] => apply xsimpl_l_hempty
-    | \[?P] => apply xsimpl_l_hpure; intro
-    | \$ ?n => apply xsimpl_l_hcredits
+    | \[] => eapply xsimpl_l_hempty
+    | \[?P] => eapply xsimpl_l_hpure; intro
+    | \$ ?n => eapply xsimpl_l_hcredits
     | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
-    | hexists ?J => apply xsimpl_l_hexists; intro
-    | ?H1 \-* ?H2 => apply xsimpl_l_acc_hwand
-    | ?Q1 \--* ?Q2 => apply xsimpl_l_acc_hwand
-    | _ => apply xsimpl_l_acc_other
+    | hexists ?J => eapply xsimpl_l_hexists; intro
+    | ?H1 \-* ?H2 => eapply xsimpl_l_acc_hwand
+    | ?Q1 \--* ?Q2 => eapply xsimpl_l_acc_hwand
+    | _ => eapply xsimpl_l_acc_other
     end
   | (?Nc, ?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) =>
       match H1 with
-      | \[] => apply xsimpl_l_cancel_hwand_hempty
-      | \$ ?n => apply xsimpl_l_hwand_hcredits
+      | \[] => eapply xsimpl_l_cancel_hwand_hempty
+      | \$ ?n => eapply xsimpl_l_hwand_hcredits
       | (_ \* _) => xsimpl_hwand_hstars_l tt
-      | _ => first [ xsimpl_pick_same H1; apply xsimpl_l_cancel_hwand
-                   | apply xsimpl_l_keep_wand ]
+      | _ => first [ xsimpl_pick_same H1; eapply xsimpl_l_cancel_hwand
+                   | eapply xsimpl_l_keep_wand ]
       end
   | (?Nc, ?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) =>
       first [ xsimpl_pick_applied Q1; eapply xsimpl_l_cancel_qwand
-            | apply xsimpl_l_keep_wand ]
+            | eapply xsimpl_l_keep_wand ]
   end end.
 
 (** [xsimpl_hgc_or_htop_cancel] is a tactic to factorize the processing of
@@ -1925,35 +1925,35 @@ Ltac xsimpl_step_r tt :=
   match H with
   | ?H' => xsimpl_hook H (* else continue *)
   | \[] => apply xsimpl_r_hempty
-  | \[?P] => apply xsimpl_r_hpure
-  | \$ ?n => apply xsimpl_r_hcredits
+  | \[?P] => eapply xsimpl_r_hpure
+  | \$ ?n => eapply xsimpl_r_hcredits
   | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
   | ?H \-* ?H'eqH =>
       match H with
       | \[?P] => fail 1 (* don't cancel out cause [P] might contain a contradiction *)
       | \$ ?n => (* simplify the [\$n \-* H] to [$\(-n) \* H] *)
-        apply xsimpl_r_hwand_hcredits
+        eapply xsimpl_r_hwand_hcredits
       | _ => (* simplify the special case [H \-* H] *)
         match H'eqH with
-        | H => apply xsimpl_r_hwand_same
+        | H => eapply xsimpl_r_hwand_same
         (* | protect H => apply xsimpl_r_hwand_same  --NOTE: purposely refuse to unify this*)
         end
       end
   | hexists ?J => xsimpl_r_hexists_apply tt
   | \GC => xsimpl_hgc_or_htop_step tt
   | \Top => xsimpl_hgc_or_htop_step tt
-  | protect ?H' => apply xsimpl_r_keep
-  | protect ?Q' _ => apply xsimpl_r_keep
+  | protect ?H' => eapply xsimpl_r_keep
+  | protect ?Q' _ => eapply xsimpl_r_keep
   | ?H' => is_not_evar H;  xsimpl_cancel_same H (* else continue *)
-  | ?p ~> _ => xsimpl_pick_repr H; apply xsimpl_lr_cancel_eq_repr;
+  | ?p ~> _ => xsimpl_pick_repr H; eapply xsimpl_lr_cancel_eq_repr;
                [ xsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
-  | ?x ~> Id ?X => has_no_evar x; apply xsimpl_r_id
+  | ?x ~> Id ?X => has_no_evar x; eapply xsimpl_r_id
   (* --TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
                   let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
                   apply xsimpl_r_id; [ try reflexivity |  ] *)
   | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar;
-                           apply xsimpl_r_id_unify
-  | _ => apply xsimpl_r_keep
+                           eapply xsimpl_r_id_unify
+  | _ => eapply xsimpl_r_keep
   end end.
 
 (* [xsimpl_use_credits tt] should return [true] or [false]. *)
@@ -1988,43 +1988,43 @@ Ltac xsimpl_step_lr tt :=
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
             rew_heap;
-            first [ apply xsimpl_lr_refl_nocredits
-                  | apply xsimpl_lr_refl ]
+            first [ eapply xsimpl_lr_refl_nocredits
+                  | eapply xsimpl_lr_refl ]
             (* else continue *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply xsimpl_lr_qwand_unify
-         | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
-         | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
+         | \[False] \-* ?H2 => eapply xsimpl_lr_hwand_hfalse
+         | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; eapply xsimpl_lr_hwand
          | ?Q1 \--* ?Q2 =>
              xsimpl_flip_acc_l tt;
              match H1 with
-             | @qwand unit ?Q1' ?Q2' => apply xsimpl_lr_qwand_unit
-             | _ => apply xsimpl_lr_qwand; intro
+             | @qwand unit ?Q1' ?Q2' => eapply xsimpl_lr_qwand_unit
+             | _ => eapply xsimpl_lr_qwand; intro
              end
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
                         (* --TODO: optimize for iterated \forall bindings *)
          end
        | \[] =>
-          first [ apply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
-                | apply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
+          first [ eapply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
+                | eapply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
        | _ => xsimpl_flip_acc_lr tt;
-              first [ apply xsimpl_lr_exit_nogc_nocredits
-                    | apply xsimpl_lr_exit_nogc ]
+              first [ eapply xsimpl_lr_exit_nogc_nocredits
+                    | eapply xsimpl_lr_exit_nogc ]
        end
-    | (\Top \* _) => apply xsimpl_lr_htop
+    | (\Top \* _) => eapply xsimpl_lr_htop
     | (\GC \* _) =>
         first
         [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
-            first [ apply xsimpl_lr_exit_instantiate_nocredits
-                  | apply xsimpl_lr_exit_instantiate ]
+            first [ eapply xsimpl_lr_exit_instantiate_nocredits
+                  | eapply xsimpl_lr_exit_instantiate ]
           end
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
-          first [ apply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
-                | apply xsimpl_lr_hgc; [ xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
+          first [ eapply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+                | eapply xsimpl_lr_hgc; [ xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
         ]
     | ?Hrg' => xsimpl_flip_acc_lr tt;
-               first [ apply xsimpl_lr_exit_nocredits
-                     | apply xsimpl_lr_exit ]
+               first [ eapply xsimpl_lr_exit_nocredits
+                     | eapply xsimpl_lr_exit ]
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)

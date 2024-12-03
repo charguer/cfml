@@ -336,7 +336,7 @@ Proof using.
   intros ? ->. xsimpl*. math_rewrite (S (l + f) = l + S f)%nat. xsimpl.
   intros r. xpull ;=> ->.
   (* xapp *)
-  applys xapp_untyped_lemma. { applys @Triple_get. } xapp_simpl tt.
+  applys xapp_untyped_lemma. { applys Triple_get V. } xapp_simpl tt.
   intros ? ->. xsimpl*.
   (* Alternative LATER: { intros.
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
@@ -1045,7 +1045,7 @@ Notation "r '.' f <- v" :=
    v constr at level 69,
    format "r '.' f  <-  v") : cf_scope.
 
-(** Same with tag 
+(** Same with tag
 DEPRECATED
 
 

@@ -106,7 +106,7 @@ Lemma structural_elim : forall F H Q,
   structural F ->
   (H ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ->
   H ==> F Q.
-Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
+Proof using. introv L M. lets N: (L Q). applys* himpl_trans' N. Qed.
 
 (** An elimination rule for [struct] without [\GC] *)
 

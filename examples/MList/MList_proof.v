@@ -167,7 +167,55 @@ Lemma Triple_is_empty' : forall L p,
     PRE (p ~> MListOf R L)
     POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
 Proof using.
-  xtriple. xunfold MListOf. xpull ;=> l E. xapp. xsimpl*.
+  xtriple. xunfold MListOf. xpull ;=> l E. (* TODO: anomaly: xapp. admit. xsimpl. *)
+  xapp. Focus 2. xsimpl_start tt.
+   xsimpl_step tt.
+   xsimpl_step tt.
+   xsimpl_step tt.
+   xsimpl_step tt.
+Ltac xsimpl_pick i ::=
+  let L := hstars_pick_lemma i in
+  eapply xsimpl_pick_lemma; [ apply L | ].
+Ltac xsimpl_cancel_same H ::=
+  xsimpl_pick_same H; eapply xsimpl_lr_cancel_same.
+
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
+  xsimpl_pick_same H end.
+
+  xsimpl_cancel_same H end.
+  match H with
+  | ?H' => xsimpl_hook H (* else continue *)
+  | \[] => apply xsimpl_r_hempty
+  | \[?P] => eapply xsimpl_r_hpure
+  | \$ ?n => eapply xsimpl_r_hcredits
+  | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
+  | ?H \-* ?H'eqH => pose true
+  | hexists ?J => xsimpl_r_hexists_apply tt
+  | \GC => xsimpl_hgc_or_htop_step tt
+  | \Top => xsimpl_hgc_or_htop_step tt
+  | protect ?H' => eapply xsimpl_r_keep
+  | protect ?Q' _ => eapply xsimpl_r_keep
+
+  | ?H' => is_not_evar H; xsimpl_cancel_same H
+  end end. is_not_evar H;  xsimpl_cancel_same H (* else continue *)
+
+  | ?p ~> _ => xsimpl_pick_repr H; eapply xsimpl_lr_cancel_eq_repr;
+               [ xsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
+  | ?x ~> Id ?X => has_no_evar x; eapply xsimpl_r_id
+  (* --TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
+                  let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
+                  apply xsimpl_r_id; [ try reflexivity |  ] *)
+  | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar;
+                           eapply xsimpl_r_id_unify
+  | _ => eapply xsimpl_r_keep
+  end end.
+
+
+   xsimpl_step_r tt.
+   xsimpl_step tt.
+
+
+  xapp (>> __ l). xsimpl*.
   { applys* LibSepTLCbuffer.list_same_length_inv_nil. }
 Qed.
 

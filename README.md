@@ -28,13 +28,19 @@ To install OCaml, Coq, and the relevant packages, use the "opam" package manager
 To create a new switch to contain the relevant packages for cfml:
 
 ```
-   opam switch create 4.14.1
+   opam switch create mycoq 4.14.1
 ```
 
-To install the packages:
+or if you want to pin a specific version of Coq:
+```
+   opam switch create coq820 4.14.1
+   opam pin add coq 8.20.0
+```
+
+Then, to install the packages:
 
 ```
-   opam install pprint coq menhir 
+   opam install coq pprint menhir 
 ```
 
 To install the TLC opam package from sources:

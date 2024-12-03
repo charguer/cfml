@@ -846,7 +846,7 @@ Lemma hoare_of_triple : forall t H Q HF,
   triple t H Q ->
   hoare t ((H \* HF) \* \GC) (fun r => (Q r \* HF) \* \GC).
 Proof using.
-  introv M. applys hoare_conseq. { applys M. } { xsimpl. } { xsimpl. }
+  introv M. applys hoare_conseq. { applys M (HF \* \GC). } { xsimpl. } { xsimpl. }
 Qed.
 
 

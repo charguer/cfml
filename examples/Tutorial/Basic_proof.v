@@ -110,6 +110,26 @@ Lemma succ_using_incr_spec : forall n,
     POST (fun r => \[r = n+1]).
 Proof using. xcf. xapp. intros p. xapp. xapp. xsimpl. auto. Qed.
 
+Ltac xapp_postpone_type_evars tt :=
+  match goal with |- ?A => match type of A with Type =>
+    let X := fresh in evar (X:Type); exact X end end.
+
+Ltac xapp_exploit_spec_lemma L cont ::=
+  let HS := fresh "Spec" in
+  intros HS;
+  eapply L;
+  [ applys HS; try clear HS; xapp_side_post tt
+  | try clear HS; cont tt ].
+
+(**
+Lemma instantiate_type_vars : forall (A:Type), A ->
+  A.
+Proof using. auto. Qed.
+
+ applys instantiate_type_vars.
+*)
+
+
 Lemma get_and_free_spec : forall p `{Enc A} (v:A),
   SPEC (get_and_free p)
     PRE (p ~~> v)
