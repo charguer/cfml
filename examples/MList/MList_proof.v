@@ -4,6 +4,20 @@ From CFML Require Import Stdlib.
 From EXAMPLES Require Import MList_ml.
 From TLC Require Import LibListZ.
 
+
+(* TODO MOVE *)
+
+Lemma heq_hexists : forall A (J1 J2:A->hprop),
+  (forall (x:A), J1 x = J2 x) ->
+  hexists J1 = hexists J2.
+Proof using. introv M. fequals. applys* fun_ext_1. Qed.
+
+Lemma heq_hstar_hpure : forall H1 H2 P,
+  (P -> H1 = H2) ->
+  H1 \* \[P] = H2 \* \[P].
+Proof using. introv M. xsimpl*; intros; rewrite* M. Qed.
+
+
 (* ---------------------------------------------------------------------- *)
 (** ** Representation predicates *)
 
@@ -135,6 +149,36 @@ End SpecMList.
 Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
   \exists (l:list A), \[length l = length L] \* p ~> MList l
                       \* hfold_list2 (fun X x => x ~> R X) L l.
+
+
+Lemma MListOf_nil : forall p A `{EA:Enc A} TA (R:TA->A->hprop),
+  (p ~> MListOf R (@nil TA)) = (p ~~> (@Nil A)).
+Proof using.
+  intros. xunfold MListOf. applys himpl_antisym.
+  { xpull ;=> l Hl. rewrites (>> length_zero_inv Hl). xchange MList_nil. simpl. xsimpl. }
+  { xchange <- MList_nil. xsimpl*. }
+Qed.
+
+Lemma MListOf_cons : forall p A `{EA:Enc A} TA (R:TA->A->hprop) X L,
+  (p ~> MListOf R (X::L)) = \exists x p', p ~~> (Cons x p') \* (x ~> R X) \* (p' ~> MListOf R L).
+Proof using.
+  intros. xunfold MListOf. applys himpl_antisym.
+  { xpull ;=> l Hl. rew_list in *. lets (x&l'&->): length_pos_inv_cons l. { math. }
+    xchange MList_cons. intros p'. simpl. xsimpl. { rew_list in *. math. } }
+  { xpull ;=> x p' l EQ. xchange <- MList_cons. xsimpl*. { rew_list. math. } }
+Qed.
+
+Lemma MListOfCongr : forall p a A `{EA:Enc a} (R1 R2:A->a->hprop) (L:list A),
+  (forall (x:a) (X:A), mem X L -> R1 X x = R2 X x) ->
+  p ~> MListOf R1 L = p ~> MListOf R2 L.
+Proof using.
+  introv EQ. gen p. induction L; intros.
+  { do 2 rewrite MListOf_nil. auto. }
+  { do 2 rewrite MListOf_cons.
+    applys heq_hexists. intros x.
+    applys heq_hexists. intros p'.
+    fequals. fequals. { applys* EQ. } { applys* IHL. } }
+Qed.
 
 Lemma haffine_MListOf : forall A (EA:Enc A) TA (R:TA->A->hprop) (L:list TA) (p:loc),
   (forall x X, mem X L -> haffine (x ~> R X)) ->

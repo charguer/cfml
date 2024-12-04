@@ -436,6 +436,36 @@ Hint Extern 1 (RegisterSpec pop_min) => Provide Triple_pop_min.
 From TLC Require Import LibFix.
 Module Alternative.
 
+Section TODO_finite_multisets. (* TODO complete and merge in TLC/LibMultiset *)
+Open Scope container_scope.
+Import LibMultiset.
+
+Axiom finite : forall A, multiset A -> Prop.
+Axiom finite_empty_eq : forall A (x:A),
+  finite (empty:multiset A) = True.
+Axiom finite_single_eq : forall A (x:A),
+  finite ('{x}:multiset A) = True.
+Axiom finite_union_eq : forall A (E F:multiset A),
+  finite (E \u F) = (finite E /\ finite F).
+Axiom card_union : forall A (E F:multiset A),
+  finite E ->
+  finite F ->
+  card (E \u F) = (card E + card F)%nat.
+Axiom card_single : forall A (x:A),
+  card ('{x}:multiset A) = 1%nat.
+
+Axiom card_list_union_multiset : forall E Es, (** forall A (E:multiset A) (Es:list (multiset A)), *)
+   mem E Es ->
+   card E <= card (list_union Es).
+
+End TODO_finite_multisets.
+
+Hint Rewrite finite_empty_eq finite_single_eq finite_union_eq : rew_finite.
+Tactic Notation "rew_finite" := autorewrite with rew_finite.
+Tactic Notation "rew_finite" "in" hyp(H) := autorewrite with rew_finite in H.
+Tactic Notation "rew_finite" "in" "*" := autorewrite with rew_finite in *.
+Tactic Notation "rew_finite" "*" := rew_finite; auto_star.
+
 
 (* ******************************************************* *)
 (** ** Representation predicates *)
@@ -444,12 +474,13 @@ Module Alternative.
 
 Definition inv (x:elem) (Es:list elems) (E:elems) : Prop :=
      Forall (foreach (is_ge x)) Es
-  /\ E = \{x} \u (list_union Es).
+  /\ E = \{x} \u (list_union Es)
+  /\ finite E.
 
 (** [q ~> Repr E] is a notation for [Repr E q]. It relates a pointer [q] with the
     multiset of items that it represents in memory, and enforces invariants.
-    Because it is recursive, we use the optimal fixed point combinator to
-    define [Repr]. We here cheat and axiomatize termination. *)
+    Because it is recursive, we use TLC's optimal fixed point combinator to
+    define [Repr]. The decreasing measure is the cardinal of [E]. *)
 
 Definition ReprFunctional (Repr:elems->loc->hprop) (E:elems) (q:loc) : hprop :=
   \exists (x:elem) (q':loc) (Es:list elems),
@@ -459,8 +490,20 @@ Definition ReprFunctional (Repr:elems->loc->hprop) (E:elems) (q:loc) : hprop :=
 
 Definition Repr := FixFun2 ReprFunctional.
 
-Axiom fix_Repr : forall E q, (* cheating for fixpoint *)
+Lemma fix_Repr : forall (E:elems) (q:loc),
   Repr E q = ReprFunctional Repr E q.
+Proof using.
+  applys~ (FixFun2_fix (measure2 (fun E q => card E))). auto with wf.
+  unfold measure2. intros E q R1 R2 IH. unfolds.
+  applys heq_hexists; intros x.
+  applys heq_hexists; intros q'.
+  applys heq_hexists; intros Es.
+  fequals.
+  applys heq_hstar_hpure. intros (HI1&HI2&IH3). applys MListOfCongr.
+  { intros qi Ei Hi. applys IH.
+    { subst E. rewrite finite_union_eq in IH3. rewrite* card_union.
+      { rewrite card_single. lets: card_list_union_multiset Hi. math. } } }
+Qed.
 
 (** [q ~> Heap E] relates a pointer on a heap [p] with the multiset of items [E]
     that are stored in the heap. It uses [Contents E c] as an auxiliary definition. *)
@@ -501,19 +544,26 @@ Qed.
 
 Lemma Repr_intro : forall q x q' Es,
   Forall (foreach (is_ge x)) Es ->
+  finite (list_union Es) ->
       q ~~~>`{ value' := x; sub' := q' } \* q' ~> MListOf Repr Es
   ==> q ~> Repr (\{x} \u (list_union Es)).
-Proof using. Hint Unfold inv. intros. xchange* <- (Repr_eq q). Qed.
+Proof using.
+  intros. xchange* <- (Repr_eq q). splits*. rew_finite*.
+Qed.
 
 Arguments Repr_intro : clear implicits.
 
 Lemma haffine_Repr : forall p E,
   haffine (p ~> Repr E).
 Proof using.
-  admit_goal IH. (* cheating for induction *)
-  set_eq R: Repr in IH.
-  intros. rewrite Repr_eq. xaffine. subst R.
-  applys haffine_MListOf. intros. applys IH.
+  intros. gen p. induction_wf IH: (measure (@card elems _)) E; intros.
+  unfolds measure. intros. rewrite Repr_eq.
+  do 3 (applys haffine_hexists; intros ?). applys haffine_hstar.
+  xaffine. rewrite hstar_comm. applys haffine_hstar_hpure_l. intros (I1&->&I3).
+  (* TODO: xaffine, which should systematically pull the hpure to the head *)
+  applys haffine_MListOf. intros qi Ei Hi. applys IH. rew_finite in *.
+  rewrite card_union, card_single; rew_finite in *; autos*.
+  lets: card_list_union_multiset Hi. math.
 Qed.
 
 Hint Resolve haffine_Repr : haffine.
@@ -525,7 +575,7 @@ Hint Resolve haffine_Repr : haffine.
 Lemma inv_not_empty : forall x Es E,
   inv x Es E ->
   E <> \{}.
-Proof using. introv (I1&I2). subst. multiset_inv. Qed.
+Proof using. introv (I1&I2&I3). subst. multiset_inv. Qed.
 
 Lemma Repr_not_empty : forall q E,
   q ~> Repr E ==> \[E <> \{}] \* q ~> Repr E.
@@ -595,13 +645,15 @@ Lemma Triple_merge : forall q1 q2 E1 E2,
     PRE (q1 ~> Repr E1 \* q2 ~> Repr E2)
     POST (fun q => q ~> Repr (E1 \u E2)).
 Proof using.
-  xcf. xchange (Repr_eq q1) ;=> x1 q1' Es1 [I11 I12].
-  xchange (Repr_eq q2) ;=> x2 q2' Es2 [I21 I22].
-  xif ;=> C.
+  xcf. xchange (Repr_eq q1) ;=> x1 q1' Es1 (I11&->&I13).
+  xchange (Repr_eq q2) ;=> x2 q2' Es2 (I21&->&I23).
+  rew_finite in *. xif ;=> C.
   { xapp. xchange* (Repr_intro q2). xapp. xvals.
-    xchange (Repr_intro q1). { applys* merge_lemma. } xsimpl. substs*. }
+    xchange (Repr_intro q1). { applys* merge_lemma. } { rew_listx. rew_finite*. }
+    xsimpl. substs*. }
   { xapp. xchange* (Repr_intro q1). xapp. xvals.
-    xchange (Repr_intro q2). { applys* merge_lemma. } xsimpl. substs*. }
+    xchange (Repr_intro q2). { applys* merge_lemma. } { rew_listx. rew_finite*. }
+    xsimpl. substs*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec merge) => Provide Triple_merge.
@@ -612,7 +664,7 @@ Lemma Triple_insert : forall p x E,
     POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
   xcf. xchange Heap_eq ;=> q. xapp ;=> l. xapp ;=> q2.
-  xchange* (Repr_intro q2). rew_listx. xapp. xmatch; simpl.
+  xchange* (Repr_intro q2); rew_listx. rew_finite*. xapp. xmatch; simpl.
   { xpull ;=> ->. xapp. xchanges* Heap_Nonempty. }
   { xapp ;=> r. xapp. xchanges* Heap_Nonempty. }
 Qed.
@@ -642,7 +694,7 @@ Lemma Triple_pop_min : forall p E,
     POST (fun x => \exists E', \[min_of E x /\ E = \{x} \u E'] \* p ~> Heap E').
 Proof using.
   introv HE. xcf. xchange Heap_eq ;=> c. xapp.
-  destruct c as [|q]; simpl; xpull. xchange Repr_eq ;=> x q' Es [I1 I2].
+  destruct c as [|q]; simpl; xpull. xchange Repr_eq ;=> x q' Es (I1&I2&I3).
   xmatch. xapp. xapp. xapp.
   xseq (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC).
   { xif ;=> C2.
