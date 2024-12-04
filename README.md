@@ -16,7 +16,7 @@ CFML consists of two main parts:
 # Installation
 
 CFML uses OCaml version < 5 (it has not been tested with multicore OCaml).
-CFML has been tested with Coq v8.18.
+CFML has been tested with Coq v8.20.
 
 To install OCaml, Coq, and the relevant packages, use the "opam" package manager.
 

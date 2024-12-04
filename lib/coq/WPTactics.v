@@ -1736,15 +1736,27 @@ Ltac xapp_exploit_spec tt :=
   end.
 *)
 
-Ltac xapp_exploit_spec tt :=
+(* [do_xsimpl] is a boolean flag indicating whether [xsimpl] should be called. *)
+Ltac xapp_exploit_spec do_xsimpl :=
   match goal with |- ?S -> ?G =>
     let Q := xprop_post G in
     match is_evar_as_bool Q with
-    | true => xapp_exploit_spec_lemma xapp_lemma_inst xapp_simpl_substract
+    | true =>
+        let cont :=
+          match do_xsimpl with
+          | true => xapp_simpl_substract
+          | false => idcont
+          end in
+        xapp_exploit_spec_lemma xapp_lemma_inst cont
     | false =>
-        first [ xapp_exploit_spec_lemma xapps_lemma xapp_simpl
-              | xapp_exploit_spec_lemma xapps_lemma_pure xapp_simpl
-              | xapp_exploit_spec_lemma xapp_lemma xapp_simpl ]
+        let cont :=
+          match do_xsimpl with
+          | true => xapp_simpl
+          | false => idcont
+          end in
+        first [ xapp_exploit_spec_lemma xapps_lemma cont
+              | xapp_exploit_spec_lemma xapps_lemma_pure cont
+              | xapp_exploit_spec_lemma xapp_lemma cont ]
     end
   end.
 
@@ -1755,30 +1767,41 @@ Ltac xapp_exploit_body tt :=
   eapply S;
   clear S.
 
-Ltac xapp_common tt :=
+(* [do_xsimpl] is a boolean flag indicating whether [xsimpl] should be called. *)
+Ltac xapp_common do_xsimpl :=
   match goal with |- ?S -> _ =>
   match S with
   | Wpgen_body _ =>
     first [ xapp_exploit_body tt
           | fail 2 "xapp_exploit_body failed" ]
-  | _ => xapp_exploit_spec tt
+  | _ => xapp_exploit_spec do_xsimpl
   end end.
 
-Ltac xapp_general tt :=
+(* [do_xsimpl] is a boolean flag indicating whether [xsimpl] should be called. *)
+Ltac xapp_general do_xsimpl :=
   xspec;
-  xapp_common tt.
+  xapp_common do_xsimpl.
 
-Ltac xapp_core tt :=
+(* [do_xsimpl] is a boolean flag indicating whether [xsimpl] should be called. *)
+Ltac xapp_core do_xsimpl :=
   xapp_pre tt;
   first [ xapp_record tt
-        | xapp_general tt ].
+        | xapp_general do_xsimpl ].
 
 Tactic Notation "xapp" :=
-  xapp_core tt.
+  xapp_core true.
 Tactic Notation "xapp" "~" :=
   xapp; auto_tilde.
 Tactic Notation "xapp" "*"  :=
   xapp; auto_star.
+
+(** [xapp_nosimpl] is useful to debug a [xsimpl] that behaves unexpectedly
+    during an [xapp]. Make sure to focus on the last subgoal after calling
+    [xapp_nosimpl]. *)
+
+Tactic Notation "xapp_nosimpl" :=
+  xapp_core false.
+
 
 (** [xapp_spec] or [xapp_spec E] to show registered specification *)
 
@@ -1811,17 +1834,19 @@ Tactic Notation "xapp_types" constr(E) :=
     be of the form [__ E1 ... En] to specify only arguments of the registered
     specification. *)
 
-Ltac xapp_arg_core E :=
+Ltac xapp_arg_core E do_xsimpl :=
   xapp_pre tt;
   xspec_lemma_of_args E;
-  xapp_common tt.
+  xapp_common do_xsimpl.
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_arg_core E.
+  xapp_arg_core E true.
 Tactic Notation "xapp" "~" constr(E) :=
   xapp E; auto_tilde.
 Tactic Notation "xapp" "*" constr(E) :=
   xapp E; auto_star.
+Tactic Notation "xapp_nosimpl" constr(E) :=
+  xapp_arg_core E false.
 
 (** [xapp_nosubst] to prevent substitution *)
 

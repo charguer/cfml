@@ -2649,6 +2649,14 @@ Proof using. intros. xsimpl. Abort.
 Lemma xsimpl_demo_evar_gc : (forall H, \[] ==> (H \* \GC) -> True) -> True.
 Proof using. introv M. eapply M. xsimpl. Qed.
 
+Lemma xsimpl_demo_evars_1 : forall A a (R:A->a->hprop) p1 p2 x1 x2,
+  (forall x2' H, (p1 ~> R x1 \* p2 ~> R x2 ==> p2 ~> R x2' \* H) -> True) -> True.
+Proof using. introv M. eapply M. xsimpl. Qed.
+
+Lemma xsimpl_demo_evars_2 : forall loc (R:forall A, A->loc->hprop) p1 p2 A1 A2 (x1:A1) (x2:A2),
+  (forall A2' (x2':A2') H, (p1 ~> R A1 x1 \* p2 ~> R A2 x2 ==> p2 ~> R A2' x2' \* H) -> True) -> True.
+Proof using. introv M. eapply M. xsimpl. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** [xsimpl] with credits demos *)

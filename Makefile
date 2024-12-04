@@ -140,7 +140,7 @@ endif
 # Warning flags
 
 ifndef COQWARNINGS
-	COQWARNINGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overriden,-deprecated-hint-rewrite-without-locality,-deprecated-instance-without-locality
+	COQWARNINGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overriden,-deprecated-hint-rewrite-without-locality,-deprecated-instance-without-locality,-notation-incompatible-prefix,-automatic-prop-lowering
 endif
 
 # Other flags

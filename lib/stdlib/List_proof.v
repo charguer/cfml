@@ -5,7 +5,7 @@ Require Import Pervasives_ml Pervasives_proof.
 From TLC Require Export LibListZ.  (* TODO: needed? *)
 Require Import List_ml.
 Generalizable Variables A.
-(* 
+(*
 Open Scope cf_scope.
 *)
 
@@ -124,14 +124,9 @@ Lemma iter_spec_rest : forall A `{EA:Enc A} (l:list A) (f:func),
   (forall x t, SPEC (f x) PRE (I (x::t)) POSTUNIT (I t)) ->
   SPEC (iter f l) PRE (I l) POSTUNIT (I nil).
 Proof using.
-  introv M.
- (* TODO: details to move to unit tests
- { xspec (>> __ (fun k => \exists r, \[l = k ++ r] \* I r)).
-   xapp_common tt. skip. skip. skip. }
- *)
-  xapp~ (>> __ (fun k => \exists r, \[l = k ++ r] \* I r)).
-  { introv E. xtriple. xpull. intros r' E'. subst l.
-    lets: app_cancel_l E'. subst r'. xapp. xsimpl~. }
+  introv M. xapp~ (>> iter_spec (fun k => \exists r, \[l = k ++ r] \* I r)).
+  { introv E. xtriple. xpull. intros r' E'.
+    subst l. lets: app_cancel_l E'. subst r'. xapp. xsimpl~. }
   { xpull; introv E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
 Qed. (* TODO: beautify this proof *)
 

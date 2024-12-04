@@ -87,11 +87,7 @@ Lemma concat_spec : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POSTUNIT (p1 ~> Stack (L1 ++ L2) \* p2 ~> Stack (@nil A)).
 Proof using.
   xcf. xunfold Stack. xapp. xapp. xapp.
-  rewrite <- (Stack_eq p2). xapp.
-
-  admit. xsimpl_start tt. xsimpl_step tt.   xsimpl_step tt. xsimpl_step tt. xsimpl_step tt.
-   xsimpl_step tt.
-   xapp (>> __ L2). xsimpl. (* TODO: remove hint L2 *)
+  rewrite <- (Stack_eq p2). xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (RegisterSpec concat) => Provide concat_spec.
@@ -104,11 +100,9 @@ Lemma rev_append_spec : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POSTUNIT (p1 ~> Stack (@nil A) \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  xcf. xapp (>> __ L1).  (* TODO: remove hint L1 *)
-  xif; intros C.
+  xcf. xapp. xif; intros C.
   { (* case cons *)
-    xapp* (>> __ L1).  (* TODO: remove hint L1 *)
-    intros x L1' E. xapp. xapp. { subst*. } xsimpl. subst. rew_list~. }
+    xapp*.  intros x L1' E. xapp. xapp. { subst*. } xsimpl. subst. rew_list~. }
   { (* case nil *)
     xval. xsimpl~. subst. rew_list~. }
 Qed.
