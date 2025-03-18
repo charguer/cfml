@@ -56,8 +56,8 @@ To obtain CFML sources and compile them:
 
 ```
   cd ~
-  git clone https://gitlab.inria.fr/charguer/cfml2.git
-  cd cfml2
+  git clone git@github.com:charguer/cfml.git
+  cd cfml
   make depend
   make -j8 all
 ```
